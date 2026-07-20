@@ -24,6 +24,17 @@ export default {
         },
         extend: {
             colors: {
+                fpso: {
+                    blue: '#00d4ff',
+                    orange: '#ff9f43',
+                    green: '#10b981',
+                    bg: '#0a0f1e',
+                    card: '#131a2e',
+                    border: '#1e2844',
+                    muted: '#94a3b8',
+                    fg: '#f8fafc',
+                    dim: '#64748b',
+                },
                 border: 'hsl(var(--border))',
                 borderColor: {
                     border: 'hsl(var(--border))'

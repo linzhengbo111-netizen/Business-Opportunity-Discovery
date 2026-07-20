@@ -3,80 +3,53 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here.
-All colors MUST be HSL.
-*/
+/* FPSO 深色数据终端设计系统 — 配色与动效 */
 
 @layer base {
   :root {
     --radius: 0.5rem;
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-    --destructive-foreground: 210 40% 98%;
-  }
 
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
+    /* 深色终端主色板 */
+    --background: 220 45% 7%; /* #0a0f1e */
+    --foreground: 210 40% 98%; /* #f8fafc */
+    --card: 222 39% 12%; /* #131a2e */
     --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
+    --popover: 222 39% 12%;
     --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
+    --primary: 189 100% 50%; /* #00d4ff */
+    --primary-foreground: 220 45% 7%;
+    --secondary: 222 32% 18%; /* #1e2844 */
     --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --muted: 222 32% 18%;
+    --muted-foreground: 215 20% 60%; /* #94a3b8 */
+    --accent: 27 100% 63%; /* #ff9f43 */
+    --accent-foreground: 220 45% 7%;
+    --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
+    --border: 222 32% 19%; /* #1e2844 */
+    --input: 222 32% 19%;
+    --ring: 189 100% 50%;
+    --success: 158 64% 45%; /* #10b981 */
+    --success-foreground: 220 45% 7%;
+    --warning: 27 100% 63%; /* #ff9f43 */
+    --warning-foreground: 220 45% 7%;
+    --info: 189 100% 50%; /* #00d4ff */
+    --info-foreground: 220 45% 7%;
+
+    --chart-1: 189 100% 50%;
+    --chart-2: 27 100% 63%;
+    --chart-3: 158 64% 45%;
+    --chart-4: 220 70% 50%;
+    --chart-5: 280 65% 60%;
+
+    --sidebar-background: 220 45% 7%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 189 100% 50%;
+    --sidebar-primary-foreground: 220 45% 7%;
+    --sidebar-accent: 222 32% 18%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 222 32% 19%;
+    --sidebar-ring: 189 100% 50%;
   }
 }
 
@@ -85,7 +58,134 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-family: "Inter", "Glow Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  .font-mono {
+    font-family: "JetBrains Mono", "Fira Code", "Courier New", monospace;
+  }
+}
+
+@layer components {
+  /* 标题霓虹发光效果 */
+  .neon-glow {
+    color: hsl(var(--primary));
+    text-shadow: 0 0 8px rgba(0, 212, 255, 0.45), 0 0 18px rgba(0, 212, 255, 0.25);
+  }
+
+  /* 地图光点脉冲 */
+  .map-pulse {
+    animation: pulse-dot 2s ease-out infinite, fade-in-scale 0.5s backwards ease-out;
+  }
+
+  @keyframes pulse-dot {
+    0% {
+      box-shadow: 0 0 0 0 rgba(0, 212, 255, 0.55);
+      transform: translate(-50%, -50%) scale(1);
+    }
+    70% {
+      box-shadow: 0 0 0 12px rgba(0, 212, 255, 0);
+      transform: translate(-50%, -50%) scale(1.08);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(0, 212, 255, 0);
+      transform: translate(-50%, -50%) scale(1);
+    }
+  }
+
+  @keyframes fade-in-scale {
+    from {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.4);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+  }
+
+  /* LIVE 呼吸灯 */
+  .live-breath {
+    animation: live-breath 2s ease-in-out infinite;
+  }
+
+  @keyframes live-breath {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.55;
+      transform: scale(0.85);
+    }
+  }
+
+  /* 项目行悬停效果：背景变亮 + 右移 2px */
+  .project-row {
+    transition: background-color 0.25s ease, transform 0.25s ease;
+  }
+
+  .project-row:hover {
+    background-color: rgba(255, 255, 255, 0.035);
+    transform: translateX(2px);
+  }
+
+  /* 空状态占位 */
+  .empty-state {
+    display: none;
+  }
+
+  .empty-state.visible {
+    display: block;
+  }
+
+  /* 外部链接图标不跟随下划线 */
+  .external-link {
+    text-decoration: none;
+  }
+
+  .external-link:hover .link-text {
+    text-decoration: underline;
+  }
+
+  .external-link .link-icon {
+    text-decoration: none;
+    display: inline-block;
+  }
+
+  /* 可复用的标签隐藏类 */
+  .tag-hidden {
+    display: none;
+  }
+
+  /* 状态圆点 */
+  .status-dot {
+    box-shadow: 0 0 6px currentColor;
+  }
+
+  /* 地图容器固定比例 */
+  .map-container {
+    position: relative;
+    aspect-ratio: 2 / 1;
+    max-width: 1000px;
+  }
+
+  /* 国家选择下拉框定制 */
+  #country-select {
+    appearance: none;
+    background-color: rgba(19, 26, 46, 0.85);
+    border: 1px solid hsl(var(--primary));
+    color: hsl(var(--foreground));
+  }
+
+  #country-select option {
+    background-color: #131a2e;
+    color: #f8fafc;
   }
 }

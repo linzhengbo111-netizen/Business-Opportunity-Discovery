@@ -1,4 +1,4 @@
-import SamplePage from './pages/SamplePage';
+import DashboardPage from './pages/DashboardPage';
 import type { ReactNode } from 'react';
 
 export interface RouteConfig {
@@ -12,9 +12,9 @@ export interface RouteConfig {
 
 export const routes: RouteConfig[] = [
   {
-    name: 'Sample Page',
+    name: 'Dashboard',
     path: '/',
-    element: <SamplePage />,
+    element: <DashboardPage />,
     public: true,
   }
 ];
