@@ -23,6 +23,11 @@ function getUniqueCountries(projects: Project[]): string[] {
   );
 }
 
+function getCountryFlag(projects: Project[], country: string): string {
+  const found = projects.find((p) => p.country.trim() === country.trim() && p.flag);
+  return found?.flag ?? "";
+}
+
 function statusColorClass(status: string): string {
   switch (status) {
     case "Under Construction": return "text-fpso-blue";
@@ -246,9 +251,14 @@ export default function DatabasePage() {
               className="h-8 min-w-[140px] rounded-md bg-fpso-bg/70 px-2.5 py-1 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50 border border-fpso-border"
             >
               <option value="All Countries">All Countries</option>
-              {countries.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
+              {countries.map((c) => {
+                const flag = getCountryFlag(projects, c);
+                return (
+                  <option key={c} value={c}>
+                    {flag ? `${flag} ${c}` : c}
+                  </option>
+                );
+              })}
             </select>
           </div>
 
