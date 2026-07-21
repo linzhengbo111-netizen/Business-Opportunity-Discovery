@@ -1,11 +1,20 @@
 /**
  * Business Opportunity Discovery
  * 深色数据终端风格单页面：全球 FPSO 项目不锈钢商机挖掘系统
+ * 数据源：Supabase projects 表（不可用时回退到 sampleProjects）
  */
 
-import { useEffect, useId, useMemo, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis,
+} from "recharts";
+import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
-import { projects, countryCoordinates } from "@/data/projects";
+import type { Project } from "@/data/projects";
+import { countryCoordinates, sampleProjects } from "@/data/projects";
+import { supabase } from "@/db/supabase";
+import { useProjectRealtime } from "@/hooks/useProjectRealtime";
 
 interface Stats {
   total: number;
@@ -13,7 +22,7 @@ interface Stats {
   planned: number;
 }
 
-function getStats(): Stats {
+function getStats(projects: Project[]): Stats {
   return {
     total: projects.length,
     active: projects.filter((p) => p.status === "Under Construction").length,
@@ -21,7 +30,7 @@ function getStats(): Stats {
   };
 }
 
-function getUniqueCountries(): string[] {
+function getUniqueCountries(projects: Project[]): string[] {
   const set = new Set<string>();
   for (const p of projects) {
     set.add(p.country.trim());
@@ -29,7 +38,7 @@ function getUniqueCountries(): string[] {
   return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 }
 
-function getCountryFlag(country: string): string {
+function getCountryFlag(projects: Project[], country: string): string {
   const found = projects.find((p) => p.country.trim() === country.trim() && p.flag);
   return found?.flag ?? "";
 }
@@ -60,16 +69,131 @@ function statusDotClass(status: string): string {
   }
 }
 
+/** Map a raw Supabase row (snake_case columns) to the camelCase Project interface. */
+function mapRowToProject(row: Record<string, unknown>): Project {
+  return {
+    name: String(row.name ?? ""),
+    country: String(row.country ?? ""),
+    flag: String(row.flag ?? ""),
+    status: String(row.status ?? ""),
+    summary: String(row.summary ?? ""),
+    source: {
+      name: String(row.source_name ?? ""),
+      url: String(row.source_url ?? ""),
+      date: String(row.source_date ?? ""),
+    },
+    stainlessSteel: String(row.stainless_steel ?? ""),
+    application: String(row.application ?? ""),
+  };
+}
+
 export default function DashboardPage() {
-  const uniqueId = useId();
-  const selectRef = useRef<HTMLSelectElement | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedCountry, setSelectedCountry] = useState("All Countries");
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const { version, status: connectionStatus } = useProjectRealtime();
 
-  const countries = useMemo(() => getUniqueCountries(), []);
-  const stats = useMemo(() => getStats(), []);
+  // ---- 从 Supabase 获取项目数据 ----
+  useEffect(() => {
+    console.log("[Dashboard] === Supabase client check ===");
+    console.log("[Dashboard] supabase client:", supabase ? "initialized" : "NULL");
 
-  // 地图光点：按 x 坐标（经度）从东到西降序排列，animation-delay 依次递增
+    console.log(
+      "地图已更换，若光点位置偏移，请调整 src/data/projects.ts 中的 countryCoordinates 百分比。"
+    );
+
+    if (!supabase) {
+      console.warn("[Dashboard] No Supabase client — env vars missing. Using sampleProjects fallback.");
+      setProjects(sampleProjects);
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    async function fetchProjects() {
+      console.log("[Dashboard] Fetching from Supabase table 'projects'...");
+      const start = performance.now();
+      const { data, error } = await supabase!.from("projects").select("*");
+      const elapsed = (performance.now() - start).toFixed(0);
+
+      if (error) {
+        console.error(`[Dashboard] Supabase fetch FAILED (${elapsed}ms):`, error.message);
+        console.error("[Dashboard] Full error object:", JSON.stringify(error, null, 2));
+        console.warn("[Dashboard] ⚠️  Degrading to sampleProjects fallback due to connection error.");
+        if (!cancelled) setProjects(sampleProjects);
+        return;
+      }
+
+      const mapped = (data ?? []).map(mapRowToProject);
+      // 按 name 去重（保留第一条）
+      const seen = new Set<string>();
+      const unique = mapped.filter((p) => {
+        const key = p.name.trim();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      console.log(`[Dashboard] Supabase fetch OK (${elapsed}ms). Row count: ${mapped.length} (${unique.length} unique)`);
+
+      if (unique.length > 0) {
+        console.log("[Dashboard] ✅ Using LIVE Supabase data. Projects:");
+        console.table(unique.map((p) => ({ name: p.name, country: p.country, status: p.status })));
+        if (!cancelled) setProjects(unique);
+      } else {
+        console.warn("[Dashboard] ⚠️  Supabase 'projects' table is EMPTY. Falling back to sampleProjects.");
+        if (!cancelled) setProjects(sampleProjects);
+      }
+    }
+
+    fetchProjects().finally(() => {
+      if (!cancelled) setLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [version]);
+
+  // ---- 派生数据 ----
+  const countries = useMemo(() => getUniqueCountries(projects), [projects]);
+  const stats = useMemo(() => getStats(projects), [projects]);
+
+  const filteredProjects = useMemo(() => {
+    if (selectedCountry === "All Countries") return projects;
+    return projects.filter((p) => p.country.trim() === selectedCountry);
+  }, [projects, selectedCountry]);
+
+  const filteredStats = useMemo(() => getStats(filteredProjects), [filteredProjects]);
+
+  // 图表数据
+  const countryChartData = useMemo(() => {
+    const count: Record<string, number> = {};
+    for (const p of projects) {
+      const c = p.country.trim();
+      count[c] = (count[c] ?? 0) + 1;
+    }
+    return Object.entries(count)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [projects]);
+
+  const statusChartData = useMemo(() => {
+    const order = ["Under Construction", "Delivered", "Planned"];
+    const count: Record<string, number> = {};
+    for (const p of projects) {
+      const s = p.status || "Unknown";
+      count[s] = (count[s] ?? 0) + 1;
+    }
+    return order
+      .filter((s) => count[s] != null)
+      .map((s) => ({ name: s, value: count[s] }))
+      .concat(count["Unknown"] ? [{ name: "Unknown", value: count["Unknown"] }] : []);
+  }, [projects]);
+
+  // 地图光点
   const mapDots = useMemo(() => {
-    const mapped = countries.filter((country) => countryCoordinates[country]);
+    const mapped = countries.filter((c) => countryCoordinates[c]);
     mapped.sort((a, b) => countryCoordinates[b].x - countryCoordinates[a].x);
     return mapped.map((country, index) => ({
       country,
@@ -79,148 +203,65 @@ export default function DashboardPage() {
     }));
   }, [countries]);
 
-  useEffect(() => {
-    // 渲染统计数字
-    const totalEl = document.getElementById("stat-total");
-    const activeEl = document.getElementById("stat-active");
-    const plannedEl = document.getElementById("stat-planned");
-    if (totalEl) totalEl.textContent = String(stats.total);
-    if (activeEl) activeEl.textContent = String(stats.active);
-    if (plannedEl) plannedEl.textContent = String(stats.planned);
-
-    // 渲染最后更新时间
-    const lastUpdatedEl = document.getElementById("last-updated");
-    if (lastUpdatedEl) {
-      lastUpdatedEl.textContent = `Last updated: ${new Date().toISOString().slice(0, 10)}`;
-    }
-
-    // 动态生成国家下拉选项
-    const select = document.getElementById("country-select") as HTMLSelectElement | null;
-    if (select) {
-      select.innerHTML = "";
-      const allOption = document.createElement("option");
-      allOption.value = "All Countries";
-      allOption.textContent = "All Countries";
-      select.appendChild(allOption);
-
-      for (const country of countries) {
-        const option = document.createElement("option");
-        option.value = country.trim();
-        const flag = getCountryFlag(country);
-        option.textContent = flag ? `${flag} ${country}` : country;
-        select.appendChild(option);
-      }
-
-      select.addEventListener("change", handleRegionChange);
-      selectRef.current = select;
-    }
-
-    // 绑定地图光点点击事件（事件委托，确保延迟期间也可点击）
-    const mapContainer = document.getElementById("map-container");
-    const handleDotClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (!target) return;
-      const dot = target.closest("[data-country]") as HTMLElement | null;
-      if (!dot) return;
-      const country = dot.dataset.country;
-      if (!country) return;
-      const selectEl = document.getElementById("country-select") as HTMLSelectElement | null;
-      if (selectEl) {
-        selectEl.value = country.trim();
-        selectEl.dispatchEvent(new Event("change", { bubbles: true }));
-      }
-      const count = projects.filter((p) => p.country.trim() === country.trim()).length;
-      if (count > 1) {
-        console.log(`Clicked on ${country} (${count} projects), ready to filter list`);
-      } else {
-        console.log(`Clicked on ${country}, ready to filter list`);
-      }
-    };
-
-    mapContainer?.addEventListener("click", handleDotClick);
-
-    return () => {
-      select?.removeEventListener("change", handleRegionChange);
-      mapContainer?.removeEventListener("click", handleDotClick);
-    };
-  }, [countries, stats]);
-
-  const handleRegionChange = (e: Event) => {
-    const target = e.target as HTMLSelectElement | null;
-    if (!target) return;
-    const country = target.value.trim();
-    if (country === "All Countries") {
-      console.log("Region changed to: All Countries");
-    } else {
-      const count = projects.filter((p) => p.country.trim() === country).length;
-      console.log(`Region changed to: ${country} (${count} projects)`);
-    }
+  const handleDotClick = (country: string) => {
+    setSelectedCountry(country);
+    console.log(`Dot clicked: ${country} (${projects.filter((p) => p.country.trim() === country).length} projects)`);
   };
+
+  const todayStr = new Date().toISOString().slice(0, 10);
 
   return (
     <>
       <PageMeta title="Business Opportunity Discovery" description="全球 FPSO 项目不锈钢商机挖掘系统" />
 
-      {/* 顶部导航栏 */}
-      <header className="sticky top-0 z-50 w-full border-b border-fpso-border bg-fpso-bg/90 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-          {/* 左侧标题 */}
+      <Header rightContent={
+        <>
           <div className="flex items-center gap-2">
-            <span className="text-lg font-bold tracking-tight neon-glow md:text-xl">
-              Business Opportunity Discovery
-            </span>
-            <span className="hidden text-xs text-fpso-muted md:inline">
-              Stainless Steel Opportunity Tracking in Global FPSO Projects
-            </span>
+            <label htmlFor="country-select" className="hidden text-sm text-fpso-muted lg:inline">
+              Region
+            </label>
+            <select
+              id="country-select"
+              value={selectedCountry}
+              onChange={(e) => {
+                setSelectedCountry(e.target.value);
+                console.log(`Region changed to: ${e.target.value}`);
+              }}
+              className="h-9 min-w-[180px] rounded-md bg-fpso-card/85 px-3 py-1.5 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50"
+            >
+              <option value="All Countries">All Countries</option>
+              {countries.map((country) => {
+                const flag = getCountryFlag(projects, country);
+                return (
+                  <option key={country} value={country}>
+                    {flag ? `${flag} ${country}` : country}
+                  </option>
+                );
+              })}
+            </select>
           </div>
 
-          {/* 中间导航链接（纯视觉占位） */}
-          <nav className="hidden items-center gap-8 md:flex">
-            <a
-              href="javascript:void(0)"
-              className="cursor-default text-sm font-medium text-fpso-blue"
-              style={{ cursor: "default" }}
-            >
-              Dashboard
-            </a>
-            <a
-              href="javascript:void(0)"
-              className="cursor-default text-sm font-medium text-fpso-muted hover:text-fpso-fg"
-              style={{ cursor: "default" }}
-            >
-              Database
-            </a>
-            <a
-              href="javascript:void(0)"
-              className="cursor-default text-sm font-medium text-fpso-muted hover:text-fpso-fg"
-              style={{ cursor: "default" }}
-            >
-              Settings
-            </a>
-          </nav>
-
-          {/* 右侧区域 */}
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <label htmlFor={`${uniqueId}-country-select`} className="hidden text-sm text-fpso-muted lg:inline">
-                Region
-              </label>
-              <select
-                id="country-select"
-                className="h-9 min-w-[180px] rounded-md bg-fpso-card/85 px-3 py-1.5 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50"
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="relative inline-flex h-2.5 w-2.5">
+          <div className="flex items-center gap-2">
+            <span className="relative inline-flex h-2.5 w-2.5">
+              {connectionStatus === "connected" && (
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fpso-green opacity-75" />
-                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-fpso-green live-breath" />
-              </span>
-              <span className="text-xs font-medium tracking-wider text-fpso-green">LIVE</span>
-            </div>
+              )}
+              <span
+                className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
+                  connectionStatus === "connected" ? "bg-fpso-green live-breath" : "bg-fpso-dim"
+                }`}
+              />
+            </span>
+            <span
+              className={`text-xs font-medium tracking-wider ${
+                connectionStatus === "connected" ? "text-fpso-green" : "text-fpso-dim"
+              }`}
+            >
+              {connectionStatus === "connected" ? "LIVE" : "STALE"}
+            </span>
           </div>
-        </div>
-      </header>
+        </>
+      } />
 
       <main className="mx-auto w-full max-w-7xl px-6 py-10">
         {/* 页面标题 */}
@@ -240,59 +281,159 @@ export default function DashboardPage() {
             <span className="text-xs text-fpso-muted">Equirectangular Projection</span>
           </div>
 
-          <div
-            id="map-container"
-            className="map-container relative w-full overflow-hidden rounded-lg border border-fpso-border bg-fpso-card"
-          >
+          <div className="map-container relative w-full overflow-hidden rounded-lg border border-fpso-border bg-fpso-card">
             <img
-              src="/world.svg"
+              src="/world-map.png"
               alt="世界地图轮廓"
               className="pointer-events-none absolute inset-0 h-auto w-full select-none"
             />
-            {mapDots.map((dot) => (
-              <button
-                key={dot.country}
-                type="button"
-                data-country={dot.country}
-                className="map-pulse absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full border border-fpso-blue bg-fpso-blue shadow-[0_0_10px_rgba(0,212,255,0.6)] outline-none hover:scale-110 focus:ring-2 focus:ring-fpso-blue/50"
-                style={{
-                  left: `${dot.x}%`,
-                  top: `${dot.y}%`,
-                  animationDelay: dot.delay,
-                }}
-                aria-label={`${dot.country} 项目`}
-              />
-            ))}
+            {loading ? (
+              <div className="flex h-64 items-center justify-center">
+                <span className="text-sm text-fpso-muted">Loading map data…</span>
+              </div>
+            ) : mapDots.length === 0 ? (
+              <div className="flex h-64 items-center justify-center">
+                <span className="text-sm text-fpso-muted">No project locations found.</span>
+              </div>
+            ) : (
+              mapDots.map((dot) => (
+                <button
+                  key={dot.country}
+                  type="button"
+                  onClick={() => handleDotClick(dot.country)}
+                  className="map-pulse absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full border border-fpso-blue bg-fpso-blue shadow-[0_0_10px_rgba(0,212,255,0.6)] outline-none hover:scale-110 focus:ring-2 focus:ring-fpso-blue/50"
+                  style={{
+                    left: `${dot.x}%`,
+                    top: `${dot.y}%`,
+                    animationDelay: dot.delay,
+                  }}
+                  aria-label={`${dot.country} 项目`}
+                />
+              ))
+            )}
           </div>
 
           {/* 统计数据 */}
           <div className="mt-6 grid grid-cols-3 gap-4">
             <div className="rounded-lg border border-fpso-border bg-fpso-card p-4">
               <div className="text-xs font-medium uppercase tracking-wider text-fpso-muted">Total</div>
-              <div
-                id="stat-total"
-                className="mt-2 min-w-[100px] flex-shrink-0 text-right font-mono text-3xl font-semibold text-fpso-fg"
-              >
-                0
+              <div className="mt-2 min-w-[100px] flex-shrink-0 text-right font-mono text-3xl font-semibold text-fpso-fg">
+                {stats.total}
               </div>
             </div>
             <div className="rounded-lg border border-fpso-border bg-fpso-card p-4">
               <div className="text-xs font-medium uppercase tracking-wider text-fpso-muted">Active</div>
-              <div
-                id="stat-active"
-                className="mt-2 min-w-[100px] flex-shrink-0 text-right font-mono text-3xl font-semibold text-fpso-blue"
-              >
-                0
+              <div className="mt-2 min-w-[100px] flex-shrink-0 text-right font-mono text-3xl font-semibold text-fpso-blue">
+                {stats.active}
               </div>
             </div>
             <div className="rounded-lg border border-fpso-border bg-fpso-card p-4">
               <div className="text-xs font-medium uppercase tracking-wider text-fpso-muted">Planned</div>
-              <div
-                id="stat-planned"
-                className="mt-2 min-w-[100px] flex-shrink-0 text-right font-mono text-3xl font-semibold text-fpso-orange"
-              >
-                0
+              <div className="mt-2 min-w-[100px] flex-shrink-0 text-right font-mono text-3xl font-semibold text-fpso-orange">
+                {stats.planned}
               </div>
+            </div>
+          </div>
+        </section>
+
+        {/* 图表区域 */}
+        <section className="mb-10 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {/* 国家分布饼图 */}
+          <div className="rounded-lg border border-fpso-border bg-fpso-card p-5">
+            <h3 className="mb-4 text-sm font-medium text-fpso-fg">Country Distribution</h3>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={countryChartData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={90}
+                    paddingAngle={2}
+                    dataKey="value"
+                    stroke="transparent"
+                  >
+                    {countryChartData.map((_, i) => (
+                      <Cell
+                        key={i}
+                        fill={[
+                          "#00d4ff", "#ff9f43", "#10b981", "#a78bfa",
+                          "#f472b6", "#fbbf24", "#60a5fa", "#34d399",
+                        ][i % 8]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      background: "#131a2e",
+                      border: "1px solid #1e2844",
+                      borderRadius: "8px",
+                      fontSize: "13px",
+                      color: "#f8fafc",
+                    }}
+                    formatter={(value: number) => [`${value} projects`, ""]}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            {/* 简易图例 */}
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
+              {countryChartData.slice(0, 8).map((d, i) => (
+                <span key={d.name} className="inline-flex items-center gap-1.5 text-xs text-fpso-muted">
+                  <span
+                    className="inline-block h-2 w-2 rounded-full"
+                    style={{
+                      background: [
+                        "#00d4ff", "#ff9f43", "#10b981", "#a78bfa",
+                        "#f472b6", "#fbbf24", "#60a5fa", "#34d399",
+                      ][i % 8],
+                    }}
+                  />
+                  {d.name}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* 状态分布柱状图 */}
+          <div className="rounded-lg border border-fpso-border bg-fpso-card p-5">
+            <h3 className="mb-4 text-sm font-medium text-fpso-fg">Status Breakdown</h3>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={statusChartData} margin={{ top: 0, right: 0, left: -10, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#00d4ff" stopOpacity={0.9} />
+                      <stop offset="100%" stopColor="#00d4ff" stopOpacity={0.2} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fill: "#94a3b8", fontSize: 12 }}
+                    axisLine={{ stroke: "#1e2844" }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fill: "#94a3b8", fontSize: 12 }}
+                    axisLine={{ stroke: "#1e2844" }}
+                    tickLine={false}
+                    allowDecimals={false}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: "#131a2e",
+                      border: "1px solid #1e2844",
+                      borderRadius: "8px",
+                      fontSize: "13px",
+                      color: "#f8fafc",
+                    }}
+                    formatter={(value: number) => [`${value} projects`, ""]}
+                    cursor={{ fill: "rgba(0,212,255,0.08)" }}
+                  />
+                  <Bar dataKey="value" fill="url(#barGradient)" radius={[4, 4, 0, 0]} maxBarSize={64} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </div>
         </section>
@@ -300,70 +441,75 @@ export default function DashboardPage() {
         {/* 项目列表 */}
         <section>
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-base font-medium text-fpso-fg">项目列表</h2>
-            <span className="text-xs text-fpso-muted">{projects.length} records</span>
+            <h2 className="text-base font-medium text-fpso-fg">
+              项目列表 {selectedCountry !== "All Countries" && `— ${selectedCountry}`}
+            </h2>
+            <span className="text-xs text-fpso-muted">
+              {loading ? "Loading…" : `${filteredProjects.length} records`}
+            </span>
           </div>
 
-          <div id="projects-container" className="rounded-lg border border-fpso-border bg-fpso-card">
-            {projects.map((project) => (
-              <div
-                key={project.name}
-                className="project-row border-b border-fpso-border px-5 py-4 last:border-b-0"
-              >
-                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                  {/* 左侧：名称 + 标签 + 摘要 */}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-sm font-semibold text-fpso-fg">{project.name}</h3>
-                      <span className="inline-flex items-center gap-1 rounded bg-fpso-bg px-2 py-0.5 text-xs text-fpso-muted">
-                        {project.flag && <span>{project.flag}</span>}
-                        <span>{project.country}</span>
-                      </span>
+          <div className="rounded-lg border border-fpso-border bg-fpso-card">
+            {loading ? (
+              <div className="px-5 py-10 text-center text-sm text-fpso-muted">Loading projects…</div>
+            ) : filteredProjects.length === 0 ? (
+              <div className="px-5 py-10 text-center text-sm text-fpso-muted">
+                No projects found{selectedCountry !== "All Countries" ? ` for ${selectedCountry}` : ""}.
+              </div>
+            ) : (
+              filteredProjects.map((project) => (
+                <div
+                  key={project.name}
+                  onClick={() => setSelectedProject(project)}
+                  className="project-row cursor-pointer border-b border-fpso-border px-5 py-4 last:border-b-0 transition-colors hover:bg-fpso-blue/5"
+                >
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-sm font-semibold text-fpso-fg">{project.name}</h3>
+                        <span className="inline-flex items-center gap-1 rounded bg-fpso-bg px-2 py-0.5 text-xs text-fpso-muted">
+                          {project.flag && <span>{project.flag}</span>}
+                          <span>{project.country}</span>
+                        </span>
+                      </div>
+
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span
+                          className={`rounded bg-fpso-blue/10 px-1.5 py-0.5 text-xs font-medium text-fpso-blue ${project.stainlessSteel ? "" : "hidden"}`}
+                        >
+                          {project.stainlessSteel}
+                        </span>
+                        <span
+                          className={`rounded bg-fpso-orange/10 px-1.5 py-0.5 text-xs font-medium text-fpso-orange ${project.application ? "" : "hidden"}`}
+                        >
+                          {project.application}
+                        </span>
+                      </div>
+
+                      <div className="mt-2 flex min-w-0 items-center gap-2">
+                        <span className={`h-2 w-2 flex-shrink-0 rounded-full ${statusDotClass(project.status)}`} />
+                        <span className={`text-xs ${statusColorClass(project.status)}`}>{project.status}</span>
+                      </div>
+
+                      <p className="mt-2 truncate text-xs text-fpso-muted">{project.summary}</p>
                     </div>
 
-                    {/* 不锈钢信息预留标签 */}
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <span
-                        className={`tag-ss-grade tag-hidden rounded bg-fpso-blue/10 px-1.5 py-0.5 text-xs font-medium text-fpso-blue ${project.stainlessSteel ? "" : "tag-hidden"}`}
+                    <div className="flex flex-col items-start gap-1 md:items-end md:pl-4">
+                      <a
+                        href={project.source.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="external-link inline-flex items-center gap-1 text-xs text-fpso-blue hover:text-fpso-blue/80"
                       >
-                        {project.stainlessSteel}
-                      </span>
-                      <span
-                        className={`tag-ss-app tag-hidden rounded bg-fpso-orange/10 px-1.5 py-0.5 text-xs font-medium text-fpso-orange ${project.application ? "" : "tag-hidden"}`}
-                      >
-                        {project.application}
-                      </span>
+                        <span>{project.source.name}</span>
+                        <span className="text-[0.8em] leading-none">↗</span>
+                      </a>
+                      <span className="text-[10px] text-fpso-dim">{project.source.date}</span>
                     </div>
-
-                    <div className="mt-2 flex min-w-0 items-center gap-2">
-                      <span className={`status-dot h-2 w-2 flex-shrink-0 rounded-full ${statusDotClass(project.status)}`} />
-                      <span className={`text-xs ${statusColorClass(project.status)}`}>{project.status}</span>
-                    </div>
-
-                    <p className="mt-2 truncate text-xs text-fpso-muted">{project.summary}</p>
-                  </div>
-
-                  {/* 右侧：来源 + 日期 */}
-                  <div className="flex flex-col items-start gap-1 md:items-end md:pl-4">
-                    <a
-                      href={project.source.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="external-link inline-flex items-center gap-1 text-xs text-fpso-blue hover:text-fpso-blue/80"
-                    >
-                      <span className="link-text">{project.source.name}</span>
-                      <span className="link-icon text-[0.8em] leading-none">↗</span>
-                    </a>
-                    <span className="text-[10px] text-fpso-dim">{project.source.date}</span>
                   </div>
                 </div>
-              </div>
-            ))}
-
-            {/* 空状态提示 */}
-            <div className="empty-state px-5 py-10 text-center text-sm text-fpso-muted">
-              No projects found for this region.
-            </div>
+              ))
+            )}
           </div>
         </section>
       </main>
@@ -374,11 +520,116 @@ export default function DashboardPage() {
           <span className="text-xs text-fpso-dim">
             Data aggregated from public sources. For internal analysis only.
           </span>
-          <span id="last-updated" className="text-xs text-fpso-dim">
-            Last updated: —
-          </span>
+          <span className="text-xs text-fpso-dim">Last updated: {todayStr}</span>
         </div>
       </footer>
+
+      {/* 项目详情模态框 */}
+      {selectedProject && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          onClick={() => setSelectedProject(null)}
+        >
+          {/* 遮罩层 */}
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+
+          {/* 模态框本体 */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative z-10 w-full max-w-lg rounded-xl border border-fpso-border bg-fpso-card shadow-2xl animate-fade-in"
+          >
+            {/* 顶部栏 */}
+            <div className="flex items-center justify-between border-b border-fpso-border px-6 py-4">
+              <h2 className="text-base font-semibold text-fpso-fg">Project Detail</h2>
+              <button
+                onClick={() => setSelectedProject(null)}
+                className="rounded-md p-1.5 text-fpso-muted transition-colors hover:bg-fpso-bg/50 hover:text-fpso-fg"
+                aria-label="Close"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* 内容区 */}
+            <div className="space-y-5 px-6 py-5">
+              {/* 项目名称 */}
+              <h3 className="text-xl font-bold text-fpso-fg">{selectedProject.name}</h3>
+
+              {/* 国家与状态 */}
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="inline-flex items-center gap-1.5 rounded-md bg-fpso-bg px-3 py-1 text-sm text-fpso-fg">
+                  {selectedProject.flag && <span>{selectedProject.flag}</span>}
+                  <span>{selectedProject.country}</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-md bg-fpso-bg px-3 py-1 text-sm">
+                  <span className={`h-2 w-2 rounded-full ${statusDotClass(selectedProject.status)}`} style={{ boxShadow: `0 0 6px currentColor` }} />
+                  <span className={statusColorClass(selectedProject.status)}>{selectedProject.status || "Unknown"}</span>
+                </span>
+              </div>
+
+              {/* 完整摘要 */}
+              <div>
+                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">Summary</h4>
+                <p className="text-sm leading-relaxed text-fpso-fg">
+                  {selectedProject.summary || "No summary available."}
+                </p>
+              </div>
+
+              {/* 不锈钢牌号 */}
+              <div>
+                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">Stainless Steel Grade</h4>
+                <p className="text-sm text-fpso-fg">
+                  {selectedProject.stainlessSteel ? (
+                    <span className="rounded bg-fpso-blue/10 px-2 py-0.5 text-xs font-medium text-fpso-blue">
+                      {selectedProject.stainlessSteel}
+                    </span>
+                  ) : "—"}
+                </p>
+              </div>
+
+              {/* 应用场景 */}
+              <div>
+                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">Application Scenario</h4>
+                <p className="text-sm text-fpso-fg">
+                  {selectedProject.application ? (
+                    <span className="rounded bg-fpso-orange/10 px-2 py-0.5 text-xs font-medium text-fpso-orange">
+                      {selectedProject.application}
+                    </span>
+                  ) : "—"}
+                </p>
+              </div>
+
+              {/* 来源链接 */}
+              <div>
+                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">Source</h4>
+                {selectedProject.source.url ? (
+                  <a
+                    href={selectedProject.source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-sm text-fpso-blue underline-offset-2 hover:underline"
+                  >
+                    {selectedProject.source.name || selectedProject.source.url}
+                    <span className="text-xs">↗</span>
+                  </a>
+                ) : (
+                  <span className="text-sm text-fpso-dim">—</span>
+                )}
+              </div>
+
+              {/* 抓取日期 */}
+              <div>
+                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">Fetch Date</h4>
+                <p className="text-sm text-fpso-dim font-mono text-xs">
+                  {selectedProject.source.date || "—"}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

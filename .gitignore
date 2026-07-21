@@ -1,32 +1,21 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+# secrets
+.env
+.env.local
+.env.*.local
 
-node_modules
-dist
-dist-ssr
-output
-*.local
-package-lock.json
-playwright-report
-test-results
+# deps
+node_modules/
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+# build
+dist/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-package.json.[0-9]*
-.sync
-history/*.json
-.vite_cache
+Thumbs.db
+
+# misc
+*.log

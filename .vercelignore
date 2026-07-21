@@ -1,0 +1,9 @@
+crawler/
+docs/
+tasks/
+.rules/
+.skills/
+.git/
+.gitignore
+.env
+README.md

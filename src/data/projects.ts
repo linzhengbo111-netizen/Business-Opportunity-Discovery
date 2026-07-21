@@ -1,6 +1,7 @@
 /**
- * 静态示例数据 — 全球 FPSO 项目
- * 所有动态渲染（列表、统计、下拉选项、地图光点）的唯一数据源。
+ * FPSO 项目类型定义 & 静态参考数据
+ * 动态项目数据通过 Supabase projects 表获取；
+ * sampleProjects 作为 Supabase 不可用时的回退数据。
  */
 
 export interface ProjectSource {
@@ -20,7 +21,13 @@ export interface Project {
   application: string;
 }
 
-export const projects: Project[] = [
+export interface CountryCoordinate {
+  x: number;
+  y: number;
+}
+
+/** 静态示例数据 — Supabase 不可用或返回空时的回退数据源 */
+export const sampleProjects: Project[] = [
   {
     name: "FPSO Maria Quitéria",
     country: "Brazil",
@@ -94,11 +101,7 @@ export const projects: Project[] = [
   },
 ];
 
-export interface CountryCoordinate {
-  x: number;
-  y: number;
-}
-
+/** 国家坐标映射 — 用于地图光点定位（静态地理数据） */
 export const countryCoordinates: Record<string, CountryCoordinate> = {
   Brazil: { x: 45, y: 78 },
   Guyana: { x: 35, y: 58 },
