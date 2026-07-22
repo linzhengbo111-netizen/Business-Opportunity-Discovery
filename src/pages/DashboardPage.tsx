@@ -69,11 +69,18 @@ function statusDotClass(status: string): string {
   }
 }
 
+/** Normalize country name aliases to canonical form. */
+const COUNTRY_ALIASES: Record<string, string> = {
+  "Ivory Coast": "Côte d'Ivoire",
+};
+
 /** Map a raw Supabase row (snake_case columns) to the camelCase Project interface. */
 function mapRowToProject(row: Record<string, unknown>): Project {
+  const rawCountry = String(row.country ?? "").trim();
+  const country = COUNTRY_ALIASES[rawCountry] ?? rawCountry;
   return {
     name: String(row.name ?? ""),
-    country: String(row.country ?? ""),
+    country,
     flag: String(row.flag ?? ""),
     status: String(row.status ?? ""),
     summary: String(row.summary ?? ""),
