@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "miaoda-react-admin",
+  "name": "business-opportunity-discovery",
   "compatibility_date": "2026-07-21",
   "observability": {
     "enabled": true
