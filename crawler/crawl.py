@@ -938,9 +938,10 @@ OPERATOR_COUNTRY = {
     "Samsung Heavy": None,  # Korean shipyard
     "Hyundai Heavy": None,  # Korean shipyard
     "COSCO": None,  # Chinese shipyard
-    "BOMESC": None,  # Chinese contractor
-    "Wison": None,  # Chinese contractor
-    "Titan Wind Energy": None,  # Chinese manufacturer
+    "BOMESC": "China",  # Chinese contractor
+    "Wison": "China",  # Chinese contractor
+    "Wison New Energies": "China",  # Chinese contractor
+    "Titan Wind Energy": "China",  # Chinese manufacturer
     "Eni": None,  # Italian, global operations
     "TotalEnergies": None,  # French, global operations
     "Total": None,  # French, global operations
@@ -1053,7 +1054,7 @@ ADJECTIVAL_COUNTRY = {
 
 REGIONAL_PATTERNS = {
     "Eastern Mediterranean": [
-        ("Israel", ["israel", "israeli", "energean", "leviathan", "tamar", "karish", "tanin"]),
+        ("Israel", ["israel", "israeli", "energean", "leviathan", "tamar", "karish", "tanin", "back online", "returns to operation"]),
         ("Cyprus", ["cyprus", "cypriot", "aphrodite", "calypso", "glaucus"]),
         ("Egypt", ["egypt", "egyptian", "zohr", "noor", "west delta", "edco", "idku"]),
         ("Turkey", ["turkey", "turkish", "sakarya", "tuna-1", "fatih"]),
