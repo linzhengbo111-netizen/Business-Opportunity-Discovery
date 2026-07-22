@@ -53,7 +53,7 @@ const COUNTRY_ALIASES: Record<string, string> = {
 
 function mapRowToProject(row: Record<string, unknown>): Project {
   const rawCountry = String(row.country ?? "").trim();
-  const country = COUNTRY_ALIASES[rawCountry] ?? rawCountry;
+  const country = COUNTRY_ALIASES[rawCountry] ?? (rawCountry || "Unknown");
   return {
     name:           String(row.name ?? ""),
     country,
