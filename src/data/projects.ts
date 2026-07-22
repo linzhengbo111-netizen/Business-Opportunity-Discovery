@@ -101,12 +101,33 @@ export const sampleProjects: Project[] = [
   },
 ];
 
-/** 国家坐标映射 — 用于地图光点定位（静态地理数据） */
+/**
+ * 国家坐标映射 — 用于地图光点定位（静态地理数据）
+ *
+ * 所有坐标基于等矩形投影 (Equirectangular) 计算:
+ *   x% = (longitude + 180) / 360 * 100
+ *   y% = (90 - latitude)  / 180 * 100
+ *
+ * 底图: public/world-map.png (720×360, 2:1)
+ */
 export const countryCoordinates: Record<string, CountryCoordinate> = {
-  Brazil: { x: 45, y: 78 },
-  Guyana: { x: 35, y: 58 },
-  Angola: { x: 62, y: 82 },
-  Nigeria: { x: 58, y: 70 },
-  UK: { x: 48, y: 35 },
-  "Côte d'Ivoire": { x: 55, y: 65 },
+  // ---- 南美洲 ----
+  Brazil:   { x: 35, y: 56 },  // ~10°S 55°W
+  Guyana:   { x: 34, y: 47 },  //  ~5°N 59°W
+  Suriname: { x: 34, y: 48 },  //  ~4°N 56°W
+
+  // ---- 非洲 ----
+  Angola:             { x: 55, y: 57 },  // ~12°S 18°E
+  Nigeria:            { x: 52, y: 45 },  //  ~9°N  8°E
+  "Côte d'Ivoire":   { x: 49, y: 46 },  //  ~8°N  5°W
+  "Ivory Coast":      { x: 49, y: 46 },  //  same as Côte d'Ivoire (crawler uses both)
+  Ghana:              { x: 50, y: 46 },  //  ~8°N  2°W (slightly right to avoid overlap)
+
+  // ---- 欧洲 ----
+  UK: { x: 49, y: 19 },  // ~55°N 3°W
+
+  // ---- 亚洲 ----
+  Indonesia: { x: 83, y: 51 },  //  ~2°S 118°E
+  Singapore: { x: 79, y: 49 },  //  ~1°N 104°E
+  Vietnam:   { x: 80, y: 42 },  // ~14°N 108°E
 };

@@ -203,6 +203,29 @@ export default function DashboardPage() {
     }));
   }, [countries]);
 
+  // 诊断日志: 打印有光点 / 缺失坐标的国家
+  useEffect(() => {
+    if (loading) return;
+    const withDots = countries.filter((c) => countryCoordinates[c]);
+    const withoutDots = countries.filter((c) => !countryCoordinates[c]);
+    console.log(
+      `[Map] %c${withDots.length} countries with dots:%c`,
+      "color:#00d4ff;font-weight:bold",
+      "color:inherit",
+      withDots.join(", ") || "(none)",
+    );
+    if (withoutDots.length > 0) {
+      console.warn(
+        `[Map] %c${withoutDots.length} countries MISSING coordinates:%c`,
+        "color:#ff9f43;font-weight:bold",
+        "color:inherit",
+        withoutDots.join(", "),
+      );
+    } else {
+      console.log("[Map] ✅ All countries have coordinates.");
+    }
+  }, [countries, loading]);
+
   const handleDotClick = (country: string) => {
     setSelectedCountry(country);
     console.log(`Dot clicked: ${country} (${projects.filter((p) => p.country.trim() === country).length} projects)`);
@@ -285,7 +308,8 @@ export default function DashboardPage() {
             <img
               src="/world-map.png"
               alt="世界地图轮廓"
-              className="pointer-events-none absolute inset-0 h-auto w-full select-none"
+              className="pointer-events-none absolute inset-0 z-0 h-auto w-full select-none"
+              style={{ filter: "brightness(1.3) contrast(1.1)" }}
             />
             {loading ? (
               <div className="flex h-64 items-center justify-center">
@@ -301,7 +325,7 @@ export default function DashboardPage() {
                   key={dot.country}
                   type="button"
                   onClick={() => handleDotClick(dot.country)}
-                  className="map-pulse absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full border border-fpso-blue bg-fpso-blue shadow-[0_0_10px_rgba(0,212,255,0.6)] outline-none hover:scale-110 focus:ring-2 focus:ring-fpso-blue/50"
+                  className="map-pulse absolute z-10 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full border border-fpso-blue bg-fpso-blue shadow-[0_0_6px_rgba(0,212,255,0.6)] outline-none hover:scale-125 focus:ring-2 focus:ring-fpso-blue/50"
                   style={{
                     left: `${dot.x}%`,
                     top: `${dot.y}%`,
