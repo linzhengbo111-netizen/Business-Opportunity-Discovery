@@ -767,6 +767,8 @@ def build_candidate_event(
       review_status    ← "pending"
       event_type       ← "REGULATORY_DATA"
       fetched_at       ← ISO 时间戳
+      evidence_quote   ← CSV 行结构化描述 (前500字符)
+      publication_date ← start_date (CSV 中的投产年份, 非抓取日期)
       raw_json         ← 完整原始记录 (JSON string)
     """
     facility_name = record.get("facility_name", "").strip()
@@ -812,6 +814,20 @@ def build_candidate_event(
     if change_details:
         summary = f"[{event_type}] {change_details} | {summary}"
 
+    # evidence_quote: structured description from CSV row data
+    evidence_quote = (
+        f"ANP open data: {facility_name}"
+        + (f" ({facility_code})" if facility_code else "")
+        + (f" operated by {operator}" if operator else "")
+        + (f" in {basin} basin" if basin else "")
+        + (f", field {field}" if field else "")
+        + (f", type {ptype}" if ptype else "")
+        + ". " + summary
+    )[:500]
+
+    # publication_date: use CSV start_date field (NOT fetched_at)
+    publication_date = start_date if start_date else ""
+
     return {
         "project_name_raw": facility_name,
         "country": "Brazil",
@@ -821,6 +837,8 @@ def build_candidate_event(
         "review_status": "pending",
         "event_type": "REGULATORY_DATA",
         "fetched_at": NOW_ISO,
+        "evidence_quote": evidence_quote,
+        "publication_date": publication_date,
         # 审计字段: 保留原始 JSON
         "raw_json": json.dumps(record, ensure_ascii=False),
     }
@@ -1167,6 +1185,7 @@ def run_test():
     required_fields = [
         "project_name_raw", "country", "summary", "source_name",
         "source_url", "review_status", "event_type", "fetched_at",
+        "evidence_quote", "publication_date",
     ]
 
     for i, evt in enumerate(events[:5], 1):

@@ -2429,12 +2429,12 @@ def crawl_site(site_config, session, supabase=None):
                 "summary": (summary or title)[:500],
                 "source_name": site_config["name"],
                 "source_url": link or "",
-                "source_date": raw_date or TODAY,
+                "source_date": raw_date or "",
                 "stainless_steel": "",
                 "application": "",
                 "event_type": "ARTICLE_MENTION",
                 "evidence_quote": (summary or title)[:500],
-                "publication_date": raw_date or TODAY,
+                "publication_date": raw_date or "",
             })
             log.info("  %s | %s | %s", status, country or "?", project_name[:50])
 
