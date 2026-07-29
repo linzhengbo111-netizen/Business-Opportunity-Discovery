@@ -706,12 +706,12 @@ def download_document(
     Saves the file to data_dir with a sanitized filename.
 
     Returns:
-        SHA256 hex digest of the downloaded file, or None on failure.
+        (sha256_hex, local_path) on success, or (None, None) on failure.
     """
     download_url = doc.get("download_url", "")
     if not download_url:
         log.warning("  No download URL for: %s", doc.get("title", "?"))
-        return None
+        return None, None
 
     data_dir.mkdir(parents=True, exist_ok=True)
 
@@ -735,7 +735,7 @@ def download_document(
     if local_path.exists():
         log.info("  File already exists: %s", local_path.name)
         file_hash = hashlib.sha256(local_path.read_bytes()).hexdigest()
-        return file_hash
+        return file_hash, local_path
 
     try:
         log.info("  Downloading: %s", safe_name)
@@ -751,10 +751,10 @@ def download_document(
         # If response is empty or HTML (error page), skip
         if len(content) < 100:
             log.warning("  Downloaded file too small (%d bytes): %s", len(content), safe_name)
-            return None
+            return None, None
         if content_type.startswith("text/html") or b"<!DOCTYPE" in content[:100]:
             log.warning("  Response appears to be HTML, not a file: %s", safe_name)
-            return None
+            return None, None
 
         # Save the file
         local_path.write_bytes(content)
@@ -765,14 +765,14 @@ def download_document(
         hash_path.write_text(f"{file_hash}  {safe_name}\n")
 
         log.info("  Saved: %s (%d bytes, SHA256=%s)", local_path.name, len(content), file_hash[:16])
-        return file_hash
+        return file_hash, local_path
 
     except requests.exceptions.RequestException as e:
         log.warning("  Download failed: %s — %s", e, safe_name)
-        return None
+        return None, None
     except Exception as e:
         log.warning("  Error saving file: %s — %s", e, safe_name)
-        return None
+        return None, None
 
 
 # ============================================================================
@@ -959,6 +959,38 @@ def save_snapshot_to_registry(
             "Could not write to snapshot_registry (table may not exist yet). "
             "Local snapshot is saved and sufficient."
         )
+        return False
+
+
+def save_to_source_documents(file_path, file_hash_sha256, file_type,
+                             file_size_bytes, original_url="",
+                             download_url="", publication_date="",
+                             supabase=None) -> bool:
+    """Save downloaded file metadata to source_documents table."""
+    if supabase is None:
+        try:
+            supabase = get_supabase()
+        except RuntimeError:
+            return False
+    try:
+        table = supabase.table("source_documents")
+        record = {
+            "file_name": Path(file_path).name,
+            "file_path": str(file_path),
+            "file_hash_sha256": file_hash_sha256,
+            "file_type": file_type,
+            "file_size_bytes": file_size_bytes,
+            "publication_date": publication_date or TODAY,
+            "fetched_at": NOW_ISO,
+            "original_url": original_url or EPA_OIL_GAS_URL,
+            "download_url": download_url or "",
+        }
+        table.insert(record).execute()
+        log.info("Saved to source_documents: %s (%s, %d bytes)",
+                 Path(file_path).name, file_type, file_size_bytes)
+        return True
+    except Exception:
+        log.debug("Could not write to source_documents (table may not exist yet).")
         return False
 
 
@@ -1178,6 +1210,15 @@ def run_adapter(
     raw_html_path = save_raw_html(html)
     html_sha256 = hashlib.sha256(html.encode("utf-8")).hexdigest()
 
+    # Save to source_documents for audit trail
+    if not dry_run and not local_only:
+        save_to_source_documents(
+            raw_html_path, html_sha256, "HTML",
+            len(html.encode("utf-8")),
+            original_url=EPA_OIL_GAS_URL,
+            supabase=supabase,
+        )
+
     # Step 3: Parse WPDM document entries
     log.info("--- Parsing WPDM document entries ---")
     documents = parse_wpdm_documents(html)
@@ -1213,9 +1254,27 @@ def run_adapter(
                 log.info("  Waiting %.1fs (polite delay)...", delay)
                 time.sleep(delay)
 
-            file_hash = download_document(doc, session, DATA_DIR)
-            if file_hash:
+            result = download_document(doc, session, DATA_DIR)
+            if result and result[0]:
+                file_hash, local_path = result
                 doc["file_hash"] = file_hash
+                # Save to source_documents for audit trail
+                if not dry_run and not local_only:
+                    ext = (doc.get("filename", "") or "").lower()
+                    if ext.endswith(".zip"):
+                        file_type = "ZIP"
+                    elif ext.endswith(".pdf"):
+                        file_type = "PDF"
+                    else:
+                        file_type = "OTHER"
+                    save_to_source_documents(
+                        local_path, file_hash, file_type,
+                        local_path.stat().st_size if local_path.exists() else 0,
+                        original_url=doc.get("source_url", EPA_OIL_GAS_URL),
+                        download_url=doc.get("download_url", ""),
+                        publication_date=doc.get("publication_date", ""),
+                        supabase=supabase,
+                    )
     else:
         log.info("--- Skipping Downloads (--skip-download) ---")
 
@@ -1408,8 +1467,9 @@ def run_test():
     if first_doc:
         print(f"  Document: {first_doc['title'][:120]}")
         print(f"  URL: {first_doc['download_url'][:120]}")
-        file_hash = download_document(first_doc, session, DATA_DIR)
-        if file_hash:
+        result = download_document(first_doc, session, DATA_DIR)
+        if result and result[0]:
+            file_hash, _ = result
             print(f"  Downloaded successfully!")
             print(f"  SHA256: {file_hash}")
             first_doc["file_hash"] = file_hash

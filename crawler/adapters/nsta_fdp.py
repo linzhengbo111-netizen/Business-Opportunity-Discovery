@@ -1147,6 +1147,38 @@ def save_snapshot_to_registry(
         return False
 
 
+def save_to_source_documents(file_path, file_hash_sha256, file_type,
+                             file_size_bytes, original_url="",
+                             download_url="", publication_date="",
+                             supabase=None) -> bool:
+    """Save downloaded file metadata to source_documents table."""
+    if supabase is None:
+        try:
+            supabase = get_supabase()
+        except RuntimeError:
+            return False
+    try:
+        table = supabase.table("source_documents")
+        record = {
+            "file_name": Path(file_path).name,
+            "file_path": str(file_path),
+            "file_hash_sha256": file_hash_sha256,
+            "file_type": file_type,
+            "file_size_bytes": file_size_bytes,
+            "publication_date": publication_date or TODAY,
+            "fetched_at": NOW_ISO,
+            "original_url": original_url or NSTA_FDP_GUIDANCE_URL,
+            "download_url": download_url or "",
+        }
+        table.insert(record).execute()
+        log.info("Saved to source_documents: %s (%s, %d bytes)",
+                 Path(file_path).name, file_type, file_size_bytes)
+        return True
+    except Exception:
+        log.debug("Could not write to source_documents (table may not exist yet).")
+        return False
+
+
 # ============================================================================
 # 11. 快照差异对比
 # ============================================================================
@@ -1334,6 +1366,15 @@ def run_adapter(
         guidance_path = save_raw_html(guidance_html, "fdp_guidance")
         guidance_sha256 = hashlib.sha256(guidance_html.encode("utf-8")).hexdigest()
 
+        # Save to source_documents for audit trail
+        if not dry_run and not local_only:
+            save_to_source_documents(
+                guidance_path, guidance_sha256, "HTML",
+                len(guidance_html.encode("utf-8")),
+                original_url=NSTA_FDP_GUIDANCE_URL,
+                supabase=supabase,
+            )
+
         guidance_docs = parse_guidance_page(guidance_html)
         all_documents.extend(guidance_docs)
 
@@ -1356,6 +1397,16 @@ def run_adapter(
         log.warning("Failed to fetch Data - Fields page. Skipping XLSX discovery.")
     else:
         fields_path = save_raw_html(fields_html, "data_fields")
+        # Save to source_documents for audit trail
+        if not dry_run and not local_only:
+            save_to_source_documents(
+                fields_path,
+                hashlib.sha256(fields_html.encode("utf-8")).hexdigest(),
+                "HTML",
+                len(fields_html.encode("utf-8")),
+                original_url=NSTA_DATA_FIELDS_URL,
+                supabase=supabase,
+            )
         datasets = parse_data_fields_page(fields_html)
 
     # ---- Step 3: 下载并解析 Field Consents XLSX ----
@@ -1387,7 +1438,17 @@ def run_adapter(
 
             xlsx_sha256 = hashlib.sha256(xlsx_raw).hexdigest()
             label = ds.get("dataset_type", "dataset").lower()
-            save_raw_xlsx(xlsx_raw, label, xlsx_sha256)
+            xlsx_path = save_raw_xlsx(xlsx_raw, label, xlsx_sha256)
+
+            # Save to source_documents for audit trail
+            if not dry_run and not local_only:
+                save_to_source_documents(
+                    xlsx_path, xlsx_sha256, "XLSX",
+                    len(xlsx_raw),
+                    original_url=NSTA_DATA_FIELDS_URL,
+                    download_url=url,
+                    supabase=supabase,
+                )
 
             try:
                 records = parse_xlsx(xlsx_raw, ds.get("dataset_type", "FIELD_CONSENTS"))

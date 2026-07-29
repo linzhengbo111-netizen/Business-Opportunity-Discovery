@@ -567,6 +567,38 @@ def save_snapshot_to_registry(filepath: str, sha256: str,
         return False
 
 
+def save_to_source_documents(file_path, file_hash_sha256, file_type,
+                             file_size_bytes, original_url="",
+                             download_url="", publication_date="",
+                             supabase=None) -> bool:
+    """Save downloaded file metadata to source_documents table."""
+    if supabase is None:
+        try:
+            supabase = get_supabase()
+        except RuntimeError:
+            return False
+    try:
+        table = supabase.table("source_documents")
+        record = {
+            "file_name": Path(file_path).name,
+            "file_path": str(file_path),
+            "file_hash_sha256": file_hash_sha256,
+            "file_type": file_type,
+            "file_size_bytes": file_size_bytes,
+            "publication_date": publication_date or TODAY,
+            "fetched_at": NOW_ISO,
+            "original_url": original_url or SOURCE_URL,
+            "download_url": download_url or "",
+        }
+        table.insert(record).execute()
+        log.info("Saved to source_documents: %s (%s, %d bytes)",
+                 Path(file_path).name, file_type, file_size_bytes)
+        return True
+    except Exception:
+        log.debug("Could not write to source_documents (table may not exist yet).")
+        return False
+
+
 # ============================================================================
 # 6. 本地存储
 # ============================================================================
@@ -631,6 +663,15 @@ def run_adapter(dry_run: bool = False, local_only: bool = False,
         html_paths[label] = str(html_path)
         if i == 0:
             html_sha256_main = sha
+
+        # Save to source_documents for audit trail
+        if not dry_run and not local_only:
+            save_to_source_documents(
+                html_path, sha, "HTML",
+                len(html.encode("utf-8")),
+                original_url=url,
+                supabase=supabase,
+            )
 
         soup = BeautifulSoup(html, "html.parser")
         sections = extract_article_sections(soup)

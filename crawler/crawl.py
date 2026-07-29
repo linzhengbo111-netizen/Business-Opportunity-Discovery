@@ -2319,7 +2319,44 @@ def find_article_elements(soup, site_config):
     return elems if elems else []
 
 
-def crawl_site(site_config, session):
+def save_raw_html_crawl(html_text, site_config, supabase=None):
+    """Save raw HTML for a crawled site and record in source_documents."""
+    import hashlib as _hashlib
+    from pathlib import Path as _Path
+    base_dir = _Path(__file__).resolve().parent  # crawler/
+    data_dir = base_dir / "data" / "media"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    safe_name = re.sub(r"[^\w\-]", "_", site_config["name"].lower())
+    filepath = data_dir / f"{TODAY}_{safe_name}.html"
+    filepath.write_text(html_text, encoding="utf-8")
+    sha256 = _hashlib.sha256(html_text.encode("utf-8")).hexdigest()
+    # Save SHA256 sidecar
+    hash_path = data_dir / f"{TODAY}_{safe_name}.html.sha256"
+    hash_path.write_text(f"{sha256}  {TODAY}_{safe_name}.html\n")
+    log.info("Saved raw HTML: %s (SHA256=%s, %d bytes)",
+             filepath.name, sha256[:16], len(html_text.encode("utf-8")))
+    # Save to source_documents
+    if supabase:
+        try:
+            original_url = site_config.get("urls", [""])[0]
+            table = supabase.table("source_documents")
+            table.insert({
+                "file_name": filepath.name,
+                "file_path": str(filepath),
+                "file_hash_sha256": sha256,
+                "file_type": "HTML",
+                "file_size_bytes": len(html_text.encode("utf-8")),
+                "publication_date": TODAY,
+                "fetched_at": datetime.now(timezone.utc).isoformat(),
+                "original_url": original_url,
+            }).execute()
+            log.info("Saved to source_documents: %s", filepath.name)
+        except Exception:
+            log.debug("source_documents insert skipped (table may not exist yet).")
+    return filepath
+
+
+def crawl_site(site_config, session, supabase=None):
     """Crawl one site, return list of article dicts."""
     articles = []
     log.info("--- %s ---", site_config["name"])
@@ -2328,6 +2365,9 @@ def crawl_site(site_config, session):
     if r is None:
         log.warning("  All search URLs failed, skipping.")
         return articles
+
+    # Save raw HTML to source_documents for audit trail
+    save_raw_html_crawl(r.text, site_config, supabase=supabase)
 
     soup = BeautifulSoup(r.text, "html.parser")
     elem_list = find_article_elements(soup, site_config)
@@ -2933,7 +2973,7 @@ def main():
     all_articles = []
 
     for i, site in enumerate(SITES):
-        articles = crawl_site(site, session)
+        articles = crawl_site(site, session, supabase=supabase)
         all_articles.extend(articles)
 
         if i < len(SITES) - 1:
