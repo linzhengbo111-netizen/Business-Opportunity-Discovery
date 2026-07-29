@@ -29,3 +29,6 @@ jobs:
 
       - name: Run industry media crawler
         run: python crawler/crawl.py
+
+      - name: Auto-promote crawled data to projects table
+        run: python crawler/crawl.py --auto-promote

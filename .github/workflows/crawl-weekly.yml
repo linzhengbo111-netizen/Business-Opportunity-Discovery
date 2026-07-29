@@ -66,3 +66,6 @@ jobs:
       - name: Run Petrofac Supplier adapter
         run: python crawler/adapters/petrofac_supplier.py
         continue-on-error: true
+
+      - name: Auto-promote all adapter data to projects table
+        run: python crawler/crawl.py --auto-promote

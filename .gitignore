@@ -20,6 +20,10 @@ Thumbs.db
 # misc
 *.log
 
+# crawler runtime data (large downloaded files, snapshots)
+crawler/data/
+**/__pycache__/
+
 # wrangler files
 .wrangler
 .dev.vars*

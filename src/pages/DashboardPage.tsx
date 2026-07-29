@@ -12,7 +12,7 @@ import {
 import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
 import type { Project } from "@/data/projects";
-import { countryCoordinates, sampleProjects } from "@/data/projects";
+import { countryCoordinates, sampleProjects, countryToFlagEmoji } from "@/data/projects";
 import { supabase } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
 
@@ -94,6 +94,28 @@ function mapRowToProject(row: Record<string, unknown>): Project {
   };
 }
 
+/** Map a candidate_events row to the Project interface for fallback display.
+ *  candidate_events lacks flag, status, stainless_steel, application — we provide defaults. */
+function mapCandidateToProject(row: Record<string, unknown>): Project {
+  const rawCountry = String(row.country ?? "").trim();
+  const country = COUNTRY_ALIASES[rawCountry] ?? (rawCountry || "Unknown");
+  const sourceDate = String(row.publication_date || row.fetched_at || "");
+  return {
+    name: String(row.project_name_raw ?? ""),
+    country,
+    flag: countryToFlagEmoji(country),
+    status: "Unknown",
+    summary: String(row.summary ?? ""),
+    source: {
+      name: String(row.source_name ?? ""),
+      url: String(row.source_url ?? ""),
+      date: sourceDate.slice(0, 10),
+    },
+    stainlessSteel: "",
+    application: "",
+  };
+}
+
 export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -118,6 +140,57 @@ export default function DashboardPage() {
     }
 
     let cancelled = false;
+
+    /** Fallback: query candidate_events when the projects table is empty.
+     *  This ensures crawler data is visible even before manual review/promotion. */
+    async function fetchCandidateEventsFallback() {
+      try {
+        const ceStart = performance.now();
+        const { data: ceData, error: ceError } = await supabase!
+          .from("candidate_events")
+          .select("*")
+          .in("review_status", ["pending", "accepted"])
+          .order("fetched_at", { ascending: false })
+          .limit(200);
+
+        const ceElapsed = (performance.now() - ceStart).toFixed(0);
+
+        if (ceError) {
+          console.error(`[Dashboard] candidate_events fallback FAILED (${ceElapsed}ms):`, ceError.message);
+          console.warn("[Dashboard] ⚠️  Degrading to sampleProjects fallback.");
+          if (!cancelled) setProjects(sampleProjects);
+          return;
+        }
+
+        if (!ceData || ceData.length === 0) {
+          console.warn(`[Dashboard] candidate_events also EMPTY (${ceElapsed}ms). Falling back to sampleProjects.`);
+          if (!cancelled) setProjects(sampleProjects);
+          return;
+        }
+
+        const allMapped = (ceData as Record<string, unknown>[]).map(mapCandidateToProject);
+        // Deduplicate by name (keep first = most recent due to ORDER BY fetched_at DESC)
+        const seen = new Set<string>();
+        const uniqueCE = allMapped.filter((p) => {
+          const key = p.name.trim();
+          if (!key || seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+
+        console.log(
+          `[Dashboard] ✅ Using candidate_events fallback (${ceElapsed}ms): ` +
+          `${uniqueCE.length} unique projects from ${allMapped.length} rows.`,
+        );
+        console.table(uniqueCE.map((p) => ({ name: p.name, country: p.country })));
+
+        if (!cancelled) setProjects(uniqueCE);
+      } catch (err) {
+        console.error("[Dashboard] Unexpected error in candidate_events fallback:", err);
+        if (!cancelled) setProjects(sampleProjects);
+      }
+    }
+
     async function fetchProjects() {
       console.log("[Dashboard] Fetching from Supabase table 'projects'...");
       const start = performance.now();
@@ -148,8 +221,9 @@ export default function DashboardPage() {
         console.table(unique.map((p) => ({ name: p.name, country: p.country, status: p.status })));
         if (!cancelled) setProjects(unique);
       } else {
-        console.warn("[Dashboard] ⚠️  Supabase 'projects' table is EMPTY. Falling back to sampleProjects.");
-        if (!cancelled) setProjects(sampleProjects);
+        // ---- Fallback: query candidate_events when projects is empty ----
+        console.warn("[Dashboard] ⚠️  Supabase 'projects' table is EMPTY. Trying candidate_events fallback...");
+        await fetchCandidateEventsFallback();
       }
     }
 

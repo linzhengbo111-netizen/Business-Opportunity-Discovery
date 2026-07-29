@@ -34,7 +34,7 @@ export const sampleProjects: Project[] = [
     flag: "🇧🇷",
     status: "Under Construction",
     summary: "Petrobras pre-salt Santos Basin",
-    source: { name: "Petrobras", url: "https://example.com", date: "2026-07-17" },
+    source: { name: "Petrobras", url: "", date: "2026-07-17" },
     stainlessSteel: "",
     application: "",
   },
@@ -44,7 +44,7 @@ export const sampleProjects: Project[] = [
     flag: "🇬🇾",
     status: "Delivered",
     summary: "ExxonMobil Stabroek block Payara",
-    source: { name: "SBM Offshore", url: "https://example.com", date: "2026-07-17" },
+    source: { name: "SBM Offshore", url: "", date: "2026-07-17" },
     stainlessSteel: "",
     application: "",
   },
@@ -54,7 +54,7 @@ export const sampleProjects: Project[] = [
     flag: "🇦🇴",
     status: "Under Construction",
     summary: "MODEC EPC contract for TotalEnergies",
-    source: { name: "MODEC", url: "https://example.com", date: "2026-07-17" },
+    source: { name: "MODEC", url: "", date: "2026-07-17" },
     stainlessSteel: "",
     application: "",
   },
@@ -64,7 +64,7 @@ export const sampleProjects: Project[] = [
     flag: "🇳🇬",
     status: "Planned",
     summary: "Replacement for aging FPSO",
-    source: { name: "World Oil", url: "https://example.com", date: "2026-07-17" },
+    source: { name: "World Oil", url: "", date: "2026-07-17" },
     stainlessSteel: "",
     application: "",
   },
@@ -75,7 +75,7 @@ export const sampleProjects: Project[] = [
     status: "Planned",
     summary:
       "Equinor's major North Sea development project featuring advanced subsea production systems and stainless steel topside modules",
-    source: { name: "Offshore Energy", url: "https://example.com", date: "2026-07-17" },
+    source: { name: "Offshore Energy", url: "", date: "2026-07-17" },
     stainlessSteel: "",
     application: "",
   },
@@ -85,7 +85,7 @@ export const sampleProjects: Project[] = [
     flag: "🇧🇷",
     status: "Under Construction",
     summary: "Enauta's Santos Basin project",
-    source: { name: "Offshore Magazine", url: "https://example.com", date: "2026-07-17" },
+    source: { name: "Offshore Magazine", url: "", date: "2026-07-17" },
     stainlessSteel: "",
     application: "",
   },
@@ -95,7 +95,7 @@ export const sampleProjects: Project[] = [
     flag: "🇨🇮",
     status: "Planned",
     summary: "FEED phase targeting 2028 startup",
-    source: { name: "Offshore Energy", url: "https://example.com", date: "2026-07-17" },
+    source: { name: "Offshore Energy", url: "", date: "2026-07-17" },
     stainlessSteel: "",
     application: "",
   },
@@ -131,3 +131,42 @@ export const countryCoordinates: Record<string, CountryCoordinate> = {
   Singapore: { x: 79, y: 49 },  //  ~1°N 104°E
   Vietnam:   { x: 80, y: 42 },  // ~14°N 108°E
 };
+
+/**
+ * Country name → ISO 3166-1 alpha-2 code mapping.
+ * Used by countryToFlagEmoji() to generate flag emoji from country names
+ * when the flag column is missing (candidate_events fallback path).
+ * Mirrors crawler/crawl.py COUNTRY_CODE dictionary.
+ */
+const COUNTRY_CODE: Record<string, string> = {
+  "Angola": "AO", "Argentina": "AR", "Australia": "AU", "Azerbaijan": "AZ",
+  "Bahrain": "BH", "Brazil": "BR", "Cameroon": "CM", "Canada": "CA",
+  "China": "CN", "Congo": "CG", "Cyprus": "CY", "Denmark": "DK",
+  "Egypt": "EG", "Equatorial Guinea": "GQ", "Gabon": "GA", "Ghana": "GH",
+  "Guyana": "GY", "India": "IN", "Indonesia": "ID", "Iran": "IR",
+  "Iraq": "IQ", "Israel": "IL", "Japan": "JP",
+  "Kazakhstan": "KZ", "Kuwait": "KW", "Libya": "LY", "Malaysia": "MY",
+  "Mauritania": "MR", "Mexico": "MX", "Mozambique": "MZ", "Namibia": "NA",
+  "Netherlands": "NL", "Nigeria": "NG", "Norway": "NO", "Oman": "OM",
+  "Qatar": "QA", "Russia": "RU", "Saudi Arabia": "SA", "Senegal": "SN",
+  "Singapore": "SG", "South Africa": "ZA", "South Korea": "KR",
+  "Suriname": "SR", "Thailand": "TH", "Trinidad and Tobago": "TT",
+  "Turkey": "TR", "UAE": "AE", "UK": "GB", "USA": "US",
+  "Vietnam": "VN", "Yemen": "YE",
+  "Côte d'Ivoire": "CI", "Ivory Coast": "CI",
+};
+
+/**
+ * Generate a flag emoji from a country name.
+ * Converts ISO 3166-1 alpha-2 code to regional indicator symbols.
+ * Returns empty string for unknown countries.
+ */
+export function countryToFlagEmoji(country: string): string {
+  const code = COUNTRY_CODE[country];
+  if (!code) return "";
+  const offset = 0x1F1E6 - 65; // 'A' → regional indicator A
+  return String.fromCodePoint(
+    code.charCodeAt(0) + offset,
+    code.charCodeAt(1) + offset,
+  );
+}

@@ -2913,6 +2913,57 @@ def backfill_source_urls(supabase):
     log.info("  Run --promote after reviewing candidates to update projects.")
 
 
+# ---- Auto-Promote ----------------------------------------------------
+
+def auto_promote_candidates(supabase):
+    """
+    Promote ALL pending + accepted candidates to projects without manual review.
+
+    This is the automated counterpart to --promote. Instead of requiring a human
+    to set review_status='accepted', it:
+    1. Bulk-updates all 'pending' candidates to 'accepted'
+    2. Delegates to promote_accepted_candidates() for merge + upsert
+
+    Candidates already marked 'rejected' are skipped.
+    """
+    log.info("=" * 54)
+    log.info("AUTO-PROMOTE MODE: auto-accepting pending + accepted candidates")
+    log.info("=" * 54)
+
+    candidate_table = supabase.table("candidate_events")
+
+    # Step 1: count pending candidates
+    resp = candidate_table.select("id", count="exact").eq("review_status", "pending").execute()
+    pending_count = getattr(resp, "count", 0) or len(resp.data)
+    log.info("Pending candidates to auto-accept: %d", pending_count)
+
+    if pending_count == 0:
+        log.info("No pending candidates. Falling through to promote (accepted only).")
+    else:
+        # Step 2: bulk-update all pending → accepted
+        # Supabase Python client doesn't support bulk UPDATE without WHERE IN,
+        # so we fetch all pending IDs and update in batches of 50
+        pending_resp = candidate_table.select("id").eq("review_status", "pending").execute()
+        pending_ids = [row["id"] for row in (pending_resp.data or [])]
+
+        batch_size = 50
+        for i in range(0, len(pending_ids), batch_size):
+            batch = pending_ids[i:i + batch_size]
+            try:
+                # Update one-by-one within batch (Supabase limitation with RLS)
+                for cid in batch:
+                    candidate_table.update({"review_status": "accepted"}).eq("id", cid).execute()
+                log.info("  Auto-accepted batch %d/%d (%d candidates)",
+                         i // batch_size + 1, (len(pending_ids) + batch_size - 1) // batch_size, len(batch))
+            except Exception:
+                log.warning("  Batch update failed for ids %s..%s", batch[0], batch[-1], exc_info=True)
+
+        log.info("Auto-accept complete: %d pending → accepted", pending_count)
+
+    # Step 3: delegate to standard promote logic (which now sees all as 'accepted')
+    return promote_accepted_candidates(supabase)
+
+
 # ---- Main ------------------------------------------------------------
 
 def main():
@@ -2923,6 +2974,11 @@ def main():
         "--promote",
         action="store_true",
         help="Move accepted candidates from candidate_events to projects table.",
+    )
+    parser.add_argument(
+        "--auto-promote",
+        action="store_true",
+        help="Auto-accept all pending candidates and promote to projects (no manual review).",
     )
     parser.add_argument(
         "--backfill",
@@ -2949,6 +3005,16 @@ def main():
         new, updated = promote_accepted_candidates(supabase)
         log.info(
             "Promote complete: %d new, %d updated in projects.",
+            new,
+            updated,
+        )
+        return
+
+    # Auto-promote mode: auto-accept all pending, then promote
+    if args.auto_promote:
+        new, updated = auto_promote_candidates(supabase)
+        log.info(
+            "Auto-promote complete: %d new, %d updated in projects.",
             new,
             updated,
         )
