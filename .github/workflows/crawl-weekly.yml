@@ -1,0 +1,68 @@
+name: Weekly FPSO Adapter Crawl
+
+on:
+  schedule:
+    # 北京时间每周一早上 8:00 (UTC 00:00)
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r crawler/requirements.txt
+
+      # ---- Brazil (P0) ----
+      - name: Run ANP CSV adapter (Brazil)
+        run: python crawler/adapters/anp_fpso_csv.py
+        continue-on-error: true
+
+      # ---- Guyana (P0) ----
+      - name: Run Guyana EPA adapter
+        run: python crawler/adapters/guyana_epa.py
+        continue-on-error: true
+
+      # ---- UK (P0) ----
+      - name: Run NSTA FDP adapter (UK)
+        run: python crawler/adapters/nsta_fdp.py
+        continue-on-error: true
+
+      - name: Run Equinor Rosebank adapter (UK P0)
+        run: python crawler/adapters/equinor_rosebank.py
+        continue-on-error: true
+
+      # ---- P1 企业来源 ----
+      - name: Run SBM Offshore Newsroom adapter
+        run: python crawler/adapters/sbm_newsroom.py --local-only
+        continue-on-error: true
+
+      - name: Run Equinor Supplier adapter
+        run: python crawler/adapters/equinor_supplier.py
+        continue-on-error: true
+
+      - name: Run MODEC Supply Chain adapter
+        run: python crawler/adapters/modec_supplychain.py
+        continue-on-error: true
+
+      - name: Run Petrobras Supplier adapter
+        run: python crawler/adapters/petrobras_supplier.py
+        continue-on-error: true
+
+      - name: Run Petrofac Supplier adapter
+        run: python crawler/adapters/petrofac_supplier.py
+        continue-on-error: true

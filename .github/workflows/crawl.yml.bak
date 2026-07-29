@@ -50,6 +50,10 @@ jobs:
         run: python crawler/adapters/equinor_supplier.py
         continue-on-error: true
 
+      - name: Run Equinor Rosebank adapter (UK P0)
+        run: python crawler/adapters/equinor_rosebank.py
+        continue-on-error: true
+
       - name: Run MODEC Supply Chain adapter
         run: python crawler/adapters/modec_supplychain.py
         continue-on-error: true

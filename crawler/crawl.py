@@ -4,7 +4,20 @@ FPSO Project Crawler
 Scrapes offshore industry news sites for FPSO-related articles,
 extracts project metadata, and stores results in Supabase.
 
-Usage: python crawler/crawl.py
+Usage:
+  python crawler/crawl.py                  # crawl and insert into candidate_events
+  python crawler/crawl.py --promote        # promote accepted candidates to projects
+  python crawler/crawl.py --backfill       # re-extract countries, write to candidate_events
+  python crawler/crawl.py --backfill-source-urls  # fix placeholder URLs, write to candidate_events
+
+Data Flow (数据流向):
+  Crawler → candidate_events → Manual Review → --promote → projects
+
+  1. Every crawl run inserts all articles into candidate_events table
+     with review_status='pending'. No direct writes to projects table.
+  2. Human reviewers mark accepted candidates (review_status='accepted').
+  3. --promote moves accepted candidates from candidate_events to projects.
+  4. Backfill modes also write to candidate_events, not projects directly.
 """
 
 import os
@@ -1545,6 +1558,393 @@ def country_to_flag(country):
     return chr(ord(code[0]) - ord("A") + 0x1F1E6) + chr(ord(code[1]) - ord("A") + 0x1F1E6)
 
 
+# ---- Project alias mapping (cross-source normalization) ---------------
+# Canonical project ID → list of known aliases.
+# First alias in each list is the recommended display name.
+# Mirrors src/data/project_aliases.ts — keep both in sync.
+
+PROJECT_ALIASES = {
+    # ===== Guyana — Stabroek Block =====
+    "guyana-liza-1": [
+        "Liza Phase 1 (FPSO Liza Destiny)",
+        "Liza Phase 1", "FPSO Liza Destiny", "Liza Destiny",
+        "Liza 1", "Liza Phase 1 Development", "Liza Destiny FPSO",
+    ],
+    "guyana-liza-2": [
+        "Liza Phase 2 (FPSO Liza Unity)",
+        "Liza Phase 2", "FPSO Liza Unity", "Liza Unity",
+        "Liza 2", "Liza Phase 2 Development", "Liza Unity FPSO",
+    ],
+    "guyana-payara": [
+        "Payara (FPSO Prosperity)",
+        "Payara", "FPSO Prosperity", "Prosperity FPSO",
+        "Payara Development", "Payara Project", "Payara Dev Project",
+        "Payara FPSO", "Payara Field", "Prosperity", "FPSO Payara",
+        "Payara Phase",
+    ],
+    "guyana-yellowtail": [
+        "Yellowtail (FPSO ONE GUYANA)",
+        "Yellowtail", "FPSO ONE GUYANA", "FPSO One Guyana",
+        "One Guyana", "ONE GUYANA", "Yellowtail Development",
+        "Yellowtail Project", "Yellowtail FPSO", "Yellowtail Field",
+    ],
+    "guyana-uaru": [
+        "Uaru (FPSO Errea Wittu)",
+        "Uaru", "FPSO Errea Wittu", "Errea Wittu",
+        "Uaru Development", "Uaru Project", "Uaru FPSO", "Uaru Field",
+    ],
+    "guyana-whiptail": [
+        "Whiptail (FPSO Jaguar)",
+        "Whiptail", "FPSO Jaguar", "Jaguar FPSO",
+        "Whiptail Development", "Whiptail Project",
+        "Whiptail FPSO", "Whiptail Field",
+    ],
+    "guyana-hammerhead": [
+        "Hammerhead",
+        "Hammerhead", "Hammerhead Development", "Hammerhead Project",
+        "Hammerhead FPSO", "Hammerhead Field",
+    ],
+    "guyana-longtail": [
+        "Longtail",
+        "Longtail", "Longtail Development", "Longtail Project",
+        "Longtail FPSO", "Longtail Field",
+    ],
+    "guyana-gas-to-energy": [
+        "Gas to Energy (Guyana)",
+        "Gas to Energy", "Guyana Gas to Energy", "Gas-to-Energy",
+        "Guyana Gas-to-Energy", "Gas to Energy Project",
+        "Gas to Energy Guyana", "GtE Guyana", "Wales Gas to Energy",
+    ],
+
+    # ===== Brazil =====
+    "brazil-maria-quiteria": [
+        "FPSO Maria Quitéria",
+        "FPSO Maria Quitéria", "FPSO Maria Quiteria",
+        "Maria Quitéria", "Maria Quiteria",
+    ],
+    "brazil-atlanta": [
+        "FPSO Atlanta",
+        "FPSO Atlanta", "Atlanta FPSO", "Atlanta",
+        "Atlanta Field FPSO", "Enauta Atlanta",
+    ],
+    "brazil-alexandre-de-gusmao": [
+        "FPSO Alexandre de Gusmão",
+        "FPSO Alexandre de Gusmão", "FPSO ALEXANDRE DE GUSMÃO",
+        "Alexandre de Gusmão", "Alexandre de Gusmao",
+        "ALEXANDRE DE GUSMÃO", "FPSO Alexandre de Gusmao",
+    ],
+    "brazil-almirante-barroso": [
+        "FPSO Almirante Barroso",
+        "FPSO Almirante Barroso", "FPSO ALMIRANTE BARROSO",
+        "Almirante Barroso", "ALMIRANTE BARROSO",
+    ],
+    "brazil-duque-de-caxias": [
+        "FPSO Duque de Caxias",
+        "FPSO Duque de Caxias", "FPSO Marechal Duque de Caxias",
+        "Duque de Caxias", "Marechal Duque de Caxias",
+    ],
+    "brazil-anita-garibaldi": [
+        "FPSO Anita Garibaldi",
+        "FPSO Anita Garibaldi", "Anita Garibaldi",
+    ],
+    "brazil-anna-nery": [
+        "FPSO Anna Nery",
+        "FPSO Anna Nery", "Anna Nery",
+    ],
+    "brazil-guanabara": [
+        "FPSO Guanabara",
+        "FPSO Guanabara", "Guanabara FPSO", "Guanabara",
+    ],
+    "brazil-espirito-santo": [
+        "FPSO Espirito Santo",
+        "FPSO Espirito Santo", "FPSO Espírito Santo", "Espirito Santo FPSO",
+    ],
+    "brazil-marlim": [
+        "FPSO Marlim",
+        "FPSO Marlim", "FPSO Marlim Sul", "Marlim", "Marlim Sul",
+    ],
+    "brazil-cidade-de-angra-dos-reis": [
+        "FPSO Cidade de Angra dos Reis",
+        "FPSO Cidade de Angra dos Reis", "Cidade de Angra dos Reis",
+    ],
+    "brazil-cidade-de-ilhabela": [
+        "FPSO Cidade de Ilhabela",
+        "FPSO Cidade de Ilhabela", "Cidade de Ilhabela",
+    ],
+    "brazil-cidade-de-itaguai": [
+        "FPSO Cidade de Itaguaí",
+        "FPSO Cidade de Itaguaí", "FPSO Cidade de Itaguai",
+        "Cidade de Itaguaí", "Cidade de Itaguai",
+    ],
+    "brazil-cidade-de-marica": [
+        "FPSO Cidade de Maricá",
+        "FPSO Cidade de Maricá", "FPSO Cidade de Marica",
+        "Cidade de Maricá", "Cidade de Marica",
+    ],
+    "brazil-cidade-de-saquarema": [
+        "FPSO Cidade de Saquarema",
+        "FPSO Cidade de Saquarema", "Cidade de Saquarema",
+    ],
+    "brazil-cidade-de-santos": [
+        "FPSO Cidade de Santos",
+        "FPSO Cidade de Santos", "Cidade de Santos",
+    ],
+
+    # ===== UK — North Sea =====
+    "uk-rosebank": [
+        "Rosebank (FPSO Rosebank)",
+        "Rosebank", "FPSO Rosebank", "Rosebank FPSO",
+        "Rosebank Development", "Rosebank Project", "Rosebank Field",
+        "Equinor Rosebank", "Rosebank Oil Field", "Rosebank North Sea",
+    ],
+    "uk-cambo": [
+        "Cambo",
+        "Cambo", "Cambo Field", "Cambo Development",
+        "Cambo Project", "Cambo FPSO",
+    ],
+    "uk-schiehallion": [
+        "Schiehallion (FPSO Glen Lyon)",
+        "Schiehallion", "FPSO Glen Lyon", "Glen Lyon FPSO",
+        "Glen Lyon", "Schiehallion Field", "Schiehallion FPSO",
+    ],
+    "uk-foinaven": [
+        "Foinaven",
+        "Foinaven", "FPSO Foinaven", "FPSO Petrojarl Foinaven",
+        "Foinaven Field", "Foinaven FPSO",
+    ],
+    "uk-captain": [
+        "Captain Field (FPSO Captain)",
+        "Captain", "FPSO Captain", "Captain Field", "Captain FPSO",
+    ],
+    "uk-victory": [
+        "Victory",
+        "Victory", "Victory Field", "Victory Development",
+        "Victory Project", "Victory FPSO", "Victory Gas Field",
+    ],
+    "uk-belinda": [
+        "Belinda",
+        "Belinda", "Belinda Field", "Belinda Development",
+        "Belinda Project", "Belinda FPSO",
+    ],
+    "uk-triton": [
+        "Triton FPSO",
+        "FPSO Triton", "Triton FPSO", "Triton", "Triton Area",
+    ],
+
+    # ===== Angola =====
+    "angola-agogo": [
+        "FPSO Agogo",
+        "FPSO Agogo", "Agogo FPSO", "Agogo",
+        "Agogo Field", "Agogo Development", "Agogo Project",
+        "Agogo FFD", "MODEC Agogo",
+    ],
+    "angola-greater-plutonio": [
+        "FPSO Greater Plutonio",
+        "FPSO Greater Plutonio", "Greater Plutonio",
+        "FPSO Plutonio", "Plutonio FPSO",
+    ],
+    "angola-dalia": [
+        "FPSO Dalia",
+        "FPSO Dalia", "Dalia FPSO", "Dalia", "Dalia Field",
+    ],
+    "angola-girassol": [
+        "FPSO Girassol",
+        "FPSO Girassol", "Girassol FPSO", "Girassol", "Girassol Field",
+    ],
+    "angola-pazflor": [
+        "FPSO Pazflor",
+        "FPSO Pazflor", "Pazflor FPSO", "Pazflor",
+    ],
+    "angola-clov": [
+        "FPSO CLOV",
+        "FPSO CLOV", "CLOV FPSO", "CLOV", "CLOV Field",
+    ],
+    "angola-ndungu": [
+        "FPSO Ndungu",
+        "FPSO Ndungu", "Ndungu FPSO", "Ndungu", "Ndungu Field",
+    ],
+
+    # ===== Nigeria =====
+    "nigeria-zafiro": [
+        "FPSO Zafiro",
+        "FPSO Zafiro", "Zafiro FPSO", "Zafiro",
+        "Zafiro Field", "Zafiro Development", "Zafiro Project",
+        "Nigeria Zafiro",
+    ],
+    "nigeria-bonga": [
+        "FPSO Bonga",
+        "FPSO Bonga", "Bonga FPSO", "Bonga", "Bonga Field",
+        "Bonga Main", "FPSO Bonga North", "FPSO Bonga South West",
+    ],
+    "nigeria-egina": [
+        "FPSO Egina",
+        "FPSO Egina", "Egina FPSO", "Egina", "Egina Field",
+    ],
+    "nigeria-akpo": [
+        "FPSO Akpo",
+        "FPSO Akpo", "Akpo FPSO", "Akpo", "Akpo Field",
+    ],
+    "nigeria-erha": [
+        "FPSO Erha",
+        "FPSO Erha", "Erha FPSO", "Erha", "Erha Field",
+    ],
+    "nigeria-agbami": [
+        "FPSO Agbami",
+        "FPSO Agbami", "Agbami FPSO", "Agbami", "Agbami Field",
+    ],
+    "nigeria-usan": [
+        "FPSO Usan",
+        "FPSO Usan", "Usan FPSO", "Usan", "Usan Field",
+    ],
+
+    # ===== Ghana =====
+    "ghana-jubilee": [
+        "Jubilee (FPSO Kwame Nkrumah)",
+        "Jubilee", "FPSO Kwame Nkrumah", "Kwame Nkrumah",
+        "Jubilee Field", "Jubilee FPSO",
+    ],
+    "ghana-ten": [
+        "TEN (FPSO John Evans Atta Mills)",
+        "TEN", "TEN Field", "FPSO John Evans Atta Mills",
+        "John Evans Atta Mills", "TEN FPSO",
+    ],
+
+    # ===== Ivory Coast =====
+    "ivory-coast-baleine": [
+        "Baleine (FPSO Baleine)",
+        "Baleine", "FPSO Baleine", "Baleine FPSO",
+        "Baleine Field", "Baleine Phase", "Eni Baleine",
+    ],
+    "ivory-coast-baobab": [
+        "Baobab",
+        "Baobab", "FPSO Baobab", "Baobab FPSO",
+        "Baobab Field", "Baobab Development", "Baobab Project",
+    ],
+
+    # ===== Senegal =====
+    "senegal-sangomar": [
+        "Sangomar (FPSO Léopold Sédar Senghor)",
+        "Sangomar", "Sangomar Field",
+        "FPSO Léopold Sédar Senghor", "Leopold Sedar Senghor",
+        "Léopold Sédar Senghor", "Sangomar FPSO", "Sangomar Development",
+    ],
+
+    # ===== USA — Gulf of Mexico =====
+    "usa-vito": [
+        "Vito (FPSO Vito)",
+        "Vito", "FPSO Vito", "Vito FPSO", "Vito Field", "Shell Vito",
+    ],
+    "usa-argos": [
+        "Argos (FPSO Argos)",
+        "Argos", "FPSO Argos", "Argos FPSO", "Argos Platform",
+        "Mad Dog 2", "Mad Dog Phase 2", "BP Argos",
+    ],
+    "usa-stones": [
+        "Stones (FPSO Turritella)",
+        "Stones", "FPSO Stones", "FPSO Turritella",
+        "Turritella", "Stones Field", "Shell Stones",
+    ],
+
+    # ===== Norway =====
+    "norway-johan-castberg": [
+        "Johan Castberg (FPSO Johan Castberg)",
+        "Johan Castberg", "FPSO Johan Castberg",
+        "Johan Castberg FPSO", "Johan Castberg Field", "Castberg",
+    ],
+}
+
+# Build reverse index: lowercase alias → canonical_id
+_ALIAS_TO_CANONICAL = {}
+for _cid, _aliases in PROJECT_ALIASES.items():
+    for _a in _aliases:
+        _ALIAS_TO_CANONICAL[_a.lower()] = _cid
+
+GENERIC_WORDS_FOR_MATCH = {
+    "fpso", "the", "a", "an", "for", "and", "with", "new", "first", "latest",
+    "project", "vessel", "unit", "platform", "production", "storage",
+    "offloading", "of", "in", "at", "to", "is", "on", "as", "by",
+    "its", "will", "has", "been", "from", "was", "that", "this",
+    "next", "two", "three", "four", "one", "major", "another",
+    "floating", "be", "it", "or", "second", "third", "phase",
+    "field", "development", "dev",
+}
+
+
+def normalize_project_name(raw_name):
+    """
+    Normalize a raw project name to its canonical project ID.
+
+    Matching strategies (tried in order):
+    1. Exact match (case-insensitive) against all known aliases
+    2. Strip "FPSO " prefix, exact match again
+    3. Keyword overlap scoring — tokenize the raw name and each project's
+       alias set, compute precision/recall, pick the best match.
+
+    Returns canonical project ID string, or None if no match found.
+    Mirrors the TypeScript normalizeProjectName() in src/data/project_aliases.ts.
+    """
+    if not raw_name or not isinstance(raw_name, str):
+        return None
+
+    cleaned = raw_name.strip()
+    if not cleaned:
+        return None
+
+    cleaned_lower = cleaned.lower()
+
+    # -- Strategy 1: exact match --
+    cid = _ALIAS_TO_CANONICAL.get(cleaned_lower)
+    if cid:
+        return cid
+
+    # -- Strategy 2: strip "FPSO " prefix --
+    stripped = re.sub(r"^fpso\s+", "", cleaned_lower, flags=re.IGNORECASE)
+    if stripped != cleaned_lower:
+        cid = _ALIAS_TO_CANONICAL.get(stripped)
+        if cid:
+            return cid
+
+    # -- Strategy 3: keyword overlap scoring --
+    raw_tokens = set(
+        t for t in re.split(r"[\s\-–—/.,;:!?()\"']+", cleaned_lower)
+        if len(t) >= 2 and t not in GENERIC_WORDS_FOR_MATCH
+    )
+    if not raw_tokens:
+        return None
+
+    raw_token_count = len(raw_tokens)
+    best_match = None  # (canonical_id, combined_score)
+
+    for cid, aliases in PROJECT_ALIASES.items():
+        all_alias_text = " ".join(aliases).lower()
+        alias_tokens = set(
+            t for t in re.split(r"[\s\-–—/.,;:!?()\"']+", all_alias_text)
+            if len(t) >= 2
+        )
+
+        score = sum(1 for t in raw_tokens if t in alias_tokens)
+
+        precision = score / raw_token_count if raw_token_count > 0 else 0
+        max_recall_denom = min(raw_token_count, len(alias_tokens))
+        recall = score / max_recall_denom if max_recall_denom > 0 else 0
+
+        # Require score >= 2 for multi-token inputs, or score >= 1 with
+        # high precision for single-token inputs (e.g. "Stones FPSO").
+        if precision >= 0.5 and recall >= 0.4:
+            if score >= 2 or (score == 1 and precision >= 0.8):
+                combined = precision * 0.6 + recall * 0.4
+                if best_match is None or combined > best_match[1]:
+                    best_match = (cid, combined)
+
+    return best_match[0] if best_match else None
+
+
+def get_display_name(canonical_id):
+    """Return the recommended display name for a canonical project ID."""
+    aliases = PROJECT_ALIASES.get(canonical_id)
+    return aliases[0] if aliases else canonical_id
+
+
 STATUS_PATTERNS = {
     "Under Construction": [
         "under construction", "being built", "construction",
@@ -1953,6 +2353,16 @@ def crawl_site(site_config, session):
                 continue
 
             link = title_el.get("href", "")
+            if not link:
+                # Try parent <a> tag (some sites wrap heading in <a>)
+                parent_a = title_el.find_parent("a")
+                if parent_a:
+                    link = parent_a.get("href", "")
+            if not link:
+                # Try any direct <a> child in the container element
+                any_a = elem.find("a", href=True)
+                if any_a:
+                    link = any_a.get("href", "")
             if link:
                 link = urljoin(site_config["urls"][0], link)
 
@@ -1978,10 +2388,13 @@ def crawl_site(site_config, session):
                 "status": status or "Unknown",
                 "summary": (summary or title)[:500],
                 "source_name": site_config["name"],
-                "source_url": link or site_config["urls"][0],
+                "source_url": link or "",
                 "source_date": raw_date or TODAY,
                 "stainless_steel": "",
                 "application": "",
+                "event_type": "ARTICLE_MENTION",
+                "evidence_quote": (summary or title)[:500],
+                "publication_date": raw_date or TODAY,
             })
             log.info("  %s | %s | %s", status, country or "?", project_name[:50])
 
@@ -2026,18 +2439,226 @@ def upsert_projects(supabase, articles):
     return new, updated
 
 
+def insert_candidate_events(supabase, articles):
+    """
+    Insert all articles into candidate_events table.
+    Maps crawler article fields to candidate_events columns:
+      name → project_name_raw, country → country, summary → summary,
+      source_name → source_name, source_url → source_url,
+      event_type → event_type, evidence_quote → evidence_quote,
+      publication_date → publication_date.
+    Every crawl run inserts new records with review_status='pending'.
+    No dedup — each run creates fresh records.
+    Returns count of inserted rows.
+    """
+    inserted = 0
+    table = supabase.table("candidate_events")
+
+    for a in articles:
+        try:
+            record = {
+                "project_name_raw": a.get("name", ""),
+                "country": a.get("country", ""),
+                "summary": a.get("summary", ""),
+                "source_name": a.get("source_name", ""),
+                "source_url": a.get("source_url", ""),
+                "review_status": "pending",
+                "fetched_at": datetime.now(timezone.utc).isoformat(),
+                "event_type": a.get("event_type", "ARTICLE_MENTION"),
+                "evidence_quote": (a.get("evidence_quote")
+                                   or a.get("summary", ""))[:500],
+                "publication_date": a.get("publication_date")
+                                    or a.get("source_date", ""),
+            }
+            table.insert(record).execute()
+            inserted += 1
+        except Exception:
+            log.warning("  candidate_events insert error: %s",
+                        a.get("name", "?"), exc_info=True)
+
+    return inserted
+
+
+def promote_accepted_candidates(supabase):
+    """
+    Move candidate_events rows with review_status='accepted' into projects table.
+
+    Normalization + merge logic:
+    1. For each accepted candidate, call normalize_project_name() to resolve
+       the canonical project ID. If matched, use the canonical display name.
+    2. Group candidates by their effective project name (canonical display name
+       if matched, otherwise the raw project_name_raw as-is).
+    3. For groups with multiple candidates, merge evidence_quote and summary
+       fields — concatenate distinct info rather than creating duplicates.
+    4. Upsert into projects table: match by 'name' column, update existing,
+       insert new.
+
+    This is the ONLY path by which data enters the projects table.
+    """
+    log.info("=" * 54)
+    log.info("PROMOTE MODE: moving accepted candidates to projects")
+    log.info("=" * 54)
+
+    candidate_table = supabase.table("candidate_events")
+    project_table = supabase.table("projects")
+
+    resp = candidate_table.select("*").eq("review_status", "accepted").execute()
+    if not resp.data:
+        log.info("No accepted candidates to promote.")
+        return 0, 0
+
+    candidates = resp.data
+    log.info("Accepted candidates: %d", len(candidates))
+
+    # ---- Step 1: normalize and group candidates --------
+    # groups: { effective_name: [candidate_dict, ...] }
+    groups = {}
+    normalization_log = []  # (raw_name, canonical_id, display_name)
+
+    for c in candidates:
+        raw_name = c.get("project_name_raw", "")
+        canonical_id = normalize_project_name(raw_name)
+
+        if canonical_id:
+            display_name = get_display_name(canonical_id)
+            effective_name = display_name
+            normalization_log.append((raw_name, canonical_id, display_name))
+        else:
+            effective_name = raw_name
+            normalization_log.append((raw_name, None, raw_name))
+
+        if effective_name not in groups:
+            groups[effective_name] = []
+        groups[effective_name].append(c)
+
+    # Report normalization results
+    matched = sum(1 for _, cid, _ in normalization_log if cid)
+    log.info("Normalized: %d/%d → canonical IDs", matched, len(normalization_log))
+    for raw, cid, display in normalization_log:
+        if cid:
+            log.info("  %s → [%s] %s", raw[:50], cid, display[:50])
+        else:
+            log.info("  %s → (no match, kept as-is)", raw[:50])
+
+    # ---- Step 1b: write canonical_project_id back to candidate_events ----
+    for c in candidates:
+        raw_name = c.get("project_name_raw", "")
+        canonical_id = normalize_project_name(raw_name)
+        cid = c.get("id")
+        if cid and canonical_id:
+            try:
+                candidate_table.update({
+                    "canonical_project_id": canonical_id,
+                }).eq("id", cid).execute()
+            except Exception:
+                log.debug("  Could not update canonical_project_id for id=%s",
+                          cid, exc_info=True)
+
+    # ---- Step 2: merge groups and upsert ----
+    new = 0
+    updated = 0
+
+    for effective_name, group in groups.items():
+        try:
+            # Merge: pick the best data from all candidates in this group
+            if len(group) == 1:
+                c = group[0]
+                merged_summary = c.get("summary", "")
+                merged_source_name = c.get("source_name", "")
+                merged_source_url = c.get("source_url", "")
+                merged_source_date = c.get("source_date", "")
+                merged_country = c.get("country", "")
+                merged_flag = c.get("flag", "")
+                merged_status = c.get("status", "Unknown")
+            else:
+                # Multiple candidates for the same project — merge
+                # Use longest summary (most informative)
+                summaries = [c.get("summary", "") for c in group if c.get("summary")]
+                merged_summary = max(summaries, key=len) if summaries else ""
+
+                # Append distinct evidence from other candidates' summaries
+                # (avoid duplicating info by checking if content already present)
+                seen_summaries = {merged_summary}
+                for c in group:
+                    s = c.get("summary", "")
+                    if s and s not in seen_summaries and len(s) > 20:
+                        # Only append if it adds new info (simple containment check)
+                        if s not in merged_summary:
+                            merged_summary += " | " + s
+                            seen_summaries.add(s)
+
+                # Source: use most recent date
+                dated = sorted(
+                    [c for c in group if c.get("source_date")],
+                    key=lambda x: x.get("source_date", ""),
+                    reverse=True,
+                )
+                best = dated[0] if dated else group[0]
+                merged_source_name = best.get("source_name", "")
+                merged_source_url = best.get("source_url", "")
+                merged_source_date = best.get("source_date", "")
+
+                # Country: most common value (or from best candidate)
+                countries = [c.get("country", "") for c in group if c.get("country")]
+                if countries:
+                    merged_country = max(set(countries), key=countries.count)
+                else:
+                    merged_country = ""
+
+                # Status: prioritize Delivered > Under Construction > Planned > Unknown
+                statuses = [c.get("status", "Unknown") for c in group]
+                status_priority = {"Delivered": 0, "Under Construction": 1, "Planned": 2, "Unknown": 3}
+                merged_status = min(statuses, key=lambda s: status_priority.get(s, 99))
+                merged_flag = best.get("flag", "")
+
+                log.info("  Merging %d candidates → %s", len(group), effective_name[:60])
+
+            project_data = {
+                "name": effective_name,
+                "country": merged_country,
+                "flag": merged_flag,
+                "status": merged_status,
+                "summary": merged_summary[:2000],  # respect DB column limit
+                "source_name": merged_source_name,
+                "source_url": merged_source_url,
+                "source_date": merged_source_date,
+                "stainless_steel": group[0].get("stainless_steel", ""),
+                "application": group[0].get("application", ""),
+            }
+
+            existing = project_table.select("id").eq("name", effective_name).execute()
+            if existing.data:
+                project_table.update(project_data).eq("name", effective_name).execute()
+                updated += 1
+                log.info("  UPDATED: %s", effective_name[:60])
+            else:
+                project_table.insert(project_data).execute()
+                new += 1
+                log.info("  NEW: %s", effective_name[:60])
+
+        except Exception:
+            log.warning("  Promote error: %s", effective_name[:60], exc_info=True)
+
+    log.info("Promote complete: %d new, %d updated (from %d accepted candidates in %d groups)",
+             new, updated, len(candidates), len(groups))
+    return new, updated
+
+
 # ---- Backfill ----------------------------------------------------------
 
 def backfill_unknown_countries(supabase):
-    """Query projects with empty/null country, re-extract from name+summary, and update."""
+    """Query projects with empty/null country, re-extract from name+summary,
+    and insert corrected records into candidate_events (not projects directly).
+    Use --promote to move accepted candidates to projects after review."""
     log.info("=" * 54)
     log.info("BACKFILL MODE: re-extracting countries for Unknown entries")
     log.info("=" * 54)
 
-    table = supabase.table("projects")
+    project_table = supabase.table("projects")
+    candidate_table = supabase.table("candidate_events")
 
     # Fetch all projects
-    resp = table.select("*").execute()
+    resp = project_table.select("*").execute()
     if not resp.data:
         log.info("No projects in database.")
         return
@@ -2057,7 +2678,7 @@ def backfill_unknown_countries(supabase):
         log.info("No unknown countries to backfill.")
         return
 
-    updated = 0
+    inserted = 0
     still_unknown = 0
 
     for p in unknown:
@@ -2068,35 +2689,188 @@ def backfill_unknown_countries(supabase):
         if country:
             flag = country_to_flag(country)
             try:
-                table.update({
+                candidate_table.insert({
+                    "project_name_raw": p.get("name", ""),
                     "country": country,
-                    "flag": flag,
-                }).eq("id", p["id"]).execute()
-                updated += 1
-                log.info("  UPDATED: %s → %s", title[:60], country)
+                    "summary": p.get("summary", ""),
+                    "source_name": p.get("source_name", ""),
+                    "source_url": p.get("source_url", ""),
+                    "review_status": "pending",
+                    "fetched_at": datetime.now(timezone.utc).isoformat(),
+                }).execute()
+                inserted += 1
+                log.info("  INSERTED to candidate_events: %s → %s", title[:60], country)
             except Exception:
-                log.warning("  DB update failed for: %s", title[:60], exc_info=True)
+                log.warning("  candidate_events insert failed for: %s", title[:60], exc_info=True)
         else:
             still_unknown += 1
 
         time.sleep(0.1)  # small delay to not hammer DB
 
     log.info("=" * 54)
-    log.info("Backfill results:")
-    log.info("  Updated: %d", updated)
+    log.info("Backfill results (candidate_events):")
+    log.info("  Inserted: %d", inserted)
     log.info("  Still unknown: %d", still_unknown)
     log.info("  Total processed: %d", len(unknown))
+    log.info("  Run --promote after reviewing candidates to update projects.")
 
     if still_unknown > 0:
         log.info("--- Still unrecognized after re-extraction ---")
-        for u in [p for p in unknown if not p.get("country") or not p["country"].strip()]:
-            # these would be the ones that failed extraction again
-            pass
-        # re-query to get accurate list
-        resp2 = table.select("*").execute()
-        still = [p for p in resp2.data if not p.get("country") or not p.get("country", "").strip()]
-        for p in still:
-            log.info("  UNRECOGNIZED: %s", p.get("name", "")[:120])
+        for p in unknown:
+            if not p.get("country") or not p.get("country", "").strip():
+                log.info("  UNRECOGNIZED: %s", p.get("name", "")[:120])
+
+
+def backfill_source_urls(supabase):
+    """Find projects with example.com or empty source_url, search source sites
+    for the real article link, and insert corrected records into candidate_events
+    (not projects directly). Use --promote after review to update projects."""
+    log.info("=" * 54)
+    log.info("BACKFILL MODE: fixing source_url for projects with placeholder URLs")
+    log.info("=" * 54)
+
+    project_table = supabase.table("projects")
+    candidate_table = supabase.table("candidate_events")
+
+    resp = project_table.select("*").execute()
+    if not resp.data:
+        log.info("No projects in database.")
+        return
+
+    projects = resp.data
+    log.info("Total projects in DB: %d", len(projects))
+
+    # Find projects with bad source_url
+    bad = [
+        p for p in projects
+        if not p.get("source_url")
+        or "example.com" in str(p.get("source_url", ""))
+    ]
+    log.info("Projects with placeholder source_url: %d", len(bad))
+
+    if not bad:
+        log.info("All source_urls look valid. Nothing to backfill.")
+        return
+
+    # Map known source_name values to site configs
+    name_to_site = {}
+    for site in SITES:
+        name_to_site[site["name"].lower()] = site
+
+    session = build_session()
+    inserted = 0
+    failed = 0
+
+    for p in bad:
+        pid = p["id"]
+        project_name = p.get("name", "")
+        source_name = str(p.get("source_name", "")).strip()
+        log.info("Processing: %s (source: %s)", project_name[:60], source_name)
+
+        real_url = None
+
+        # Determine which site configs to try
+        sites_to_try = []
+        site_key = source_name.lower()
+        if site_key in name_to_site:
+            sites_to_try = [name_to_site[site_key]]
+        else:
+            # Unknown source_name — try all sites
+            sites_to_try = SITES
+
+        # Search each site for the project name
+        for site_config in sites_to_try:
+            if real_url:
+                break
+
+            # Build search URL: use first URL pattern, replace FPSO with project name
+            search_query = project_name.split(" ")[:4]  # first 4 words
+            search_query = " ".join(search_query)
+            search_url = site_config["urls"][0]
+            # Try a custom search with the project name
+            if "?s=" in search_url:
+                custom_url = search_url.split("?s=")[0] + "?s=" + requests.utils.quote(search_query)
+            elif "/search?" in search_url:
+                custom_url = search_url.split("?q=")[0] + "?q=" + requests.utils.quote(search_query)
+            else:
+                custom_url = None
+
+            if not custom_url:
+                continue
+
+            log.info("  Searching %s: %s", site_config["name"], custom_url)
+            r = fetch_url(custom_url, session)
+            if r is None:
+                continue
+
+            soup = BeautifulSoup(r.text, "html.parser")
+            elem_list = find_article_elements(soup, site_config)
+            if not elem_list:
+                # Fallback: look for any <a> with matching text
+                all_links = soup.find_all("a", href=True)
+                for a_tag in all_links:
+                    text = a_tag.get_text(strip=True)
+                    if project_name.lower()[:20] in text.lower():
+                        href = a_tag.get("href", "")
+                        if href and not href.startswith("#") and not href.startswith("javascript"):
+                            real_url = urljoin(custom_url, href)
+                            break
+                continue
+
+            title_selectors = [s.strip() for s in site_config["title_sel"].split(",")]
+
+            for elem in elem_list:
+                if real_url:
+                    break
+                for sel in title_selectors:
+                    title_el = elem.select_one(sel)
+                    if not title_el:
+                        continue
+                    title = title_el.get_text(strip=True)
+                    # Check if this article title matches our project name
+                    if project_name.lower()[:20] not in title.lower():
+                        continue
+                    href = title_el.get("href", "")
+                    if not href:
+                        parent_a = title_el.find_parent("a")
+                        if parent_a:
+                            href = parent_a.get("href", "")
+                    if href and not href.startswith("#") and not href.startswith("javascript"):
+                        real_url = urljoin(custom_url, href)
+                        break
+
+            if real_url:
+                break
+            time.sleep(2)  # polite delay between sites
+
+        if real_url:
+            try:
+                candidate_table.insert({
+                    "project_name_raw": p.get("name", ""),
+                    "country": p.get("country", ""),
+                    "summary": p.get("summary", ""),
+                    "source_name": p.get("source_name", ""),
+                    "source_url": real_url,
+                    "review_status": "pending",
+                    "fetched_at": datetime.now(timezone.utc).isoformat(),
+                }).execute()
+                inserted += 1
+                log.info("  INSERTED to candidate_events: %s → %s", project_name[:60], real_url)
+            except Exception:
+                log.warning("  candidate_events insert failed for: %s", project_name[:60], exc_info=True)
+                failed += 1
+        else:
+            log.warning("  NOT FOUND: could not find article for %s", project_name[:60])
+            failed += 1
+
+        time.sleep(1)  # polite delay between searches
+
+    log.info("=" * 54)
+    log.info("Source URL backfill results (candidate_events):")
+    log.info("  Inserted: %d", inserted)
+    log.info("  Failed:  %d", failed)
+    log.info("  Total processed: %d", len(bad))
+    log.info("  Run --promote after reviewing candidates to update projects.")
 
 
 # ---- Main ------------------------------------------------------------
@@ -2106,9 +2880,19 @@ def main():
 
     parser = argparse.ArgumentParser(description="FPSO Project Crawler")
     parser.add_argument(
+        "--promote",
+        action="store_true",
+        help="Move accepted candidates from candidate_events to projects table.",
+    )
+    parser.add_argument(
         "--backfill",
         action="store_true",
-        help="Re-extract countries for existing Unknown entries in DB (no crawl).",
+        help="Re-extract countries for Unknown entries and write to candidate_events.",
+    )
+    parser.add_argument(
+        "--backfill-source-urls",
+        action="store_true",
+        help="Search source sites for real article URLs and write to candidate_events.",
     )
     parser.add_argument(
         "--crawl",
@@ -2120,12 +2904,26 @@ def main():
 
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-    # Backfill mode
+    # Promote mode: move accepted candidates to projects
+    if args.promote:
+        new, updated = promote_accepted_candidates(supabase)
+        log.info(
+            "Promote complete: %d new, %d updated in projects.",
+            new,
+            updated,
+        )
+        return
+
+    # Backfill modes
+    if args.backfill_source_urls:
+        backfill_source_urls(supabase)
+        return
+
     if args.backfill:
         backfill_unknown_countries(supabase)
         return
 
-    # Normal crawl mode (default when neither --backfill nor any other flag)
+    # Normal crawl mode (default when no flag specified)
     log.info("=" * 54)
     log.info("FPSO Project Crawler  —  %s", TODAY)
     log.info("=" * 54)
@@ -2160,12 +2958,10 @@ def main():
                     log.info("  [NO_COUNTRY] %s", a["name"][:120])
 
     if all_articles:
-        new, updated = upsert_projects(supabase, all_articles)
+        inserted = insert_candidate_events(supabase, all_articles)
         log.info(
-            "抓取完成，共处理 %d 条项目（新增 %d 条，更新 %d 条）",
-            len(all_articles),
-            new,
-            updated,
+            "抓取完成，共 %d 条文章写入 candidate_events（review_status=pending）",
+            inserted,
         )
     else:
         log.info("No articles with FPSO found.")
