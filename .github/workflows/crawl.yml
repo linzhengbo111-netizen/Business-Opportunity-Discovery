@@ -9,7 +9,7 @@ on:
 jobs:
   crawl:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -40,4 +40,16 @@ jobs:
 
       - name: Run NSTA FDP adapter (UK)
         run: python crawler/adapters/nsta_fdp.py
+        continue-on-error: true
+
+      - name: Run SBM Offshore Newsroom adapter
+        run: python crawler/adapters/sbm_newsroom.py --local-only
+        continue-on-error: true
+
+      - name: Run Equinor Supplier adapter
+        run: python crawler/adapters/equinor_supplier.py
+        continue-on-error: true
+
+      - name: Run MODEC Supply Chain adapter
+        run: python crawler/adapters/modec_supplychain.py
         continue-on-error: true
