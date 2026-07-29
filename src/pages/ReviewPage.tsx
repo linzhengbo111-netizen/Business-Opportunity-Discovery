@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
 import { supabase } from "@/db/supabase";
+import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
 
 /* ------------------------------------------------------------------ */
 /*  types                                                              */
@@ -208,20 +209,130 @@ export default function ReviewPage() {
       return;
     }
 
+    // ---- Step 1: normalize and group by canonical project ID ----
+    // Map key: canonical ID string, or "__raw__<project_name_raw>" fallback
+    const groups = new Map<string, CandidateEvent[]>();
+
+    for (const ev of accepted) {
+      const canonicalId = normalizeProjectName(ev.project_name_raw);
+      const key = canonicalId ?? `__raw__${ev.project_name_raw || "Unknown Project"}`;
+
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+      groups.get(key)!.push(ev);
+    }
+
+    // ---- Step 2: write canonical_project_id back to candidate_events ----
+    for (const ev of accepted) {
+      const canonicalId = normalizeProjectName(ev.project_name_raw);
+      if (canonicalId && ev.canonical_project_id !== canonicalId) {
+        supabase
+          .from("candidate_events")
+          .update({ canonical_project_id: canonicalId })
+          .eq("id", ev.id)
+          .then(({ error }) => {
+            if (error) console.warn("[Promote] backfill canonical_project_id failed:", ev.id, error.message);
+          });
+      }
+    }
+
+    // ---- Step 3: merge each group and upsert into projects ----
     let inserted = 0;
     let updated = 0;
     let errors = 0;
 
-    for (const ev of accepted) {
+    for (const [key, group] of groups) {
       try {
-        const projectName = ev.project_name_raw || "Unknown Project";
-        const country = ev.country || "Unknown";
-        const summary = ev.summary || "";
-        const sourceName = ev.source_name || "";
-        const sourceUrl = ev.source_url || "";
-        const pubDate = ev.publication_date ? ev.publication_date.slice(0, 10) : "";
+        const canonicalId = key.startsWith("__raw__") ? null : key;
+        const projectName = canonicalId
+          ? getDisplayName(canonicalId)
+          : (group[0].project_name_raw || "Unknown Project");
 
-        // Check if project already exists by name
+        // --- Merge logic (mirrors Python promote_accepted_candidates) ---
+
+        // Summary: longest first, then append distinct summaries not already contained
+        const summaries = group
+          .map((e) => (e.summary || "").trim())
+          .filter((s) => s.length > 0);
+        let mergedSummary = summaries.length > 0
+          ? summaries.reduce((a, b) => (b.length > a.length ? b : a))
+          : "";
+        const seenSummaries = new Set<string>([mergedSummary]);
+        for (const s of summaries) {
+          if (!seenSummaries.has(s) && s.length > 20 && !mergedSummary.includes(s)) {
+            mergedSummary += " | " + s;
+            seenSummaries.add(s);
+          }
+        }
+
+        // Evidence quote: collect dedup, join with separator
+        const quotes = new Set<string>();
+        for (const ev of group) {
+          if (ev.evidence_quote && ev.evidence_quote.trim()) {
+            quotes.add(ev.evidence_quote.trim());
+          }
+        }
+        const mergedEvidenceQuote = Array.from(quotes).join(" | ");
+
+        // Append unique evidence quotes to summary so evidence is preserved
+        for (const q of quotes) {
+          if (!mergedSummary.includes(q)) {
+            mergedSummary += " | " + q;
+          }
+        }
+
+        // Source name: dedup join
+        const sourceNames = new Set<string>();
+        for (const ev of group) {
+          if (ev.source_name && ev.source_name.trim()) {
+            sourceNames.add(ev.source_name.trim());
+          }
+        }
+        const mergedSourceName = Array.from(sourceNames).join(", ");
+
+        // Source URL: from the event with latest publication_date
+        const dated = group
+          .filter((e) => e.publication_date)
+          .sort((a, b) => b.publication_date.localeCompare(a.publication_date));
+        const best = dated.length > 0 ? dated[0] : group[0];
+        const mergedSourceUrl = best.source_url || "";
+
+        // Publication date: latest across group
+        const pubDate = best.publication_date
+          ? best.publication_date.slice(0, 10)
+          : "";
+
+        // Country: most common value in group
+        const countryCounts = new Map<string, number>();
+        for (const ev of group) {
+          if (ev.country && ev.country.trim()) {
+            const c = ev.country.trim();
+            countryCounts.set(c, (countryCounts.get(c) || 0) + 1);
+          }
+        }
+        let mergedCountry = "Unknown";
+        let maxCount = 0;
+        for (const [c, n] of countryCounts) {
+          if (n > maxCount) {
+            mergedCountry = c;
+            maxCount = n;
+          }
+        }
+
+        // Status: prioritize Delivered > Under Construction > Planned > Unknown
+        const statusPriority: Record<string, number> = {
+          "Delivered": 0,
+          "Under Construction": 1,
+          "Planned": 2,
+          "Unknown": 3,
+        };
+        const statuses = group.map((e) => (e as any).status || "Unknown");
+        const mergedStatus = statuses.sort(
+          (a, b) => (statusPriority[a] ?? 99) - (statusPriority[b] ?? 99)
+        )[0];
+
+        // --- Upsert: check if project already exists by name ---
         const { data: existing } = await supabase
           .from("projects")
           .select("id, name")
@@ -229,49 +340,57 @@ export default function ReviewPage() {
           .maybeSingle();
 
         if (existing) {
-          // Update: merge summary if new info
           const { error: updateErr } = await supabase
             .from("projects")
             .update({
-              summary: summary || undefined,
-              source_name: sourceName || undefined,
-              source_url: sourceUrl || undefined,
+              summary: mergedSummary || undefined,
+              source_name: mergedSourceName || undefined,
+              source_url: mergedSourceUrl || undefined,
               source_date: pubDate || undefined,
+              country: mergedCountry,
+              status: mergedStatus,
             })
             .eq("id", existing.id);
 
           if (updateErr) {
+            console.error("[Promote] update error:", updateErr.message);
             errors++;
           } else {
             updated++;
           }
         } else {
-          // Insert new project
           const { error: insertErr } = await supabase
             .from("projects")
             .insert({
               name: projectName,
-              country,
+              country: mergedCountry,
               flag: "",
-              status: "Unknown",
-              summary,
-              source_name: sourceName,
-              source_url: sourceUrl,
+              status: mergedStatus,
+              summary: mergedSummary,
+              source_name: mergedSourceName,
+              source_url: mergedSourceUrl,
               source_date: pubDate,
               stainless_steel: "",
               application: "",
             });
 
           if (insertErr) {
+            console.error("[Promote] insert error:", insertErr.message);
             errors++;
           } else {
             inserted++;
           }
         }
-      } catch {
+      } catch (err) {
+        console.error("[Promote] unexpected error:", err);
         errors++;
       }
     }
+
+    // ---- Step 4: report ----
+    console.log(
+      `Promote: ${accepted.length} accepted events merged into ${groups.size} unique projects`,
+    );
 
     const parts = [];
     if (inserted > 0) parts.push(`${inserted} inserted`);
