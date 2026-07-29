@@ -9,7 +9,7 @@ on:
 jobs:
   crawl:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -32,9 +32,17 @@ jobs:
         run: python crawler/adapters/anp_fpso_csv.py
         continue-on-error: true
 
+      - name: Run ANP Development Plan adapter (Brazil P0)
+        run: python crawler/adapters/anp_development_plan.py
+        continue-on-error: true
+
       # ---- Guyana (P0) ----
       - name: Run Guyana EPA adapter
         run: python crawler/adapters/guyana_epa.py
+        continue-on-error: true
+
+      - name: Run Guyana Petroleum adapter (Guyana P0)
+        run: python crawler/adapters/guyana_petroleum.py
         continue-on-error: true
 
       # ---- UK (P0) ----
