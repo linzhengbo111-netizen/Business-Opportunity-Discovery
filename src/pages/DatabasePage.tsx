@@ -7,7 +7,8 @@ import { useEffect, useMemo, useState } from "react";
 import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
 import type { Project } from "@/data/projects";
-import { sampleProjects } from "@/data/projects";
+import { sampleProjects, COUNTRY_ALIASES } from "@/data/projects";
+import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
 import { supabase } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
 
@@ -46,16 +47,21 @@ function statusBgClass(status: string): string {
   }
 }
 
-/** Normalize country name aliases to canonical form. */
-const COUNTRY_ALIASES: Record<string, string> = {
-  "Ivory Coast": "Côte d'Ivoire",
-};
+/** Apply country name alias with case-insensitive fallback. */
+function normalizeCountry(raw: string): string {
+  if (!raw) return "Unknown";
+  const trimmed = raw.trim();
+  return COUNTRY_ALIASES[trimmed] ?? COUNTRY_ALIASES[trimmed.toLowerCase()] ?? trimmed;
+}
 
 function mapRowToProject(row: Record<string, unknown>): Project {
   const rawCountry = String(row.country ?? "").trim();
-  const country = COUNTRY_ALIASES[rawCountry] ?? (rawCountry || "Unknown");
+  const country = normalizeCountry(rawCountry);
+  const rawName = String(row.name ?? "");
+  const canonicalId = normalizeProjectName(rawName);
+  const name = canonicalId ? getDisplayName(canonicalId) : rawName;
   return {
-    name:           String(row.name ?? ""),
+    name,
     country,
     flag:           String(row.flag ?? ""),
     status:         String(row.status ?? ""),

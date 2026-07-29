@@ -170,3 +170,105 @@ export function countryToFlagEmoji(country: string): string {
     code.charCodeAt(1) + offset,
   );
 }
+
+/**
+ * Country name aliases — normalize variations to canonical form.
+ * Mirrors crawler/crawl.py COUNTRY_ALIASES. Keep both in sync.
+ *
+ * Usage:
+ *   import { COUNTRY_ALIASES } from "@/data/projects";
+ *   const canonical = COUNTRY_ALIASES[rawName] ?? rawName;
+ */
+export const COUNTRY_ALIASES: Record<string, string> = {
+  // USA
+  "united states": "USA",
+  "united states of america": "USA",
+  "us": "USA",
+  "u.s.": "USA",
+  "u.s.a.": "USA",
+  "america": "USA",
+
+  // UK
+  "united kingdom": "UK",
+  "britain": "UK",
+  "great britain": "UK",
+  "england": "UK",
+  "scotland": "UK",
+
+  // UAE
+  "united arab emirates": "UAE",
+  "u.a.e.": "UAE",
+  "emirates": "UAE",
+
+  // Ivory Coast
+  "côte d'ivoire": "Ivory Coast",
+  "cote d'ivoire": "Ivory Coast",
+  "côte d ivoire": "Ivory Coast",
+  "cote divoire": "Ivory Coast",
+
+  // Russia
+  "russian federation": "Russia",
+
+  // South Korea
+  "korea": "South Korea",
+  "republic of korea": "South Korea",
+
+  // Congo
+  "republic of congo": "Congo",
+  "republic of the congo": "Congo",
+  "congo-brazzaville": "Congo",
+  "congo brazzaville": "Congo",
+  "drc": "Congo",
+  "democratic republic of congo": "Congo",
+  "democratic republic of the congo": "Congo",
+
+  // Trinidad and Tobago
+  "trinidad": "Trinidad and Tobago",
+  "trinidad & tobago": "Trinidad and Tobago",
+
+  // Equatorial Guinea
+  "eq guinea": "Equatorial Guinea",
+  "eq. guinea": "Equatorial Guinea",
+
+  // Saudi Arabia
+  "saudi": "Saudi Arabia",
+  "ksa": "Saudi Arabia",
+
+  // Iran
+  "islamic republic of iran": "Iran",
+
+  // Netherlands
+  "holland": "Netherlands",
+  "the netherlands": "Netherlands",
+
+  // Vietnam
+  "viet nam": "Vietnam",
+
+  // East Timor
+  "east timor": "Timor-Leste",
+  "timor leste": "Timor-Leste",
+
+  // Myanmar
+  "burma": "Myanmar",
+
+  // Brunei
+  "brunei darussalam": "Brunei",
+
+  // Falklands
+  "falklands": "Falkland Islands",
+  "malvinas": "Falkland Islands",
+  "islas malvinas": "Falkland Islands",
+
+  // Papua New Guinea
+  "png": "Papua New Guinea",
+
+  // Philippines
+  "the philippines": "Philippines",
+
+  // Turkey
+  "türkiye": "Turkey",
+  "turkiye": "Turkey",
+
+  // Venezuela
+  "venezuela": "Venezuela",
+};

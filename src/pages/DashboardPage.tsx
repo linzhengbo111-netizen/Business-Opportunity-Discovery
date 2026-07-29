@@ -12,7 +12,8 @@ import {
 import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
 import type { Project } from "@/data/projects";
-import { countryCoordinates, sampleProjects, countryToFlagEmoji } from "@/data/projects";
+import { countryCoordinates, sampleProjects, countryToFlagEmoji, COUNTRY_ALIASES } from "@/data/projects";
+import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
 import { supabase } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
 
@@ -69,17 +70,23 @@ function statusDotClass(status: string): string {
   }
 }
 
-/** Normalize country name aliases to canonical form. */
-const COUNTRY_ALIASES: Record<string, string> = {
-  "Ivory Coast": "Côte d'Ivoire",
-};
+/** Apply country name alias with case-insensitive fallback. */
+function normalizeCountry(raw: string): string {
+  if (!raw) return "Unknown";
+  const trimmed = raw.trim();
+  return COUNTRY_ALIASES[trimmed] ?? COUNTRY_ALIASES[trimmed.toLowerCase()] ?? trimmed;
+}
 
 /** Map a raw Supabase row (snake_case columns) to the camelCase Project interface. */
 function mapRowToProject(row: Record<string, unknown>): Project {
   const rawCountry = String(row.country ?? "").trim();
-  const country = COUNTRY_ALIASES[rawCountry] ?? (rawCountry || "Unknown");
+  const country = normalizeCountry(rawCountry);
+  const rawName = String(row.name ?? "");
+  // Normalize project name through canonical alias system for dedup
+  const canonicalId = normalizeProjectName(rawName);
+  const name = canonicalId ? getDisplayName(canonicalId) : rawName;
   return {
-    name: String(row.name ?? ""),
+    name,
     country,
     flag: String(row.flag ?? ""),
     status: String(row.status ?? ""),
@@ -98,10 +105,14 @@ function mapRowToProject(row: Record<string, unknown>): Project {
  *  candidate_events lacks flag, status, stainless_steel, application — we provide defaults. */
 function mapCandidateToProject(row: Record<string, unknown>): Project {
   const rawCountry = String(row.country ?? "").trim();
-  const country = COUNTRY_ALIASES[rawCountry] ?? (rawCountry || "Unknown");
+  const country = normalizeCountry(rawCountry);
   const sourceDate = String(row.publication_date || row.fetched_at || "");
+  const rawName = String(row.project_name_raw ?? "");
+  // Normalize project name through canonical alias system for dedup
+  const canonicalId = normalizeProjectName(rawName);
+  const name = canonicalId ? getDisplayName(canonicalId) : rawName;
   return {
-    name: String(row.project_name_raw ?? ""),
+    name,
     country,
     flag: countryToFlagEmoji(country),
     status: "Unknown",
@@ -125,25 +136,18 @@ export default function DashboardPage() {
 
   // ---- 从 Supabase 获取项目数据 ----
   useEffect(() => {
-    console.log("[Dashboard] === Supabase client check ===");
-    console.log("[Dashboard] supabase client:", supabase ? "initialized" : "NULL");
+    console.log("[Dashboard] === Starting data fetch ===");
+    console.log("[Dashboard] supabase client: initialized");
 
     console.log(
       "地图已更换，若光点位置偏移，请调整 src/data/projects.ts 中的 countryCoordinates 百分比。"
     );
 
-    if (!supabase) {
-      console.warn("[Dashboard] No Supabase client — env vars missing. Using sampleProjects fallback.");
-      setProjects(sampleProjects);
-      setLoading(false);
-      return;
-    }
-
     let cancelled = false;
 
     async function fetchTable(tableName: string): Promise<Project[]> {
       const start = performance.now();
-      const { data, error } = await supabase!.from(tableName).select("*");
+      const { data, error } = await supabase.from(tableName).select("*");
       const elapsed = (performance.now() - start).toFixed(0);
 
       if (error) {
@@ -169,9 +173,10 @@ export default function DashboardPage() {
 
       // ---- Merge: projects entries first (richer data), then non-overlapping candidates ----
       const seen = new Set<string>();
-      // Dedup key: normalize name to lowercase, strip "fpso " prefix
+      // Dedup key: canonical project ID if matched, otherwise normalized raw name
       function dedupKey(p: Project): string {
-        return p.name.trim().toLowerCase().replace(/^fpso\s+/i, "");
+        const canonical = normalizeProjectName(p.name);
+        return canonical ?? p.name.trim().toLowerCase().replace(/^fpso\s+/i, "");
       }
 
       const merged: Project[] = [];

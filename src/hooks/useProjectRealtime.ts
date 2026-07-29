@@ -17,18 +17,10 @@ interface UseProjectRealtimeResult {
 
 export function useProjectRealtime(): UseProjectRealtimeResult {
   const [version, setVersion] = useState(0);
-  const [status, setStatus] = useState<ConnectionStatus>(
-    supabase ? "disconnected" : "disconnected",
-  );
+  const [status, setStatus] = useState<ConnectionStatus>("disconnected");
   const channelRef = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
-    if (!supabase) {
-      console.log("[Realtime] No Supabase client — realtime disabled.");
-      setStatus("disconnected");
-      return;
-    }
-
     console.log("[Realtime] Opening channel 'projects-changes'...");
 
     const channel = supabase
