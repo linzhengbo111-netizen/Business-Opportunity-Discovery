@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  crawl:
+  crawl-offshore-energy:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
 
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -27,5 +27,78 @@ jobs:
       - name: Install dependencies
         run: pip install -r crawler/requirements.txt
 
-      - name: Run industry media crawler
-        run: python crawler/crawl.py
+      - name: Run Offshore Energy adapter (P1)
+        continue-on-error: true
+        run: python -m crawler.adapters.offshore_energy
+
+  crawl-oe-digital:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r crawler/requirements.txt
+
+      - name: Run OE Digital adapter (P1)
+        continue-on-error: true
+        run: python -m crawler.adapters.oe_digital
+
+  crawl-world-oil:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r crawler/requirements.txt
+
+      - name: Run World Oil adapter (P2)
+        continue-on-error: true
+        run: python -m crawler.adapters.world_oil
+
+  crawl-splash247:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r crawler/requirements.txt
+
+      - name: Run Splash247 adapter (P2)
+        continue-on-error: true
+        run: python -m crawler.adapters.splash247
