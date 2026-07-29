@@ -9,7 +9,11 @@ on:
 jobs:
   crawl:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
+
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
 
     steps:
       - name: Checkout
@@ -23,8 +27,17 @@ jobs:
       - name: Install dependencies
         run: pip install -r crawler/requirements.txt
 
-      - name: Run crawler
+      - name: Run crawler (industry media)
         run: python crawler/crawl.py
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+
+      - name: Run ANP CSV adapter (Brazil)
+        run: python crawler/adapters/anp_fpso_csv.py
+        continue-on-error: true
+
+      - name: Run Guyana EPA adapter
+        run: python crawler/adapters/guyana_epa.py
+        continue-on-error: true
+
+      - name: Run NSTA FDP adapter (UK)
+        run: python crawler/adapters/nsta_fdp.py
+        continue-on-error: true
