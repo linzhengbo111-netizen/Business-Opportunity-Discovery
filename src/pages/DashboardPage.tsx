@@ -141,93 +141,72 @@ export default function DashboardPage() {
 
     let cancelled = false;
 
-    /** Fallback: query candidate_events when the projects table is empty.
-     *  This ensures crawler data is visible even before manual review/promotion. */
-    async function fetchCandidateEventsFallback() {
-      try {
-        const ceStart = performance.now();
-        const { data: ceData, error: ceError } = await supabase!
-          .from("candidate_events")
-          .select("*")
-          .in("review_status", ["pending", "accepted"])
-          .order("fetched_at", { ascending: false })
-          .limit(200);
-
-        const ceElapsed = (performance.now() - ceStart).toFixed(0);
-
-        if (ceError) {
-          console.error(`[Dashboard] candidate_events fallback FAILED (${ceElapsed}ms):`, ceError.message);
-          console.warn("[Dashboard] ⚠️  Degrading to sampleProjects fallback.");
-          if (!cancelled) setProjects(sampleProjects);
-          return;
-        }
-
-        if (!ceData || ceData.length === 0) {
-          console.warn(`[Dashboard] candidate_events also EMPTY (${ceElapsed}ms). Falling back to sampleProjects.`);
-          if (!cancelled) setProjects(sampleProjects);
-          return;
-        }
-
-        const allMapped = (ceData as Record<string, unknown>[]).map(mapCandidateToProject);
-        // Deduplicate by name (keep first = most recent due to ORDER BY fetched_at DESC)
-        const seen = new Set<string>();
-        const uniqueCE = allMapped.filter((p) => {
-          const key = p.name.trim();
-          if (!key || seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        });
-
-        console.log(
-          `[Dashboard] ✅ Using candidate_events fallback (${ceElapsed}ms): ` +
-          `${uniqueCE.length} unique projects from ${allMapped.length} rows.`,
-        );
-        console.table(uniqueCE.map((p) => ({ name: p.name, country: p.country })));
-
-        if (!cancelled) setProjects(uniqueCE);
-      } catch (err) {
-        console.error("[Dashboard] Unexpected error in candidate_events fallback:", err);
-        if (!cancelled) setProjects(sampleProjects);
-      }
-    }
-
-    async function fetchProjects() {
-      console.log("[Dashboard] Fetching from Supabase table 'projects'...");
+    async function fetchTable(tableName: string): Promise<Project[]> {
       const start = performance.now();
-      const { data, error } = await supabase!.from("projects").select("*");
+      const { data, error } = await supabase!.from(tableName).select("*");
       const elapsed = (performance.now() - start).toFixed(0);
 
       if (error) {
-        console.error(`[Dashboard] Supabase fetch FAILED (${elapsed}ms):`, error.message);
-        console.error("[Dashboard] Full error object:", JSON.stringify(error, null, 2));
-        console.warn("[Dashboard] ⚠️  Degrading to sampleProjects fallback due to connection error.");
-        if (!cancelled) setProjects(sampleProjects);
-        return;
+        console.error(`[Dashboard] '${tableName}' fetch FAILED (${elapsed}ms):`, error.message);
+        return [];
       }
 
-      const mapped = (data ?? []).map(mapRowToProject);
-      // 按 name 去重（保留第一条）
-      const seen = new Set<string>();
-      const unique = mapped.filter((p) => {
-        const key = p.name.trim();
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-      console.log(`[Dashboard] Supabase fetch OK (${elapsed}ms). Row count: ${mapped.length} (${unique.length} unique)`);
+      const mapped = (data ?? []).map(
+        tableName === "projects" ? mapRowToProject : mapCandidateToProject,
+      );
+      console.log(`[Dashboard] '${tableName}' fetch OK (${elapsed}ms): ${mapped.length} rows`);
+      return mapped;
+    }
 
-      if (unique.length > 0) {
-        console.log("[Dashboard] ✅ Using LIVE Supabase data. Projects:");
-        console.table(unique.map((p) => ({ name: p.name, country: p.country, status: p.status })));
-        if (!cancelled) setProjects(unique);
+    async function loadData() {
+      // ---- Fetch BOTH tables in parallel (always) ----
+      const [projectEntries, candidateEntries] = await Promise.all([
+        fetchTable("projects"),
+        fetchTable("candidate_events"),
+      ]);
+
+      if (cancelled) return;
+
+      // ---- Merge: projects entries first (richer data), then non-overlapping candidates ----
+      const seen = new Set<string>();
+      // Dedup key: normalize name to lowercase, strip "fpso " prefix
+      function dedupKey(p: Project): string {
+        return p.name.trim().toLowerCase().replace(/^fpso\s+/i, "");
+      }
+
+      const merged: Project[] = [];
+
+      for (const p of projectEntries) {
+        const key = dedupKey(p);
+        if (key && !seen.has(key)) {
+          seen.add(key);
+          merged.push(p);
+        }
+      }
+
+      for (const c of candidateEntries) {
+        const key = dedupKey(c);
+        if (key && !seen.has(key)) {
+          seen.add(key);
+          merged.push(c);
+        }
+      }
+
+      console.log(
+        `[Dashboard] Merge: ${projectEntries.length} projects + ${candidateEntries.length} candidates = ${merged.length} unique`,
+      );
+
+      if (merged.length > 0) {
+        console.log("[Dashboard] ✅ Using live Supabase data:");
+        console.table(merged.map((p) => ({ name: p.name, country: p.country, status: p.status })));
+        if (!cancelled) setProjects(merged);
       } else {
-        // ---- Fallback: query candidate_events when projects is empty ----
-        console.warn("[Dashboard] ⚠️  Supabase 'projects' table is EMPTY. Trying candidate_events fallback...");
-        await fetchCandidateEventsFallback();
+        console.warn("[Dashboard] Both tables EMPTY. Falling back to sampleProjects.");
+        if (!cancelled) setProjects(sampleProjects);
       }
     }
 
-    fetchProjects().finally(() => {
+    loadData().finally(() => {
       if (!cancelled) setLoading(false);
     });
 
