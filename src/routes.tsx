@@ -1,5 +1,6 @@
 import DashboardPage from './pages/DashboardPage';
 import DatabasePage from './pages/DatabasePage';
+import ReviewPage from './pages/ReviewPage';
 import SettingsPage from './pages/SettingsPage';
 import type { ReactNode } from 'react';
 
@@ -23,6 +24,12 @@ export const routes: RouteConfig[] = [
     name: 'Database',
     path: '/database',
     element: <DatabasePage />,
+    public: true,
+  },
+  {
+    name: 'Review',
+    path: '/review',
+    element: <ReviewPage />,
     public: true,
   },
   {

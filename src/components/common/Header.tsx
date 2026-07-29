@@ -21,6 +21,7 @@ export default function Header({ rightContent }: { rightContent?: ReactNode }) {
         <nav className="hidden items-center gap-8 md:flex">
           <NavLink to="/" end className={linkClass}>Dashboard</NavLink>
           <NavLink to="/database" className={linkClass}>Database</NavLink>
+          <NavLink to="/review" className={linkClass}>Review</NavLink>
           <NavLink to="/settings" className={linkClass}>Settings</NavLink>
         </nav>
 
