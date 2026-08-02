@@ -129,6 +129,14 @@ function mapCandidateToProject(row: Record<string, unknown>): Project {
   };
 }
 
+const INDUSTRY_OPTIONS = [
+  "All Industries",
+  "FPSO",
+  "Desalination",
+  "LNG",
+  "General Stainless",
+] as const;
+
 export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -225,7 +233,6 @@ export default function DashboardPage() {
 
   // ---- 派生数据 ----
   const countries = useMemo(() => getUniqueCountries(projects), [projects]);
-  const stats = useMemo(() => getStats(projects), [projects]);
 
   const filteredProjects = useMemo(() => {
     let result = projects;
@@ -239,8 +246,6 @@ export default function DashboardPage() {
   }, [projects, selectedCountry, selectedIndustry]);
 
   const filteredStats = useMemo(() => getStats(filteredProjects), [filteredProjects]);
-
-  const filteredCountries = useMemo(() => getUniqueCountries(filteredProjects), [filteredProjects]);
 
   // 图表数据
   const countryChartData = useMemo(() => {
@@ -267,7 +272,12 @@ export default function DashboardPage() {
       .concat(count["Unknown"] ? [{ name: "Unknown", value: count["Unknown"] }] : []);
   }, [filteredProjects]);
 
-  // 地图光点
+  // 地图光点 — 只显示筛选后项目所在国家
+  const filteredCountries = useMemo(
+    () => getUniqueCountries(filteredProjects),
+    [filteredProjects],
+  );
+
   const mapDots = useMemo(() => {
     const mapped = filteredCountries.filter((c) => countryCoordinates[c]);
     mapped.sort((a, b) => countryCoordinates[b].x - countryCoordinates[a].x);
@@ -316,27 +326,6 @@ export default function DashboardPage() {
       <Header rightContent={
         <>
           <div className="flex items-center gap-2">
-            <label htmlFor="industry-select" className="hidden text-sm text-fpso-muted lg:inline">
-              Industry
-            </label>
-            <select
-              id="industry-select"
-              value={selectedIndustry}
-              onChange={(e) => {
-                setSelectedIndustry(e.target.value);
-                console.log(`Industry changed to: ${e.target.value}`);
-              }}
-              className="h-9 min-w-[180px] rounded-md bg-fpso-card/85 px-3 py-1.5 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50"
-            >
-              <option value="All Industries">All Industries</option>
-              <option value="FPSO">FPSO</option>
-              <option value="Desalination">Desalination (海水淡化)</option>
-              <option value="LNG">LNG</option>
-              <option value="General Stainless">General Stainless (其他不锈钢)</option>
-            </select>
-          </div>
-
-          <div className="flex items-center gap-2">
             <label htmlFor="country-select" className="hidden text-sm text-fpso-muted lg:inline">
               Region
             </label>
@@ -357,6 +346,29 @@ export default function DashboardPage() {
                     {flag ? `${flag} ${country}` : country}
                   </option>
                 );
+              })}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label htmlFor="industry-select" className="hidden text-sm text-fpso-muted lg:inline">
+              Industry
+            </label>
+            <select
+              id="industry-select"
+              value={selectedIndustry}
+              onChange={(e) => {
+                setSelectedIndustry(e.target.value);
+                console.log(`Industry changed to: ${e.target.value}`);
+              }}
+              className="h-9 min-w-[180px] rounded-md bg-fpso-card/85 px-3 py-1.5 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50"
+            >
+              {INDUSTRY_OPTIONS.map((opt) => {
+                const label =
+                  opt === "Desalination" ? `${opt} (海水淡化)` :
+                  opt === "General Stainless" ? `${opt} (其他不锈钢)` :
+                  opt;
+                return <option key={opt} value={opt}>{label}</option>;
               })}
             </select>
           </div>
@@ -561,8 +573,8 @@ export default function DashboardPage() {
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-base font-medium text-fpso-fg">
               项目列表
-              {selectedIndustry !== "All Industries" && ` — ${selectedIndustry}`}
               {selectedCountry !== "All Countries" && ` — ${selectedCountry}`}
+              {selectedIndustry !== "All Industries" && ` — ${selectedIndustry}`}
             </h2>
             <span className="text-xs text-fpso-muted">
               {loading ? "Loading…" : `${filteredProjects.length} records`}

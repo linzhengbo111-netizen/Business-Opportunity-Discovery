@@ -13,9 +13,6 @@ export default function Header({ rightContent }: { rightContent?: ReactNode }) {
           <span className="text-lg font-bold tracking-tight neon-glow md:text-xl">
             Business Opportunity Discovery
           </span>
-          <span className="hidden text-xs text-fpso-muted md:inline">
-            Stainless Steel Opportunity Tracking in Global FPSO Projects
-          </span>
         </div>
 
         <nav className="hidden items-center gap-8 md:flex">
