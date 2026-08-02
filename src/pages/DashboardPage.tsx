@@ -12,7 +12,7 @@ import {
 import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
 import type { Project } from "@/data/projects";
-import { countryCoordinates, sampleProjects, countryToFlagEmoji, COUNTRY_ALIASES } from "@/data/projects";
+import { countryCoordinates, sampleProjects, countryToFlagEmoji, COUNTRY_ALIASES, INDUSTRY_OPTIONS, getIndustryLabel } from "@/data/projects";
 import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
 import { supabase } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
@@ -128,14 +128,6 @@ function mapCandidateToProject(row: Record<string, unknown>): Project {
     industry: "FPSO",
   };
 }
-
-const INDUSTRY_OPTIONS = [
-  "All Industries",
-  "FPSO",
-  "Desalination",
-  "LNG",
-  "General Stainless",
-] as const;
 
 export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -363,13 +355,9 @@ export default function DashboardPage() {
               }}
               className="h-9 min-w-[180px] rounded-md bg-fpso-card/85 px-3 py-1.5 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50"
             >
-              {INDUSTRY_OPTIONS.map((opt) => {
-                const label =
-                  opt === "Desalination" ? `${opt} (海水淡化)` :
-                  opt === "General Stainless" ? `${opt} (其他不锈钢)` :
-                  opt;
-                return <option key={opt} value={opt}>{label}</option>;
-              })}
+              {INDUSTRY_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>{getIndustryLabel(opt)}</option>
+              ))}
             </select>
           </div>
 

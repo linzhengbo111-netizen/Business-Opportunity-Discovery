@@ -8,6 +8,7 @@ import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
 import { supabase } from "@/db/supabase";
 import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
+import { useProjectRealtime } from "@/hooks/useProjectRealtime";
 
 /* ------------------------------------------------------------------ */
 /*  types                                                              */
@@ -64,6 +65,7 @@ export default function ReviewPage() {
   const [loadProgress, setLoadProgress] = useState("");
   const [promoting, setPromoting] = useState(false);
   const [promoteResult, setPromoteResult] = useState<string | null>(null);
+  const { version: _, status: connectionStatus } = useProjectRealtime();
 
   // filters
   const [filterStatus, setFilterStatus] = useState("all");
@@ -404,7 +406,46 @@ export default function ReviewPage() {
   return (
     <>
       <PageMeta title="Review — Candidate Events" description="人工审核 candidate_events 数据" />
-      <Header />
+      <Header rightContent={
+        <>
+          <div className="flex items-center gap-2">
+            <label htmlFor="review-country-select" className="hidden text-sm text-fpso-muted lg:inline">
+              Region
+            </label>
+            <select
+              id="review-country-select"
+              value={filterCountry}
+              onChange={(e) => setFilterCountry(e.target.value)}
+              className="h-9 min-w-[180px] rounded-md bg-fpso-card/85 px-3 py-1.5 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50"
+            >
+              <option value="all">All Countries</option>
+              {countries.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="relative inline-flex h-2.5 w-2.5">
+              {connectionStatus === "connected" && (
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fpso-green opacity-75" />
+              )}
+              <span
+                className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
+                  connectionStatus === "connected" ? "bg-fpso-green live-breath" : "bg-fpso-dim"
+                }`}
+              />
+            </span>
+            <span
+              className={`text-xs font-medium tracking-wider ${
+                connectionStatus === "connected" ? "text-fpso-green" : "text-fpso-dim"
+              }`}
+            >
+              {connectionStatus === "connected" ? "LIVE" : "STALE"}
+            </span>
+          </div>
+        </>
+      } />
 
       <main className="mx-auto w-full max-w-7xl px-6 py-8">
         {/* page title + promote */}
@@ -469,21 +510,6 @@ export default function ReviewPage() {
               <option value="all">All Types</option>
               {eventTypes.map((t) => (
                 <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* country */}
-          <div className="flex items-center gap-2">
-            <label className="text-xs font-medium text-fpso-muted">Country</label>
-            <select
-              value={filterCountry}
-              onChange={(e) => setFilterCountry(e.target.value)}
-              className="h-8 min-w-[140px] rounded-md bg-fpso-bg/70 px-2.5 py-1 text-sm text-fpso-fg outline-none border border-fpso-border focus:ring-2 focus:ring-fpso-blue/50"
-            >
-              <option value="all">All Countries</option>
-              {countries.map((c) => (
-                <option key={c} value={c}>{c}</option>
               ))}
             </select>
           </div>

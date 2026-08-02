@@ -8,9 +8,9 @@ function linkClass({ isActive }: { isActive: boolean }) {
 export default function Header({ rightContent }: { rightContent?: ReactNode }) {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-fpso-border bg-fpso-bg/90 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-        <div className="flex items-center gap-2">
-          <span className="text-lg font-bold tracking-tight neon-glow md:text-xl">
+      <div className="mx-auto grid h-16 max-w-7xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-6">
+        <div className="flex items-center gap-2 overflow-hidden">
+          <span className="truncate text-lg font-bold tracking-tight neon-glow md:text-xl">
             Business Opportunity Discovery
           </span>
         </div>
@@ -22,11 +22,9 @@ export default function Header({ rightContent }: { rightContent?: ReactNode }) {
           <NavLink to="/settings" className={linkClass}>Settings</NavLink>
         </nav>
 
-        {rightContent ? (
-          <div className="flex items-center gap-4">{rightContent}</div>
-        ) : (
-          <div className="flex items-center gap-4" />
-        )}
+        <div className="flex items-center justify-end gap-4 overflow-hidden">
+          {rightContent}
+        </div>
       </div>
     </header>
   );

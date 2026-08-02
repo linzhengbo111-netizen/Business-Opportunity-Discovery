@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
 import type { Project } from "@/data/projects";
-import { sampleProjects, COUNTRY_ALIASES } from "@/data/projects";
+import { sampleProjects, COUNTRY_ALIASES, INDUSTRY_OPTIONS, getIndustryLabel } from "@/data/projects";
 import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
 import { supabase } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
@@ -73,6 +73,7 @@ function mapRowToProject(row: Record<string, unknown>): Project {
     },
     stainlessSteel: String(row.stainless_steel ?? ""),
     application:    String(row.application ?? ""),
+    industry:       String(row.industry ?? "FPSO"),
   };
 }
 
@@ -128,6 +129,7 @@ export default function DatabasePage() {
 
   // filters
   const [countryFilter, setCountryFilter] = useState("All Countries");
+  const [selectedIndustry, setSelectedIndustry] = useState("All Industries");
   const [statusFilter, setStatusFilter] = useState("All");
   const [nameSearch, setNameSearch] = useState("");
 
@@ -187,6 +189,9 @@ export default function DatabasePage() {
     if (countryFilter !== "All Countries") {
       list = list.filter((p) => p.country.trim() === countryFilter);
     }
+    if (selectedIndustry !== "All Industries") {
+      list = list.filter((p) => (p.industry ?? "FPSO") === selectedIndustry);
+    }
     if (statusFilter !== "All") {
       list = list.filter((p) => p.status === statusFilter);
     }
@@ -196,7 +201,7 @@ export default function DatabasePage() {
     }
 
     return list;
-  }, [projects, countryFilter, statusFilter, nameSearch]);
+  }, [projects, countryFilter, selectedIndustry, statusFilter, nameSearch]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -207,7 +212,7 @@ export default function DatabasePage() {
   }, [filtered, safePage]);
 
   // reset page when filters change
-  useEffect(() => { setPage(1); }, [countryFilter, statusFilter, nameSearch]);
+  useEffect(() => { setPage(1); }, [countryFilter, selectedIndustry, statusFilter, nameSearch]);
 
   const pages = buildPages(safePage, totalPages);
 
@@ -221,25 +226,65 @@ export default function DatabasePage() {
     <>
       <PageMeta title="Database — FPSO Projects" description="项目数据库表格视图" />
       <Header rightContent={
-        <div className="flex items-center gap-2">
-          <span className="relative inline-flex h-2.5 w-2.5">
-            {connectionStatus === "connected" && (
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fpso-green opacity-75" />
-            )}
+        <>
+          <div className="flex items-center gap-2">
+            <label htmlFor="db-country-select" className="hidden text-sm text-fpso-muted lg:inline">
+              Region
+            </label>
+            <select
+              id="db-country-select"
+              value={countryFilter}
+              onChange={(e) => setCountryFilter(e.target.value)}
+              className="h-9 min-w-[180px] rounded-md bg-fpso-card/85 px-3 py-1.5 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50"
+            >
+              <option value="All Countries">All Countries</option>
+              {countries.map((country) => {
+                const flag = getCountryFlag(projects, country);
+                return (
+                  <option key={country} value={country}>
+                    {flag ? `${flag} ${country}` : country}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label htmlFor="db-industry-select" className="hidden text-sm text-fpso-muted lg:inline">
+              Industry
+            </label>
+            <select
+              id="db-industry-select"
+              value={selectedIndustry}
+              onChange={(e) => setSelectedIndustry(e.target.value)}
+              className="h-9 min-w-[180px] rounded-md bg-fpso-card/85 px-3 py-1.5 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50"
+            >
+              {INDUSTRY_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>{getIndustryLabel(opt)}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="relative inline-flex h-2.5 w-2.5">
+              {connectionStatus === "connected" && (
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fpso-green opacity-75" />
+              )}
+              <span
+                className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
+                  connectionStatus === "connected" ? "bg-fpso-green live-breath" : "bg-fpso-dim"
+                }`}
+              />
+            </span>
             <span
-              className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
-                connectionStatus === "connected" ? "bg-fpso-green live-breath" : "bg-fpso-dim"
+              className={`text-xs font-medium tracking-wider ${
+                connectionStatus === "connected" ? "text-fpso-green" : "text-fpso-dim"
               }`}
-            />
-          </span>
-          <span
-            className={`text-xs font-medium tracking-wider ${
-              connectionStatus === "connected" ? "text-fpso-green" : "text-fpso-dim"
-            }`}
-          >
-            {connectionStatus === "connected" ? "LIVE" : "STALE"}
-          </span>
-        </div>
+            >
+              {connectionStatus === "connected" ? "LIVE" : "STALE"}
+            </span>
+          </div>
+        </>
       } />
 
       <main className="mx-auto w-full max-w-7xl px-6 py-8">
@@ -255,26 +300,6 @@ export default function DatabasePage() {
 
         {/* filters */}
         <section className="mb-6 flex flex-wrap items-center gap-4 rounded-lg border border-fpso-border bg-fpso-card px-5 py-3">
-          {/* country */}
-          <div className="flex items-center gap-2">
-            <label className="text-xs font-medium text-fpso-muted">Country</label>
-            <select
-              value={countryFilter}
-              onChange={(e) => setCountryFilter(e.target.value)}
-              className="h-8 min-w-[140px] rounded-md bg-fpso-bg/70 px-2.5 py-1 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50 border border-fpso-border"
-            >
-              <option value="All Countries">All Countries</option>
-              {countries.map((c) => {
-                const flag = getCountryFlag(projects, c);
-                return (
-                  <option key={c} value={c}>
-                    {flag ? `${flag} ${c}` : c}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
-
           {/* status */}
           <div className="flex items-center gap-2">
             <label className="text-xs font-medium text-fpso-muted">Status</label>

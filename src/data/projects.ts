@@ -22,6 +22,20 @@ export interface Project {
   industry?: string;
 }
 
+export const INDUSTRY_OPTIONS = [
+  "All Industries",
+  "FPSO",
+  "Desalination",
+  "LNG",
+  "General Stainless",
+] as const;
+
+export function getIndustryLabel(opt: string): string {
+  if (opt === "Desalination") return `${opt} (海水淡化)`;
+  if (opt === "General Stainless") return `${opt} (其他不锈钢)`;
+  return opt;
+}
+
 export interface CountryCoordinate {
   x: number;
   y: number;
