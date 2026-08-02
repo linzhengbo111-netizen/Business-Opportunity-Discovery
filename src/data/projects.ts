@@ -19,6 +19,7 @@ export interface Project {
   source: ProjectSource;
   stainlessSteel: string;
   application: string;
+  industry?: string;
 }
 
 export interface CountryCoordinate {
@@ -37,6 +38,7 @@ export const sampleProjects: Project[] = [
     source: { name: "Petrobras", url: "", date: "2026-07-17" },
     stainlessSteel: "",
     application: "",
+    industry: "FPSO",
   },
   {
     name: "FPSO Prosperity",
@@ -47,6 +49,7 @@ export const sampleProjects: Project[] = [
     source: { name: "SBM Offshore", url: "", date: "2026-07-17" },
     stainlessSteel: "",
     application: "",
+    industry: "FPSO",
   },
   {
     name: "FPSO Agogo",
@@ -57,6 +60,7 @@ export const sampleProjects: Project[] = [
     source: { name: "MODEC", url: "", date: "2026-07-17" },
     stainlessSteel: "",
     application: "",
+    industry: "FPSO",
   },
   {
     name: "FPSO Zafiro",
@@ -67,6 +71,7 @@ export const sampleProjects: Project[] = [
     source: { name: "World Oil", url: "", date: "2026-07-17" },
     stainlessSteel: "",
     application: "",
+    industry: "FPSO",
   },
   {
     name: "FPSO Rosebank",
@@ -78,6 +83,7 @@ export const sampleProjects: Project[] = [
     source: { name: "Offshore Energy", url: "", date: "2026-07-17" },
     stainlessSteel: "",
     application: "",
+    industry: "FPSO",
   },
   {
     name: "FPSO Atlanta",
@@ -88,6 +94,7 @@ export const sampleProjects: Project[] = [
     source: { name: "Offshore Magazine", url: "", date: "2026-07-17" },
     stainlessSteel: "",
     application: "",
+    industry: "FPSO",
   },
   {
     name: "FPSO Baobab",
@@ -98,6 +105,7 @@ export const sampleProjects: Project[] = [
     source: { name: "Offshore Energy", url: "", date: "2026-07-17" },
     stainlessSteel: "",
     application: "",
+    industry: "FPSO",
   },
 ];
 

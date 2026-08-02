@@ -98,6 +98,7 @@ function mapRowToProject(row: Record<string, unknown>): Project {
     },
     stainlessSteel: String(row.stainless_steel ?? ""),
     application: String(row.application ?? ""),
+    industry: String(row.industry ?? "FPSO"),
   };
 }
 
@@ -124,6 +125,7 @@ function mapCandidateToProject(row: Record<string, unknown>): Project {
     },
     stainlessSteel: "",
     application: "",
+    industry: "FPSO",
   };
 }
 
@@ -131,6 +133,7 @@ export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCountry, setSelectedCountry] = useState("All Countries");
+  const [selectedIndustry, setSelectedIndustry] = useState("All Industries");
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const { version, status: connectionStatus } = useProjectRealtime();
 
@@ -225,28 +228,36 @@ export default function DashboardPage() {
   const stats = useMemo(() => getStats(projects), [projects]);
 
   const filteredProjects = useMemo(() => {
-    if (selectedCountry === "All Countries") return projects;
-    return projects.filter((p) => p.country.trim() === selectedCountry);
-  }, [projects, selectedCountry]);
+    let result = projects;
+    if (selectedCountry !== "All Countries") {
+      result = result.filter((p) => p.country.trim() === selectedCountry);
+    }
+    if (selectedIndustry !== "All Industries") {
+      result = result.filter((p) => (p.industry ?? "FPSO") === selectedIndustry);
+    }
+    return result;
+  }, [projects, selectedCountry, selectedIndustry]);
 
   const filteredStats = useMemo(() => getStats(filteredProjects), [filteredProjects]);
+
+  const filteredCountries = useMemo(() => getUniqueCountries(filteredProjects), [filteredProjects]);
 
   // 图表数据
   const countryChartData = useMemo(() => {
     const count: Record<string, number> = {};
-    for (const p of projects) {
+    for (const p of filteredProjects) {
       const c = p.country.trim();
       count[c] = (count[c] ?? 0) + 1;
     }
     return Object.entries(count)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
-  }, [projects]);
+  }, [filteredProjects]);
 
   const statusChartData = useMemo(() => {
     const order = ["Under Construction", "Delivered", "Planned"];
     const count: Record<string, number> = {};
-    for (const p of projects) {
+    for (const p of filteredProjects) {
       const s = p.status || "Unknown";
       count[s] = (count[s] ?? 0) + 1;
     }
@@ -254,11 +265,11 @@ export default function DashboardPage() {
       .filter((s) => count[s] != null)
       .map((s) => ({ name: s, value: count[s] }))
       .concat(count["Unknown"] ? [{ name: "Unknown", value: count["Unknown"] }] : []);
-  }, [projects]);
+  }, [filteredProjects]);
 
   // 地图光点
   const mapDots = useMemo(() => {
-    const mapped = countries.filter((c) => countryCoordinates[c]);
+    const mapped = filteredCountries.filter((c) => countryCoordinates[c]);
     mapped.sort((a, b) => countryCoordinates[b].x - countryCoordinates[a].x);
     return mapped.map((country, index) => ({
       country,
@@ -266,13 +277,13 @@ export default function DashboardPage() {
       y: countryCoordinates[country].y,
       delay: `${index * 0.2}s`,
     }));
-  }, [countries]);
+  }, [filteredCountries]);
 
   // 诊断日志: 打印有光点 / 缺失坐标的国家
   useEffect(() => {
     if (loading) return;
-    const withDots = countries.filter((c) => countryCoordinates[c]);
-    const withoutDots = countries.filter((c) => !countryCoordinates[c]);
+    const withDots = filteredCountries.filter((c) => countryCoordinates[c]);
+    const withoutDots = filteredCountries.filter((c) => !countryCoordinates[c]);
     console.log(
       `[Map] %c${withDots.length} countries with dots:%c`,
       "color:#00d4ff;font-weight:bold",
@@ -289,7 +300,7 @@ export default function DashboardPage() {
     } else {
       console.log("[Map] ✅ All countries have coordinates.");
     }
-  }, [countries, loading]);
+  }, [filteredCountries, loading]);
 
   const handleDotClick = (country: string) => {
     setSelectedCountry(country);
@@ -304,6 +315,27 @@ export default function DashboardPage() {
 
       <Header rightContent={
         <>
+          <div className="flex items-center gap-2">
+            <label htmlFor="industry-select" className="hidden text-sm text-fpso-muted lg:inline">
+              Industry
+            </label>
+            <select
+              id="industry-select"
+              value={selectedIndustry}
+              onChange={(e) => {
+                setSelectedIndustry(e.target.value);
+                console.log(`Industry changed to: ${e.target.value}`);
+              }}
+              className="h-9 min-w-[180px] rounded-md bg-fpso-card/85 px-3 py-1.5 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50"
+            >
+              <option value="All Industries">All Industries</option>
+              <option value="FPSO">FPSO</option>
+              <option value="Desalination">Desalination (海水淡化)</option>
+              <option value="LNG">LNG</option>
+              <option value="General Stainless">General Stainless (其他不锈钢)</option>
+            </select>
+          </div>
+
           <div className="flex items-center gap-2">
             <label htmlFor="country-select" className="hidden text-sm text-fpso-muted lg:inline">
               Region
@@ -357,9 +389,6 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-semibold tracking-tight text-fpso-fg md:text-3xl">
             全球 FPSO 项目商机挖掘
           </h1>
-          <p className="mt-2 max-w-2xl text-sm text-fpso-muted">
-            聚焦 FPSO 项目中涉及不锈钢材料的需求与商机，帮助不锈钢供应链快速发现全球建造、改装、维修项目中的潜在机会。
-          </p>
         </section>
 
         {/* 全球分布地图 */}
@@ -407,19 +436,19 @@ export default function DashboardPage() {
             <div className="rounded-lg border border-fpso-border bg-fpso-card p-4">
               <div className="text-xs font-medium uppercase tracking-wider text-fpso-muted">Total</div>
               <div className="mt-2 min-w-[100px] flex-shrink-0 text-right font-mono text-3xl font-semibold text-fpso-fg">
-                {stats.total}
+                {filteredStats.total}
               </div>
             </div>
             <div className="rounded-lg border border-fpso-border bg-fpso-card p-4">
               <div className="text-xs font-medium uppercase tracking-wider text-fpso-muted">Active</div>
               <div className="mt-2 min-w-[100px] flex-shrink-0 text-right font-mono text-3xl font-semibold text-fpso-blue">
-                {stats.active}
+                {filteredStats.active}
               </div>
             </div>
             <div className="rounded-lg border border-fpso-border bg-fpso-card p-4">
               <div className="text-xs font-medium uppercase tracking-wider text-fpso-muted">Planned</div>
               <div className="mt-2 min-w-[100px] flex-shrink-0 text-right font-mono text-3xl font-semibold text-fpso-orange">
-                {stats.planned}
+                {filteredStats.planned}
               </div>
             </div>
           </div>
@@ -531,7 +560,9 @@ export default function DashboardPage() {
         <section>
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-base font-medium text-fpso-fg">
-              项目列表 {selectedCountry !== "All Countries" && `— ${selectedCountry}`}
+              项目列表
+              {selectedIndustry !== "All Industries" && ` — ${selectedIndustry}`}
+              {selectedCountry !== "All Countries" && ` — ${selectedCountry}`}
             </h2>
             <span className="text-xs text-fpso-muted">
               {loading ? "Loading…" : `${filteredProjects.length} records`}
@@ -543,7 +574,7 @@ export default function DashboardPage() {
               <div className="px-5 py-10 text-center text-sm text-fpso-muted">Loading projects…</div>
             ) : filteredProjects.length === 0 ? (
               <div className="px-5 py-10 text-center text-sm text-fpso-muted">
-                No projects found{selectedCountry !== "All Countries" ? ` for ${selectedCountry}` : ""}.
+                No projects found for the selected industry and country.
               </div>
             ) : (
               filteredProjects.map((project) => (
