@@ -8,7 +8,6 @@ import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
 import { supabase } from "@/db/supabase";
 import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
-import { useProjectRealtime } from "@/hooks/useProjectRealtime";
 
 /* ------------------------------------------------------------------ */
 /*  types                                                              */
@@ -44,9 +43,35 @@ function statusBadge(status: string) {
       return "bg-fpso-green/15 text-fpso-green";
     case "rejected":
       return "bg-red-500/15 text-red-400";
+    case "auto_accepted":
+      return "bg-fpso-blue/15 text-fpso-blue";
+    case "auto_rejected":
+      return "bg-amber-500/15 text-amber-400";
     default:
       return "bg-fpso-orange/15 text-fpso-orange";
   }
+}
+
+function statusLabel(status: string) {
+  switch (status) {
+    case "auto_accepted":
+      return "AI Suggested ✓";
+    case "auto_rejected":
+      return "AI Suggested ✗";
+    case "accepted":
+      return "accepted";
+    case "rejected":
+      return "rejected";
+    default:
+      return status || "pending";
+  }
+}
+
+/** Extract AI classification reason from evidence_quote trail marker. */
+function extractAiReason(evidenceQuote: string): string | null {
+  if (!evidenceQuote) return null;
+  const match = evidenceQuote.match(/\[Auto-(?:accepted|rejected):\s*(.+?)\]/);
+  return match ? match[1] : null;
 }
 
 function formatDate(d: string | null) {
@@ -65,14 +90,15 @@ export default function ReviewPage() {
   const [loadProgress, setLoadProgress] = useState("");
   const [promoting, setPromoting] = useState(false);
   const [promoteResult, setPromoteResult] = useState<string | null>(null);
-  const { version: _, status: connectionStatus } = useProjectRealtime();
 
   // filters
-  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all-except-ai");
   const [filterEventType, setFilterEventType] = useState("all");
   const [filterCountry, setFilterCountry] = useState("all");
   const [filterSource, setFilterSource] = useState("all");
   const [searchName, setSearchName] = useState("");
+  const [showAiSuggestions, setShowAiSuggestions] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   /* ---- fetch (paginated: loops until all rows loaded) ---- */
   async function fetchEvents() {
@@ -158,13 +184,40 @@ export default function ReviewPage() {
     return Array.from(set).sort();
   }, [events]);
 
+  /* ---- stats ---- */
+  const stats = useMemo(() => {
+    let autoAccepted = 0, autoRejected = 0, pending = 0, accepted = 0, rejected = 0;
+    for (const e of events) {
+      switch (e.review_status) {
+        case "auto_accepted": autoAccepted++; break;
+        case "auto_rejected": autoRejected++; break;
+        case "pending": pending++; break;
+        case "accepted": accepted++; break;
+        case "rejected": rejected++; break;
+      }
+    }
+    return { autoAccepted, autoRejected, pending, accepted, rejected };
+  }, [events]);
+
   /* ---- filter ---- */
   const filtered = useMemo(() => {
     let list = events;
 
-    if (filterStatus !== "all") {
+    // Status filter: "all-except-ai" = default, hides auto_accepted + auto_rejected
+    if (filterStatus === "all-except-ai") {
+      list = list.filter((e) =>
+        e.review_status !== "auto_accepted" && e.review_status !== "auto_rejected"
+      );
+    } else if (filterStatus !== "all") {
       list = list.filter((e) => e.review_status === filterStatus);
     }
+
+    // AI suggestions toggle: when on, shows auto_* records regardless of status filter
+    if (showAiSuggestions && filterStatus === "all-except-ai") {
+      list = events; // override: show everything
+      // Re-apply non-status filters below
+    }
+
     if (filterEventType !== "all") {
       list = list.filter((e) => e.event_type === filterEventType);
     }
@@ -180,7 +233,7 @@ export default function ReviewPage() {
     }
 
     return list;
-  }, [events, filterStatus, filterEventType, filterCountry, filterSource, searchName]);
+  }, [events, filterStatus, filterEventType, filterCountry, filterSource, searchName, showAiSuggestions]);
 
   /* ---- actions ---- */
   async function updateStatus(id: string, status: "accepted" | "rejected") {
@@ -402,50 +455,57 @@ export default function ReviewPage() {
     setPromoting(false);
   }
 
+  /** Batch-apply all AI suggestions: auto_accepted → accepted, auto_rejected → rejected. */
+  async function handleAcceptAllAi() {
+    setShowConfirmDialog(false);
+
+    const autoAccepted = events.filter((e) => e.review_status === "auto_accepted");
+    const autoRejected = events.filter((e) => e.review_status === "auto_rejected");
+
+    if (autoAccepted.length === 0 && autoRejected.length === 0) {
+      return;
+    }
+
+    let done = 0;
+    let errs = 0;
+
+    // Accept all auto_accepted
+    for (const ev of autoAccepted) {
+      const { error } = await supabase
+        .from("candidate_events")
+        .update({ review_status: "accepted" })
+        .eq("id", ev.id);
+      if (error) { errs++; console.error("Accept AI error:", error.message); }
+      else { done++; }
+    }
+
+    // Reject all auto_rejected
+    for (const ev of autoRejected) {
+      const { error } = await supabase
+        .from("candidate_events")
+        .update({ review_status: "rejected" })
+        .eq("id", ev.id);
+      if (error) { errs++; console.error("Reject AI error:", error.message); }
+      else { done++; }
+    }
+
+    // Refresh local state
+    setEvents((prev) =>
+      prev.map((e) => {
+        if (e.review_status === "auto_accepted") return { ...e, review_status: "accepted" };
+        if (e.review_status === "auto_rejected") return { ...e, review_status: "rejected" };
+        return e;
+      }),
+    );
+
+    console.log(`Accept All AI: ${done} applied, ${errs} errors`);
+  }
+
   /* ---- render ---- */
   return (
     <>
       <PageMeta title="Review — Candidate Events" description="人工审核 candidate_events 数据" />
-      <Header rightContent={
-        <>
-          <div className="flex items-center gap-2">
-            <label htmlFor="review-country-select" className="hidden text-sm text-fpso-muted lg:inline">
-              Region
-            </label>
-            <select
-              id="review-country-select"
-              value={filterCountry}
-              onChange={(e) => setFilterCountry(e.target.value)}
-              className="h-9 min-w-[180px] rounded-md bg-fpso-card/85 px-3 py-1.5 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50"
-            >
-              <option value="all">All Countries</option>
-              {countries.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="relative inline-flex h-2.5 w-2.5">
-              {connectionStatus === "connected" && (
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fpso-green opacity-75" />
-              )}
-              <span
-                className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
-                  connectionStatus === "connected" ? "bg-fpso-green live-breath" : "bg-fpso-dim"
-                }`}
-              />
-            </span>
-            <span
-              className={`text-xs font-medium tracking-wider ${
-                connectionStatus === "connected" ? "text-fpso-green" : "text-fpso-dim"
-              }`}
-            >
-              {connectionStatus === "connected" ? "LIVE" : "STALE"}
-            </span>
-          </div>
-        </>
-      } />
+      <Header />
 
       <main className="mx-auto w-full max-w-7xl px-6 py-8">
         {/* page title + promote */}
@@ -455,25 +515,77 @@ export default function ReviewPage() {
               Candidate Events Review
             </h1>
             <p className="mt-1 text-sm text-fpso-muted">
-              {filtered.length} of {events.length} events
+              {filtered.length} of {events.length} events shown
             </p>
           </div>
 
-          <button
-            onClick={handlePromote}
-            disabled={promoting}
-            className="inline-flex items-center gap-2 rounded-lg bg-fpso-blue px-5 py-2.5 text-sm font-semibold text-black transition-all hover:bg-fpso-blue/80 hover:shadow-[0_0_20px_rgba(0,212,255,0.4)] disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {promoting ? (
-              <>
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-black/30 border-t-black" />
-                Promoting…
-              </>
-            ) : (
-              "Promote to Projects"
-            )}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handlePromote}
+              disabled={promoting}
+              className="inline-flex items-center gap-2 rounded-lg bg-fpso-blue px-5 py-2.5 text-sm font-semibold text-black transition-all hover:bg-fpso-blue/80 hover:shadow-[0_0_20px_rgba(0,212,255,0.4)] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {promoting ? (
+                <>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-black/30 border-t-black" />
+                  Promoting…
+                </>
+              ) : (
+                "Promote to Projects"
+              )}
+            </button>
+          </div>
         </section>
+
+        {/* AI stats bar */}
+        {(stats.autoAccepted > 0 || stats.autoRejected > 0) && (
+          <section className="mb-6 rounded-lg border border-fpso-blue/20 bg-fpso-card px-5 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-5 text-sm">
+                <span className="text-fpso-muted font-medium">AI Pre-Screening:</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-fpso-blue" />
+                  <span className="text-fpso-fg font-semibold">{stats.autoAccepted}</span>
+                  <span className="text-fpso-muted">Auto-Accepted</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-amber-400" />
+                  <span className="text-fpso-fg font-semibold">{stats.autoRejected}</span>
+                  <span className="text-fpso-muted">Auto-Rejected</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-fpso-orange" />
+                  <span className="text-fpso-fg font-semibold">{stats.pending}</span>
+                  <span className="text-fpso-muted">Pending</span>
+                </span>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 text-xs text-fpso-muted cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={showAiSuggestions}
+                    onChange={(e) => setShowAiSuggestions(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-fpso-border bg-fpso-bg accent-fpso-blue"
+                  />
+                  Show AI suggestions
+                </label>
+
+                {(stats.autoAccepted > 0 || stats.autoRejected > 0) && (
+                  <button
+                    onClick={() => setShowConfirmDialog(true)}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-fpso-blue/80 px-3.5 py-2 text-xs font-semibold text-black transition-all hover:bg-fpso-blue hover:shadow-[0_0_16px_rgba(0,212,255,0.4)]"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Accept All AI Suggestions
+                  </button>
+                )}
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* promote result toast */}
         {promoteResult && (
@@ -490,10 +602,13 @@ export default function ReviewPage() {
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="h-8 min-w-[120px] rounded-md bg-fpso-bg/70 px-2.5 py-1 text-sm text-fpso-fg outline-none border border-fpso-border focus:ring-2 focus:ring-fpso-blue/50"
+              className="h-8 min-w-[140px] rounded-md bg-fpso-bg/70 px-2.5 py-1 text-sm text-fpso-fg outline-none border border-fpso-border focus:ring-2 focus:ring-fpso-blue/50"
             >
+              <option value="all-except-ai">All (excl. AI)</option>
               <option value="all">All</option>
               <option value="pending">Pending</option>
+              <option value="auto_accepted">Auto-Accepted</option>
+              <option value="auto_rejected">Auto-Rejected</option>
               <option value="accepted">Accepted</option>
               <option value="rejected">Rejected</option>
             </select>
@@ -510,6 +625,21 @@ export default function ReviewPage() {
               <option value="all">All Types</option>
               {eventTypes.map((t) => (
                 <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* country */}
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-fpso-muted">Country</label>
+            <select
+              value={filterCountry}
+              onChange={(e) => setFilterCountry(e.target.value)}
+              className="h-8 min-w-[140px] rounded-md bg-fpso-bg/70 px-2.5 py-1 text-sm text-fpso-fg outline-none border border-fpso-border focus:ring-2 focus:ring-fpso-blue/50"
+            >
+              <option value="all">All Countries</option>
+              {countries.map((c) => (
+                <option key={c} value={c}>{c}</option>
               ))}
             </select>
           </div>
@@ -577,8 +707,16 @@ export default function ReviewPage() {
                         {ev.project_name_raw || "Unnamed"}
                       </h3>
                       <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${statusBadge(ev.review_status)}`}>
-                        {ev.review_status || "pending"}
+                        {statusLabel(ev.review_status)}
                       </span>
+                      {/* AI reasoning badge */}
+                      {(ev.review_status === "auto_accepted" || ev.review_status === "auto_rejected") &&
+                        extractAiReason(ev.evidence_quote) && (
+                          <span className="inline-block rounded-full bg-fpso-blue/10 px-2.5 py-0.5 text-xs text-fpso-blue/80"
+                            title={extractAiReason(ev.evidence_quote) ?? undefined}>
+                            {extractAiReason(ev.evidence_quote)}
+                          </span>
+                      )}
                       {ev.event_type && (
                         <span className="inline-block rounded-full bg-fpso-blue/10 px-2.5 py-0.5 text-xs font-medium text-fpso-blue">
                           {ev.event_type}
@@ -665,6 +803,41 @@ export default function ReviewPage() {
           )}
         </section>
       </main>
+
+      {/* Confirmation dialog for "Accept All AI Suggestions" */}
+      {showConfirmDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="mx-4 w-full max-w-md rounded-xl border border-fpso-border bg-fpso-card p-6 shadow-2xl">
+            <h2 className="text-lg font-semibold text-fpso-fg">
+              Accept All AI Suggestions
+            </h2>
+            <p className="mt-3 text-sm text-fpso-fg leading-relaxed">
+              This will <strong className="text-fpso-green">accept {stats.autoAccepted} events</strong>{" "}
+              (auto_accepted → accepted) and{" "}
+              <strong className="text-red-400">reject {stats.autoRejected} events</strong>{" "}
+              (auto_rejected → rejected).
+            </p>
+            <p className="mt-2 text-xs text-fpso-muted">
+              You can manually override any individual decision afterwards. This action
+              cannot be bulk-undone, but individual events can be corrected one by one.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setShowConfirmDialog(false)}
+                className="rounded-lg border border-fpso-border px-4 py-2 text-sm font-medium text-fpso-muted transition-all hover:bg-fpso-bg/50 hover:text-fpso-fg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAcceptAllAi}
+                className="rounded-lg bg-fpso-blue/80 px-5 py-2 text-sm font-semibold text-black transition-all hover:bg-fpso-blue hover:shadow-[0_0_16px_rgba(0,212,255,0.4)]"
+              >
+                Confirm — Accept {stats.autoAccepted} / Reject {stats.autoRejected}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

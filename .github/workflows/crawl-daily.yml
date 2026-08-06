@@ -29,3 +29,7 @@ jobs:
 
       - name: Run all 15 adapters (continue-on-error per adapter)
         run: python crawler/crawl.py
+
+      - name: Auto-classify pending events (standalone fallback)
+        continue-on-error: true
+        run: python crawler/crawl.py --auto-classify

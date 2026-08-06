@@ -117,6 +117,164 @@ ALL_ADAPTERS = [
 
 
 # ========================================================================
+# Auto-Classify: rule-based AI pre-screening for candidate_events
+# ========================================================================
+
+# Official event types that trigger auto-accept for P0 government sources
+OFFICIAL_EVENTS = {
+    "EIA_SUBMITTED",
+    "DEVELOPMENT_CONSENT_GRANTED",
+    "REGULATORY_DATA",
+    "FPSO_CONTRACT_AWARDED",
+    "DEVELOPMENT_PLAN_SUBMITTED",
+    "DEVELOPMENT_PLAN_UPDATED",
+    "PERMIT_GRANTED",
+    "LICENSE_GRANTED",
+    "FIELD_DEVELOPMENT_PLAN",
+    "PRODUCTION_START",
+    "FIRST_OIL",
+    "VENDOR_REGISTRATION_ACTION",
+    "PUBLIC_NOTICE",
+    "CONTRACT_ANNOUNCEMENT",
+}
+
+# Financial/HR keywords that trigger auto-reject for tier-1 (media) sources
+MEDIA_REJECT_KEYWORDS = [
+    "stock",
+    "share price",
+    "dividend",
+    "earnings",
+    "appointment",
+    "hiring",
+    "quarterly results",
+    "ceo ",
+    "cfo ",
+    "board member",
+    "executive director",
+    "revenue report",
+    "market cap",
+    "investor",
+    "investment",
+    "merger",
+    "acquisition",
+    "takeover",
+    "layoff",
+    "lay off",
+    "fired",
+    "personnel change",
+    "management change",
+]
+
+
+def auto_classify(supabase):
+    """
+    Rule-based auto-classification of pending candidate_events.
+
+    Runs AFTER all adapters finish crawling. No external API calls.
+
+    Rule A (auto_accepted): source priority='P0' AND event_type in OFFICIAL_EVENTS.
+        Reasoning: "Government source + official event" — high confidence.
+
+    Rule B (auto_rejected): summary contains financial/HR keywords AND
+        source tier=1 (media). Reasoning: noise, not FPSO procurement signal.
+
+    Rule C (pending): everything else — needs human review.
+
+    Each auto-decision appends a trail marker to evidence_quote for auditability:
+        "[Auto-accepted: Government source + official event]"
+        "[Auto-rejected: Media source + keyword '<keyword>']"
+    """
+    log.info("=" * 54)
+    log.info("AUTO-CLASSIFY MODE: rule-based AI pre-screening")
+    log.info("=" * 54)
+
+    candidate_table = supabase.table("candidate_events")
+    source_table = supabase.table("source_registry")
+
+    # Fetch all pending candidates
+    resp = candidate_table.select("*").eq("review_status", "pending").execute()
+    if not resp.data:
+        log.info("No pending events to auto-classify.")
+        return {"auto_accepted": 0, "auto_rejected": 0, "pending": 0}
+
+    candidates = resp.data
+    log.info("Pending candidates to classify: %d", len(candidates))
+
+    # Fetch source_registry for priority / tier lookup
+    src_resp = source_table.select("*").execute()
+    sources = {}
+    for s in (src_resp.data or []):
+        sources[s.get("source_name", "")] = s
+
+    auto_accepted = 0
+    auto_rejected = 0
+    still_pending = 0
+
+    for c in candidates:
+        source_name = c.get("source_name", "")
+        source_info = sources.get(source_name, {})
+        priority = source_info.get("priority", "")
+        tier = source_info.get("tier", 1)
+        event_type = c.get("event_type", "") or ""
+        summary = (c.get("summary", "") or "").lower()
+        evidence = c.get("evidence_quote", "") or ""
+        cid = c.get("id")
+
+        if not cid:
+            still_pending += 1
+            continue
+
+        classified = False
+
+        # ---- Rule A: P0 source + official event type ----
+        if priority == "P0" and event_type in OFFICIAL_EVENTS:
+            trail = "\n[Auto-accepted: Government source + official event]"
+            new_evidence = (evidence + trail) if evidence else trail.strip()
+            try:
+                candidate_table.update({
+                    "review_status": "auto_accepted",
+                    "evidence_quote": new_evidence,
+                }).eq("id", cid).execute()
+                auto_accepted += 1
+                classified = True
+                log.debug("  AUTO_ACCEPTED: %s | %s | %s",
+                          c.get("project_name_raw", "")[:40], source_name, event_type)
+            except Exception as exc:
+                log.warning("  Auto-classify update error (id=%s): %s", cid, exc)
+
+        # ---- Rule B: media tier-1 + financial/HR keywords ----
+        if not classified and tier == 1:
+            matched_kw = None
+            for kw in MEDIA_REJECT_KEYWORDS:
+                if kw in summary:
+                    matched_kw = kw
+                    break
+            if matched_kw:
+                trail = f"\n[Auto-rejected: Media source + keyword '{matched_kw}']"
+                new_evidence = (evidence + trail) if evidence else trail.strip()
+                try:
+                    candidate_table.update({
+                        "review_status": "auto_rejected",
+                        "evidence_quote": new_evidence,
+                    }).eq("id", cid).execute()
+                    auto_rejected += 1
+                    classified = True
+                    log.debug("  AUTO_REJECTED: %s | %s | kw='%s'",
+                              c.get("project_name_raw", "")[:40], source_name, matched_kw)
+                except Exception as exc:
+                    log.warning("  Auto-classify update error (id=%s): %s", cid, exc)
+
+        # ---- Rule C: keep pending ----
+        if not classified:
+            still_pending += 1
+
+    log.info("Auto-classify complete: %d auto_accepted, %d auto_rejected, %d pending",
+             auto_accepted, auto_rejected, still_pending)
+    return {"auto_accepted": auto_accepted, "auto_rejected": auto_rejected,
+            "pending": still_pending}
+
+
+# ========================================================================
 # Promote: accepted candidates → projects
 # ========================================================================
 
@@ -413,8 +571,9 @@ def auto_promote_candidates(supabase):
 # ========================================================================
 
 
-def run_all_adapters(dry_run=False, local_only=False):
-    """Run all 15 adapters sequentially with polite delays. Continue-on-error."""
+def run_all_adapters(dry_run=False, local_only=False, skip_classify=False):
+    """Run all 15 adapters sequentially with polite delays. Continue-on-error.
+    After crawl, auto-classify pending events unless skip_classify is True."""
     log.info("=" * 54)
     log.info("FPSO Project Crawler — %s", TODAY)
     log.info("=" * 54)
@@ -473,6 +632,12 @@ def run_all_adapters(dry_run=False, local_only=False):
     if unrecognized > 0:
         log.info("Unrecognized countries: %d article(s) — run with --promote after manual review.", unrecognized)
 
+    # ---- Auto-classify newly inserted pending events ----
+    if not skip_classify:
+        log.info("")
+        classify_result = auto_classify(supabase)
+        log.info("")
+
 
 # ========================================================================
 # CLI
@@ -519,9 +684,25 @@ def main():
         action="store_true",
         help="Save files locally only, no Supabase connection.",
     )
+    parser.add_argument(
+        "--auto-classify",
+        action="store_true",
+        help="Run auto-classification on all pending candidate_events (standalone).",
+    )
+    parser.add_argument(
+        "--skip-classify",
+        action="store_true",
+        help="Skip auto-classification after crawl (use when testing).",
+    )
     args = parser.parse_args()
 
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+    # Standalone auto-classify (no crawl)
+    if args.auto_classify:
+        result = auto_classify(supabase)
+        log.info("Standalone auto-classify: %s", result)
+        return
 
     # Promote mode
     if args.promote:
@@ -546,15 +727,15 @@ def main():
 
     # Dry-run / local-only crawl
     if args.dry_run:
-        run_all_adapters(dry_run=True)
+        run_all_adapters(dry_run=True, skip_classify=True)
         return
 
     if args.local_only:
-        run_all_adapters(local_only=True)
+        run_all_adapters(local_only=True, skip_classify=True)
         return
 
     # Normal crawl mode (default when no flag specified)
-    run_all_adapters()
+    run_all_adapters(skip_classify=args.skip_classify)
 
 
 if __name__ == "__main__":
