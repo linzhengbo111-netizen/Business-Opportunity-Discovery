@@ -616,6 +616,13 @@ def promote_accepted_candidates(supabase):
                 "stainless_steel": group[0].get("stainless_steel", ""),
                 "application": group[0].get("application", ""),
                 "procurement_chain": group[0].get("procurement_chain", ""),
+                "water_depth_m": group[0].get("water_depth_m"),
+                "oil_capacity_bpd": group[0].get("oil_capacity_bpd"),
+                "gas_capacity_mmcmd": group[0].get("gas_capacity_mmcmd"),
+                "hull_type": group[0].get("hull_type", ""),
+                "field_name": group[0].get("field_name", ""),
+                "operator_name": group[0].get("operator_name", ""),
+                "basin": group[0].get("basin", ""),
             }
 
             existing = project_table.select("id").eq("name", effective_name).execute()
@@ -966,6 +973,13 @@ def auto_ingest_to_projects(supabase):
                 "stainless_steel": group[0].get("stainless_steel", ""),
                 "application": group[0].get("application", ""),
                 "procurement_chain": group[0].get("procurement_chain", ""),
+                "water_depth_m": group[0].get("water_depth_m"),
+                "oil_capacity_bpd": group[0].get("oil_capacity_bpd"),
+                "gas_capacity_mmcmd": group[0].get("gas_capacity_mmcmd"),
+                "hull_type": group[0].get("hull_type", ""),
+                "field_name": group[0].get("field_name", ""),
+                "operator_name": group[0].get("operator_name", ""),
+                "basin": group[0].get("basin", ""),
                 "confidence": confidence,
             }
 
