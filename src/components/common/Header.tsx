@@ -8,21 +8,23 @@ function linkClass({ isActive }: { isActive: boolean }) {
 export default function Header({ rightContent }: { rightContent?: ReactNode }) {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-fpso-border bg-fpso-bg/90 backdrop-blur">
-      <div className="mx-auto grid h-16 max-w-7xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-6">
-        <div className="flex items-center gap-2 overflow-hidden">
-          <span className="truncate text-lg font-bold tracking-tight neon-glow md:text-xl">
+      <div className="relative mx-auto flex h-16 max-w-7xl items-center overflow-hidden px-6">
+        {/* left: title */}
+        <div className="z-10 flex-shrink-0">
+          <span className="text-lg font-bold tracking-tight neon-glow md:text-xl">
             Business Opportunity Discovery
           </span>
         </div>
 
-        <nav className="hidden items-center gap-8 md:flex">
+        {/* center: nav — absolutely positioned, always centered regardless of side content width */}
+        <nav className="absolute left-1/2 -translate-x-1/2 z-10 hidden items-center gap-8 md:flex">
           <NavLink to="/" end className={linkClass}>Dashboard</NavLink>
           <NavLink to="/database" className={linkClass}>Database</NavLink>
-          <NavLink to="/review" className={linkClass}>Review</NavLink>
           <NavLink to="/settings" className={linkClass}>Settings</NavLink>
         </nav>
 
-        <div className="flex items-center justify-end gap-4 overflow-hidden">
+        {/* right: controls */}
+        <div className="z-10 ml-auto flex flex-shrink-0 items-center gap-4 overflow-hidden">
           {rightContent}
         </div>
       </div>

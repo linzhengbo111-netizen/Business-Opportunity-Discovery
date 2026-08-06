@@ -165,6 +165,88 @@ MEDIA_REJECT_KEYWORDS = [
     "management change",
 ]
 
+# Map candidate_events source_name → source_registry source_name for fuzzy matching.
+# Adapters write English display names; source_registry uses mixed Chinese/English.
+SOURCE_NAME_ALIASES = {
+    "NSTA Field Development Plans": "NSTA 开发计划",
+    "Guyana EPA Oil & Gas Documents": "Guyana EPA",
+    "Guyana Petroleum Management": "Guyana 石油管理计划",
+    "Petrobras Supplier Registration": "Petrobras 供应商注册",
+    "Equinor Supplier Information": "Equinor 供应商信息",
+    "Petrofac Supplier Network": "Petrofac 供应商网络",
+    "MODEC Supply Chain News": "MODEC Supply Chain",
+    "SBM Offshore Newsroom": "SBM Offshore Newsroom",
+    "Equinor Rosebank Public Notices": "Equinor Rosebank 公告",
+}
+
+# Noise patterns: candidate names that are clearly NOT FPSO projects.
+# Person names (First Last format), pure admin permits, etc.
+NOISE_NAME_PATTERNS = [
+    # Person name pattern: two capitalized words that look like a human name
+    # (matched via heuristics in the classify loop)
+]
+
+# summary must contain at least one of these to pass Rule B (FPSO relevance check)
+FPSO_RELEVANCE_KEYWORDS = [
+    "fpso", "offshore", "oil", "gas", "petroleum", "subsea",
+    "upstream", "lng", "flng", "platform", "drilling", "deepwater",
+    "field development", "production", "exploration",
+]
+
+
+def _lookup_source(source_name, sources):
+    """Resolve candidate_events source_name to source_registry entry.
+
+    Tries exact match first, then SOURCE_NAME_ALIASES, then substring match.
+    Returns (matched_name, source_info_dict).
+    """
+    # 1) Exact match
+    if source_name in sources:
+        return source_name, sources[source_name]
+
+    # 2) Alias lookup (fixes NSTA / Guyana EPA name mismatch)
+    aliased = SOURCE_NAME_ALIASES.get(source_name, "")
+    if aliased and aliased in sources:
+        return aliased, sources[aliased]
+
+    # 3) Substring match: candidate name contains registry name or vice versa
+    for reg_name, info in sources.items():
+        if reg_name in source_name or source_name in reg_name:
+            return reg_name, info
+
+    return source_name, {}
+
+
+def _is_noise(project_name_raw, summary, source_name, event_type):
+    """Return (is_noise: bool, reason: str)."""
+    pn = (project_name_raw or "").strip()
+    s = (summary or "").lower()
+    et = (event_type or "").strip()
+
+    # Person name heuristic: title-case "First Last" with <=3 words,
+    # no FPSO/oil/gas/offshore keywords anywhere.
+    words = pn.split()
+    has_oil_kw = any(kw in s for kw in FPSO_RELEVANCE_KEYWORDS)
+    if (2 <= len(words) <= 3
+            and all(w and w[0].isupper() and w[1:].islower() for w in words if len(w) > 1)
+            and not has_oil_kw
+            and "fpso" not in pn.lower()
+            and "permit" not in pn.lower()):
+        return True, f"Person name pattern: '{pn}'"
+
+    # Environmental permit without FPSO relevance
+    if ("environmental permit" in pn.lower()
+            or "environmental permit" in s
+            or et == "PERMIT_GRANTED"):
+        if not has_oil_kw:
+            return True, f"Non-FPSO permit: '{pn[:60]}'"
+
+    # Generic noise patterns
+    if et == "PERMIT_GRANTED" and not has_oil_kw:
+        return True, f"PERMIT_GRANTED without FPSO keywords"
+
+    return False, ""
+
 
 def auto_classify(supabase):
     """
@@ -172,17 +254,17 @@ def auto_classify(supabase):
 
     Runs AFTER all adapters finish crawling. No external API calls.
 
-    Rule A (auto_accepted): source priority='P0' AND event_type in OFFICIAL_EVENTS.
-        Reasoning: "Government source + official event" — high confidence.
+    Rule A (auto_accepted): source priority='P0' (any event_type).
+        Reasoning: government sources are authoritative; accept all P0 data.
 
-    Rule B (auto_rejected): summary contains financial/HR keywords AND
-        source tier=1 (media). Reasoning: noise, not FPSO procurement signal.
+    Rule B (auto_rejected): tier-1 media source whose summary does NOT
+        contain FPSO-relevant keywords (fpso/offshore/oil/gas/etc.).
+        Reasoning: media articles without these terms are not FPSO signal.
 
-    Rule C (pending): everything else — needs human review.
+    Rule C (auto_rejected): project_name_raw looks like a person name,
+        or is a non-FPSO environmental permit.
 
-    Each auto-decision appends a trail marker to evidence_quote for auditability:
-        "[Auto-accepted: Government source + official event]"
-        "[Auto-rejected: Media source + keyword '<keyword>']"
+    Rule D (pending): everything else — needs human review.
     """
     log.info("=" * 54)
     log.info("AUTO-CLASSIFY MODE: rule-based AI pre-screening")
@@ -191,13 +273,30 @@ def auto_classify(supabase):
     candidate_table = supabase.table("candidate_events")
     source_table = supabase.table("source_registry")
 
-    # Fetch all pending candidates
-    resp = candidate_table.select("*").eq("review_status", "pending").execute()
-    if not resp.data:
-        log.info("No pending events to auto-classify.")
-        return {"auto_accepted": 0, "auto_rejected": 0, "pending": 0}
+    # Fetch ALL pending candidates (handle pagination via large limit).
+    # Supabase default page size is 1000; use range queries for >1000 rows.
+    all_candidates = []
+    offset = 0
+    while True:
+        resp = candidate_table.select("*") \
+            .eq("review_status", "pending") \
+            .order("id") \
+            .range(offset, offset + 999) \
+            .execute()
+        batch = resp.data or []
+        if not batch:
+            break
+        all_candidates.extend(batch)
+        if len(batch) < 1000:
+            break
+        offset += 1000
 
-    candidates = resp.data
+    if not all_candidates:
+        log.info("No pending events to auto-classify.")
+        return {"auto_accepted": 0, "auto_rejected": 0, "pending": 0,
+                "noise_rejected": 0}
+
+    candidates = all_candidates
     log.info("Pending candidates to classify: %d", len(candidates))
 
     # Fetch source_registry for priority / tier lookup
@@ -208,15 +307,17 @@ def auto_classify(supabase):
 
     auto_accepted = 0
     auto_rejected = 0
+    noise_rejected = 0
     still_pending = 0
 
     for c in candidates:
         source_name = c.get("source_name", "")
-        source_info = sources.get(source_name, {})
+        matched_name, source_info = _lookup_source(source_name, sources)
         priority = source_info.get("priority", "")
         tier = source_info.get("tier", 1)
         event_type = c.get("event_type", "") or ""
         summary = (c.get("summary", "") or "").lower()
+        project_name_raw = c.get("project_name_raw", "") or ""
         evidence = c.get("evidence_quote", "") or ""
         cid = c.get("id")
 
@@ -226,52 +327,70 @@ def auto_classify(supabase):
 
         classified = False
 
-        # ---- Rule A: P0 source + official event type ----
-        if priority == "P0" and event_type in OFFICIAL_EVENTS:
-            trail = "\n[Auto-accepted: Government source + official event]"
+        # ---- Rule C: noise filter (run first to catch before accept) ----
+        # DB constraint allows only pending/accepted/rejected — use 'rejected'.
+        is_noise, noise_reason = _is_noise(project_name_raw, summary,
+                                           source_name, event_type)
+        if is_noise:
+            trail = f"\n[Auto-rejected: Noise — {noise_reason}]"
             new_evidence = (evidence + trail) if evidence else trail.strip()
             try:
                 candidate_table.update({
-                    "review_status": "auto_accepted",
+                    "review_status": "rejected",
+                    "evidence_quote": new_evidence,
+                }).eq("id", cid).execute()
+                noise_rejected += 1
+                classified = True
+                log.debug("  NOISE_REJECTED: %s | %s",
+                          project_name_raw[:40], noise_reason[:60])
+            except Exception as exc:
+                log.warning("  Noise reject update error (id=%s): %s", cid, exc)
+
+        # ---- Rule A: P0 source → auto-accept (relaxed: any event_type) ----
+        # DB constraint allows only pending/accepted/rejected — use 'accepted'.
+        if not classified and priority == "P0":
+            trail = "\n[Auto-accepted: Government source (P0)]"
+            new_evidence = (evidence + trail) if evidence else trail.strip()
+            try:
+                candidate_table.update({
+                    "review_status": "accepted",
                     "evidence_quote": new_evidence,
                 }).eq("id", cid).execute()
                 auto_accepted += 1
                 classified = True
-                log.debug("  AUTO_ACCEPTED: %s | %s | %s",
-                          c.get("project_name_raw", "")[:40], source_name, event_type)
+                log.debug("  AUTO_ACCEPTED: %s | %s | P0 | matched_as=%s",
+                          project_name_raw[:40], source_name, matched_name)
             except Exception as exc:
-                log.warning("  Auto-classify update error (id=%s): %s", cid, exc)
+                log.warning("  Auto-accept update error (id=%s): %s", cid, exc)
 
-        # ---- Rule B: media tier-1 + financial/HR keywords ----
+        # ---- Rule B: media tier-1 without FPSO relevance → auto-reject ----
         if not classified and tier == 1:
-            matched_kw = None
-            for kw in MEDIA_REJECT_KEYWORDS:
-                if kw in summary:
-                    matched_kw = kw
-                    break
-            if matched_kw:
-                trail = f"\n[Auto-rejected: Media source + keyword '{matched_kw}']"
+            has_fpso_kw = any(kw in summary for kw in FPSO_RELEVANCE_KEYWORDS)
+            has_fpso_kw = has_fpso_kw or "fpso" in project_name_raw.lower()
+            if not has_fpso_kw:
+                trail = "\n[Auto-rejected: Media source without FPSO-relevant keywords]"
                 new_evidence = (evidence + trail) if evidence else trail.strip()
                 try:
                     candidate_table.update({
-                        "review_status": "auto_rejected",
+                        "review_status": "rejected",
                         "evidence_quote": new_evidence,
                     }).eq("id", cid).execute()
                     auto_rejected += 1
                     classified = True
-                    log.debug("  AUTO_REJECTED: %s | %s | kw='%s'",
-                              c.get("project_name_raw", "")[:40], source_name, matched_kw)
+                    log.debug("  AUTO_REJECTED: %s | %s | no FPSO keywords",
+                              project_name_raw[:40], source_name)
                 except Exception as exc:
-                    log.warning("  Auto-classify update error (id=%s): %s", cid, exc)
+                    log.warning("  Auto-reject update error (id=%s): %s", cid, exc)
 
-        # ---- Rule C: keep pending ----
+        # ---- Rule D: keep pending ----
         if not classified:
             still_pending += 1
 
-    log.info("Auto-classify complete: %d auto_accepted, %d auto_rejected, %d pending",
-             auto_accepted, auto_rejected, still_pending)
+    log.info("Auto-classify complete: %d auto_accepted, %d auto_rejected "
+             "(%d noise), %d pending",
+             auto_accepted, auto_rejected, noise_rejected, still_pending)
     return {"auto_accepted": auto_accepted, "auto_rejected": auto_rejected,
-            "pending": still_pending}
+            "noise_rejected": noise_rejected, "pending": still_pending}
 
 
 # ========================================================================
@@ -279,9 +398,44 @@ def auto_classify(supabase):
 # ========================================================================
 
 
+def _derive_status(candidate, source_info):
+    """Derive project status for candidate_events rows that lack a 'status' column.
+
+    Uses source priority and event_type as signals:
+      P0 + DEVELOPMENT_PLAN_SUBMITTED  → Planned
+      P0 + PRODUCTION_START / FIRST_OIL → Delivered
+      P0 + DEVELOPMENT_CONSENT_GRANTED → Under Construction
+      P0 (other)                       → Under Construction
+      P1/P2                            → Planned
+
+    Returns a status string suitable for the projects table.
+    """
+    priority = source_info.get("priority", "")
+    event_type = (candidate.get("event_type", "") or "").strip()
+
+    early_stage = {"DEVELOPMENT_PLAN_SUBMITTED", "DEVELOPMENT_PLAN_UPDATED",
+                   "FIELD_DEVELOPMENT_PLAN", "EIA_SUBMITTED",
+                   "VENDOR_REGISTRATION_ACTION"}
+    mid_stage = {"DEVELOPMENT_CONSENT_GRANTED", "FPSO_CONTRACT_AWARDED",
+                 "PERMIT_GRANTED", "LICENSE_GRANTED", "REGULATORY_DATA",
+                 "PUBLIC_NOTICE", "CONTRACT_ANNOUNCEMENT"}
+    late_stage = {"PRODUCTION_START", "FIRST_OIL"}
+
+    if priority == "P0":
+        if event_type in late_stage:
+            return "Delivered"
+        elif event_type in early_stage:
+            return "Planned"
+        else:
+            return "Under Construction"
+    else:
+        return "Planned"
+
+
 def promote_accepted_candidates(supabase):
     """
-    Move candidate_events rows with review_status='accepted' into projects table.
+    Move candidate_events rows with review_status IN ('accepted','auto_accepted')
+    into projects table.
 
     Normalization + merge logic:
     1. For each accepted candidate, call normalize_project_name() to resolve
@@ -293,28 +447,51 @@ def promote_accepted_candidates(supabase):
     4. Upsert into projects table: match by 'name' column, update existing,
        insert new.
 
-    This is the ONLY path by which data enters the projects table.
+    Status is derived from source priority + event_type since candidate_events
+    has no native 'status' column (see _derive_status).
     """
     log.info("=" * 54)
-    log.info("PROMOTE MODE: moving accepted candidates to projects")
+    log.info("PROMOTE MODE: moving accepted/auto_accepted candidates to projects")
     log.info("=" * 54)
 
     candidate_table = supabase.table("candidate_events")
     project_table = supabase.table("projects")
+    source_table = supabase.table("source_registry")
 
-    resp = candidate_table.select("*").eq("review_status", "accepted").execute()
-    if not resp.data:
-        log.info("No accepted candidates to promote.")
+    # Fetch source_registry for status derivation
+    src_resp = source_table.select("*").execute()
+    sources = {}
+    for s in (src_resp.data or []):
+        sources[s.get("source_name", "")] = s
+
+    # Fetch ALL accepted candidates (handle pagination).
+    # Note: DB constraint only allows pending/accepted/rejected.
+    # Auto-classified records are stored as 'accepted' with trail markers.
+    all_candidates = []
+    for status_filter in ["accepted"]:
+        offset = 0
+        while True:
+            resp = candidate_table.select("*") \
+                .eq("review_status", status_filter) \
+                .order("id") \
+                .range(offset, offset + 999) \
+                .execute()
+            batch = resp.data or []
+            if not batch:
+                break
+            all_candidates.extend(batch)
+            if len(batch) < 1000:
+                break
+            offset += 1000
+
+    if not all_candidates:
+        log.info("No accepted/auto_accepted candidates to promote.")
         return 0, 0
 
-    candidates = resp.data
-    log.info("Accepted candidates: %d", len(candidates))
+    candidates = all_candidates
+    log.info("Accepted + auto_accepted candidates: %d", len(candidates))
 
     # ---- Step 1: normalize and group candidates --------
-    # Group by canonical_project_id when available (P0-4.1 fix).
-    # Candidates that normalized to the same canonical ID are merged;
-    # candidates that failed normalization are grouped by raw name only
-    # and never merged with matched candidates (separate key namespace).
     groups = {}       # group_key → [candidates]
     group_names = {}  # group_key → effective project name
     normalization_log = []
@@ -376,7 +553,14 @@ def promote_accepted_candidates(supabase):
                 merged_source_date = c.get("source_date", "")
                 merged_country = c.get("country", "")
                 merged_flag = c.get("flag", "")
-                merged_status = c.get("status", "Unknown")
+                # Derive status: candidate_events has no 'status' column
+                raw_status = c.get("status")
+                if raw_status:
+                    merged_status = raw_status
+                else:
+                    src_name = c.get("source_name", "")
+                    matched_name, src_info = _lookup_source(src_name, sources)
+                    merged_status = _derive_status(c, src_info)
             else:
                 # Multiple candidates for the same project — merge
                 summaries = [c.get("summary", "") for c in group if c.get("summary")]
@@ -408,10 +592,14 @@ def promote_accepted_candidates(supabase):
                 else:
                     merged_country = ""
 
-                # Status: prioritize Delivered > Under Construction > Planned > Unknown
-                statuses = [c.get("status", "Unknown") for c in group]
-                status_priority = {"Delivered": 0, "Under Construction": 1, "Planned": 2, "Unknown": 3}
-                merged_status = min(statuses, key=lambda s: status_priority.get(s, 99))
+                # Status: derive from best candidate (most recent source_date)
+                raw_status = best.get("status")
+                if raw_status:
+                    merged_status = raw_status
+                else:
+                    src_name = best.get("source_name", "")
+                    matched_name, src_info = _lookup_source(src_name, sources)
+                    merged_status = _derive_status(best, src_info)
                 merged_flag = best.get("flag", "")
 
                 log.info("  Merging %d candidates → %s", len(group), effective_name[:60])
@@ -442,7 +630,7 @@ def promote_accepted_candidates(supabase):
         except Exception:
             log.warning("  Promote error: %s", effective_name[:60], exc_info=True)
 
-    log.info("Promote complete: %d new, %d updated (from %d accepted candidates in %d groups)",
+    log.info("Promote complete: %d new, %d updated (from %d candidates in %d groups)",
              new, updated, len(candidates), len(groups))
     return new, updated
 
@@ -571,9 +759,237 @@ def auto_promote_candidates(supabase):
 # ========================================================================
 
 
-def run_all_adapters(dry_run=False, local_only=False, skip_classify=False):
+# ========================================================================
+# Auto-Ingest: accepted candidates → projects (with confidence mapping)
+# ========================================================================
+
+
+def _confidence_from_priority(priority, event_type=""):
+    """Map source priority + event_type to confidence label.
+
+    P0 sources → 'high'
+    P1 sources → 'medium' (bump to 'high' for official event types)
+    P2 sources → 'low'  (bump to 'medium' for official event types)
+    """
+    et = (event_type or "").strip()
+    is_official = et in OFFICIAL_EVENTS if et else False
+
+    if priority == "P0":
+        return "high"
+    elif priority == "P1":
+        return "high" if is_official else "medium"
+    elif priority == "P2":
+        return "medium" if is_official else "low"
+    else:
+        return "medium"
+
+
+def _summary_hits_reject_keywords(summary, project_name_raw):
+    """Check if a media (tier=1) candidate matches financial/HR noise keywords."""
+    text = ((summary or "") + " " + (project_name_raw or "")).lower()
+    return any(kw in text for kw in MEDIA_REJECT_KEYWORDS)
+
+
+def auto_ingest_to_projects(supabase):
+    """After auto_classify, upsert all accepted/auto_accepted candidates
+    directly into projects table with AI confidence labels.
+
+    - Maps confidence from source priority + event_type.
+    - Skips media (tier=1) candidates that match REJECT_KEYWORDS.
+    - Normalizes project names and merges duplicates.
+    """
+    log.info("=" * 54)
+    log.info("AUTO-INGEST: moving accepted candidates → projects")
+    log.info("=" * 54)
+
+    candidate_table = supabase.table("candidate_events")
+    project_table = supabase.table("projects")
+    source_table = supabase.table("source_registry")
+
+    # Fetch source_registry for priority / tier / confidence lookup
+    src_resp = source_table.select("*").execute()
+    sources = {}
+    for s in (src_resp.data or []):
+        sources[s.get("source_name", "")] = s
+
+    # Fetch ALL accepted candidates (paginated)
+    all_candidates = []
+    for status_filter in ["accepted"]:
+        offset = 0
+        while True:
+            resp = candidate_table.select("*") \
+                .eq("review_status", status_filter) \
+                .order("id") \
+                .range(offset, offset + 999) \
+                .execute()
+            batch = resp.data or []
+            if not batch:
+                break
+            all_candidates.extend(batch)
+            if len(batch) < 1000:
+                break
+            offset += 1000
+
+    if not all_candidates:
+        log.info("No accepted candidates to ingest.")
+        return 0, 0, 0
+
+    candidates = all_candidates
+    log.info("Accepted candidates fetched: %d", len(candidates))
+
+    # ---- Filter: skip media tier-1 with REJECT_KEYWORDS ----
+    skipped_reject_kw = 0
+    kept = []
+    for c in candidates:
+        source_name = c.get("source_name", "")
+        matched_name, source_info = _lookup_source(source_name, sources)
+        tier = source_info.get("tier", 1)
+        summary = c.get("summary", "") or ""
+        project_name_raw = c.get("project_name_raw", "") or ""
+
+        if tier == 1 and _summary_hits_reject_keywords(summary, project_name_raw):
+            skipped_reject_kw += 1
+            log.debug("  SKIP (reject keyword): %s | %s",
+                      project_name_raw[:50], source_name)
+            # Mark as rejected in candidate_events so it won't be retried
+            try:
+                cid = c.get("id")
+                if cid:
+                    candidate_table.update({
+                        "review_status": "rejected",
+                    }).eq("id", cid).execute()
+            except Exception:
+                pass
+            continue
+        kept.append(c)
+
+    if skipped_reject_kw:
+        log.info("Skipped %d media candidates with financial/HR keywords.",
+                 skipped_reject_kw)
+    log.info("Candidates to ingest: %d", len(kept))
+
+    if not kept:
+        return 0, 0, skipped_reject_kw
+
+    # ---- Group by canonical project name ----
+    groups = {}       # group_key → [candidates]
+    group_names = {}  # group_key → effective project name
+
+    for c in kept:
+        raw_name = c.get("project_name_raw", "")
+        canonical_id = normalize_project_name(raw_name)
+
+        if canonical_id:
+            display_name = get_display_name(canonical_id)
+            effective_name = display_name
+            group_key = ("canonical", canonical_id)
+        else:
+            effective_name = raw_name
+            group_key = ("raw", raw_name)
+
+        if group_key not in groups:
+            groups[group_key] = []
+            group_names[group_key] = effective_name
+        groups[group_key].append(c)
+
+    # ---- Upsert each group into projects ----
+    new_count = 0
+    updated_count = 0
+
+    for group_key, group in groups.items():
+        effective_name = group_names[group_key]
+        try:
+            # Merge logic
+            if len(group) == 1:
+                c = group[0]
+                merged_summary = c.get("summary", "")
+                merged_source_name = c.get("source_name", "")
+                merged_source_url = c.get("source_url", "")
+                merged_source_date = c.get("source_date", "")
+                merged_country = c.get("country", "")
+                merged_flag = c.get("flag", "")
+
+                src_name = c.get("source_name", "")
+                matched_name, src_info = _lookup_source(src_name, sources)
+                priority = src_info.get("priority", "")
+                event_type = c.get("event_type", "") or ""
+                merged_status = _derive_status(c, src_info)
+                confidence = _confidence_from_priority(priority, event_type)
+            else:
+                summaries = [c.get("summary", "") for c in group if c.get("summary")]
+                merged_summary = max(summaries, key=len) if summaries else ""
+                seen_summaries = {merged_summary}
+                for c in group:
+                    s = c.get("summary", "")
+                    if s and s not in seen_summaries and len(s) > 20:
+                        if s not in merged_summary:
+                            merged_summary += " | " + s
+                            seen_summaries.add(s)
+
+                dated = sorted(
+                    [c for c in group if c.get("source_date")],
+                    key=lambda x: x.get("source_date", ""),
+                    reverse=True,
+                )
+                best = dated[0] if dated else group[0]
+                merged_source_name = best.get("source_name", "")
+                merged_source_url = best.get("source_url", "")
+                merged_source_date = best.get("source_date", "")
+
+                countries = [c.get("country", "") for c in group if c.get("country")]
+                if countries:
+                    merged_country = max(set(countries), key=countries.count)
+                else:
+                    merged_country = ""
+
+                merged_flag = best.get("flag", "")
+
+                src_name = best.get("source_name", "")
+                matched_name, src_info = _lookup_source(src_name, sources)
+                priority = src_info.get("priority", "")
+                event_type = best.get("event_type", "") or ""
+                merged_status = _derive_status(best, src_info)
+                confidence = _confidence_from_priority(priority, event_type)
+
+                log.info("  Merging %d candidates → %s", len(group), effective_name[:60])
+
+            project_data = {
+                "name": effective_name,
+                "country": merged_country,
+                "flag": merged_flag,
+                "status": merged_status,
+                "summary": merged_summary[:2000],
+                "source_name": merged_source_name,
+                "source_url": merged_source_url,
+                "source_date": merged_source_date,
+                "stainless_steel": group[0].get("stainless_steel", ""),
+                "application": group[0].get("application", ""),
+                "confidence": confidence,
+            }
+
+            existing = project_table.select("id").eq("name", effective_name).execute()
+            if existing.data:
+                project_table.update(project_data).eq("name", effective_name).execute()
+                updated_count += 1
+                log.info("  UPDATED: %s (confidence=%s)", effective_name[:60], confidence)
+            else:
+                project_table.insert(project_data).execute()
+                new_count += 1
+                log.info("  NEW: %s (confidence=%s)", effective_name[:60], confidence)
+
+        except Exception:
+            log.warning("  Ingest error: %s", effective_name[:60], exc_info=True)
+
+    log.info("Auto-ingest complete: %d new, %d updated, %d skipped (from %d candidates in %d groups)",
+             new_count, updated_count, skipped_reject_kw, len(kept), len(groups))
+    return new_count, updated_count, skipped_reject_kw
+
+
+def run_all_adapters(dry_run=False, local_only=False, skip_classify=False,
+                     skip_ingest=False):
     """Run all 15 adapters sequentially with polite delays. Continue-on-error.
-    After crawl, auto-classify pending events unless skip_classify is True."""
+    After crawl: auto-classify pending, then auto-ingest into projects.
+    Use --skip-ingest to skip the projects ingest step."""
     log.info("=" * 54)
     log.info("FPSO Project Crawler — %s", TODAY)
     log.info("=" * 54)
@@ -638,6 +1054,12 @@ def run_all_adapters(dry_run=False, local_only=False, skip_classify=False):
         classify_result = auto_classify(supabase)
         log.info("")
 
+        # ---- Auto-ingest accepted → projects ----
+        if not skip_ingest:
+            log.info("")
+            ingest_result = auto_ingest_to_projects(supabase)
+            log.info("")
+
 
 # ========================================================================
 # CLI
@@ -694,6 +1116,16 @@ def main():
         action="store_true",
         help="Skip auto-classification after crawl (use when testing).",
     )
+    parser.add_argument(
+        "--skip-ingest",
+        action="store_true",
+        help="Skip auto-ingest into projects after auto-classify (keep candidates for manual review).",
+    )
+    parser.add_argument(
+        "--auto-ingest",
+        action="store_true",
+        help="Run auto-ingest on accepted candidates (standalone, no crawl).",
+    )
     args = parser.parse_args()
 
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -702,6 +1134,13 @@ def main():
     if args.auto_classify:
         result = auto_classify(supabase)
         log.info("Standalone auto-classify: %s", result)
+        return
+
+    # Standalone auto-ingest (no crawl)
+    if args.auto_ingest:
+        new, updated, skipped = auto_ingest_to_projects(supabase)
+        log.info("Standalone auto-ingest: %d new, %d updated, %d skipped.",
+                 new, updated, skipped)
         return
 
     # Promote mode
@@ -735,7 +1174,8 @@ def main():
         return
 
     # Normal crawl mode (default when no flag specified)
-    run_all_adapters(skip_classify=args.skip_classify)
+    run_all_adapters(skip_classify=args.skip_classify,
+                     skip_ingest=args.skip_ingest)
 
 
 if __name__ == "__main__":

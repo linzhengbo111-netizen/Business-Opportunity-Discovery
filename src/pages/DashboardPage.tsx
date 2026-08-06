@@ -12,7 +12,7 @@ import {
 import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
 import type { Project } from "@/data/projects";
-import { countryCoordinates, sampleProjects, countryToFlagEmoji, COUNTRY_ALIASES, INDUSTRY_OPTIONS, getIndustryLabel } from "@/data/projects";
+import { countryCoordinates, sampleProjects, countryToFlagEmoji, COUNTRY_ALIASES } from "@/data/projects";
 import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
 import { supabase } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
@@ -70,6 +70,19 @@ function statusDotClass(status: string): string {
   }
 }
 
+function confidenceBadgeClass(confidence: string): string {
+  switch (confidence) {
+    case "high":
+      return "bg-fpso-green/15 text-fpso-green";
+    case "medium":
+      return "bg-fpso-orange/15 text-fpso-orange";
+    case "low":
+      return "bg-fpso-muted/15 text-fpso-muted";
+    default:
+      return "bg-fpso-muted/15 text-fpso-muted";
+  }
+}
+
 /** Apply country name alias with case-insensitive fallback. */
 function normalizeCountry(raw: string): string {
   if (!raw) return "Unknown";
@@ -85,6 +98,7 @@ function mapRowToProject(row: Record<string, unknown>): Project {
   // Normalize project name through canonical alias system for dedup
   const canonicalId = normalizeProjectName(rawName);
   const name = canonicalId ? getDisplayName(canonicalId) : rawName;
+  const confidence = String(row.confidence ?? "medium") as "high" | "medium" | "low";
   return {
     name,
     country,
@@ -99,6 +113,7 @@ function mapRowToProject(row: Record<string, unknown>): Project {
     stainlessSteel: String(row.stainless_steel ?? ""),
     application: String(row.application ?? ""),
     industry: String(row.industry ?? "FPSO"),
+    confidence,
   };
 }
 
@@ -112,6 +127,7 @@ function mapCandidateToProject(row: Record<string, unknown>): Project {
   // Normalize project name through canonical alias system for dedup
   const canonicalId = normalizeProjectName(rawName);
   const name = canonicalId ? getDisplayName(canonicalId) : rawName;
+  const confidence = String(row.confidence ?? "medium") as "high" | "medium" | "low";
   return {
     name,
     country,
@@ -126,14 +142,24 @@ function mapCandidateToProject(row: Record<string, unknown>): Project {
     stainlessSteel: "",
     application: "",
     industry: "FPSO",
+    confidence,
   };
 }
+
+const INDUSTRY_OPTIONS = [
+  "All Industries",
+  "FPSO",
+  "Desalination",
+  "LNG",
+  "General Stainless",
+] as const;
 
 export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCountry, setSelectedCountry] = useState("All Countries");
   const [selectedIndustry, setSelectedIndustry] = useState("All Industries");
+  const [selectedConfidence, setSelectedConfidence] = useState("High");
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const { version, status: connectionStatus } = useProjectRealtime();
 
@@ -234,8 +260,13 @@ export default function DashboardPage() {
     if (selectedIndustry !== "All Industries") {
       result = result.filter((p) => (p.industry ?? "FPSO") === selectedIndustry);
     }
+    if (selectedConfidence !== "All") {
+      result = result.filter(
+        (p) => (p.confidence ?? "medium") === selectedConfidence.toLowerCase(),
+      );
+    }
     return result;
-  }, [projects, selectedCountry, selectedIndustry]);
+  }, [projects, selectedCountry, selectedIndustry, selectedConfidence]);
 
   const filteredStats = useMemo(() => getStats(filteredProjects), [filteredProjects]);
 
@@ -317,7 +348,7 @@ export default function DashboardPage() {
 
       <Header rightContent={
         <>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-shrink-0 items-center gap-2">
             <label htmlFor="country-select" className="hidden text-sm text-fpso-muted lg:inline">
               Region
             </label>
@@ -328,7 +359,7 @@ export default function DashboardPage() {
                 setSelectedCountry(e.target.value);
                 console.log(`Region changed to: ${e.target.value}`);
               }}
-              className="h-9 min-w-[180px] rounded-md bg-fpso-card/85 px-3 py-1.5 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50"
+              className="h-9 w-[160px] appearance-none rounded-md border border-fpso-border bg-fpso-card/85 px-3 py-1.5 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50"
             >
               <option value="All Countries">All Countries</option>
               {countries.map((country) => {
@@ -342,7 +373,7 @@ export default function DashboardPage() {
             </select>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-shrink-0 items-center gap-2">
             <label htmlFor="industry-select" className="hidden text-sm text-fpso-muted lg:inline">
               Industry
             </label>
@@ -353,15 +384,36 @@ export default function DashboardPage() {
                 setSelectedIndustry(e.target.value);
                 console.log(`Industry changed to: ${e.target.value}`);
               }}
-              className="h-9 min-w-[180px] rounded-md bg-fpso-card/85 px-3 py-1.5 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50"
+              className="h-9 w-[160px] appearance-none rounded-md border border-fpso-border bg-fpso-card/85 px-3 py-1.5 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50"
             >
-              {INDUSTRY_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>{getIndustryLabel(opt)}</option>
-              ))}
+              {INDUSTRY_OPTIONS.map((opt) => {
+                const label =
+                  opt === "Desalination" ? `${opt} (海水淡化)` :
+                  opt === "General Stainless" ? `${opt} (其他不锈钢)` :
+                  opt;
+                return <option key={opt} value={opt}>{label}</option>;
+              })}
             </select>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-shrink-0 items-center gap-2">
+            <label htmlFor="confidence-select" className="hidden text-sm text-fpso-muted lg:inline">
+              Confidence
+            </label>
+            <select
+              id="confidence-select"
+              value={selectedConfidence}
+              onChange={(e) => setSelectedConfidence(e.target.value)}
+              className="h-9 w-[120px] appearance-none rounded-md border border-fpso-border bg-fpso-card/85 px-3 py-1.5 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50"
+            >
+              <option value="All">All</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
+          </div>
+
+          <div className="flex flex-shrink-0 items-center gap-2">
             <span className="relative inline-flex h-2.5 w-2.5">
               {connectionStatus === "connected" && (
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fpso-green opacity-75" />
@@ -609,6 +661,11 @@ export default function DashboardPage() {
                       <div className="mt-2 flex min-w-0 items-center gap-2">
                         <span className={`h-2 w-2 flex-shrink-0 rounded-full ${statusDotClass(project.status)}`} />
                         <span className={`text-xs ${statusColorClass(project.status)}`}>{project.status}</span>
+                        {project.confidence && (
+                          <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${confidenceBadgeClass(project.confidence)}`}>
+                            {project.confidence}
+                          </span>
+                        )}
                       </div>
 
                       <p className="mt-2 truncate text-xs text-fpso-muted">{project.summary}</p>
@@ -687,6 +744,11 @@ export default function DashboardPage() {
                   <span className={`h-2 w-2 rounded-full ${statusDotClass(selectedProject.status)}`} style={{ boxShadow: `0 0 6px currentColor` }} />
                   <span className={statusColorClass(selectedProject.status)}>{selectedProject.status || "Unknown"}</span>
                 </span>
+                {selectedProject.confidence && (
+                  <span className={`inline-flex items-center gap-1 rounded-md px-3 py-1 text-sm ${confidenceBadgeClass(selectedProject.confidence)}`}>
+                    {selectedProject.confidence}
+                  </span>
+                )}
               </div>
 
               {/* 完整摘要 */}
@@ -699,7 +761,7 @@ export default function DashboardPage() {
 
               {/* 不锈钢牌号 */}
               <div>
-                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">Stainless Steel Grade</h4>
+                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">Supply Chain Material Matching</h4>
                 <p className="text-sm text-fpso-fg">
                   {selectedProject.stainlessSteel ? (
                     <span className="rounded bg-fpso-blue/10 px-2 py-0.5 text-xs font-medium text-fpso-blue">

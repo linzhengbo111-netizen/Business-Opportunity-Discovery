@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
 import type { Project } from "@/data/projects";
-import { sampleProjects, COUNTRY_ALIASES, INDUSTRY_OPTIONS, getIndustryLabel } from "@/data/projects";
+import { sampleProjects, COUNTRY_ALIASES } from "@/data/projects";
 import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
 import { supabase } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
@@ -47,6 +47,19 @@ function statusBgClass(status: string): string {
   }
 }
 
+function confidenceBgClass(confidence: string): string {
+  switch (confidence) {
+    case "high":
+      return "bg-fpso-green/15 text-fpso-green";
+    case "medium":
+      return "bg-fpso-orange/15 text-fpso-orange";
+    case "low":
+      return "bg-fpso-muted/15 text-fpso-muted";
+    default:
+      return "bg-fpso-muted/15 text-fpso-muted";
+  }
+}
+
 /** Apply country name alias with case-insensitive fallback. */
 function normalizeCountry(raw: string): string {
   if (!raw) return "Unknown";
@@ -60,6 +73,7 @@ function mapRowToProject(row: Record<string, unknown>): Project {
   const rawName = String(row.name ?? "");
   const canonicalId = normalizeProjectName(rawName);
   const name = canonicalId ? getDisplayName(canonicalId) : rawName;
+  const confidence = String(row.confidence ?? "medium") as "high" | "medium" | "low";
   return {
     name,
     country,
@@ -73,7 +87,7 @@ function mapRowToProject(row: Record<string, unknown>): Project {
     },
     stainlessSteel: String(row.stainless_steel ?? ""),
     application:    String(row.application ?? ""),
-    industry:       String(row.industry ?? "FPSO"),
+    confidence,
   };
 }
 
@@ -129,8 +143,8 @@ export default function DatabasePage() {
 
   // filters
   const [countryFilter, setCountryFilter] = useState("All Countries");
-  const [selectedIndustry, setSelectedIndustry] = useState("All Industries");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [confidenceFilter, setConfidenceFilter] = useState("High");
   const [nameSearch, setNameSearch] = useState("");
 
   // pagination
@@ -189,11 +203,13 @@ export default function DatabasePage() {
     if (countryFilter !== "All Countries") {
       list = list.filter((p) => p.country.trim() === countryFilter);
     }
-    if (selectedIndustry !== "All Industries") {
-      list = list.filter((p) => (p.industry ?? "FPSO") === selectedIndustry);
-    }
     if (statusFilter !== "All") {
       list = list.filter((p) => p.status === statusFilter);
+    }
+    if (confidenceFilter !== "All") {
+      list = list.filter(
+        (p) => (p.confidence ?? "medium") === confidenceFilter.toLowerCase(),
+      );
     }
     if (nameSearch.trim()) {
       const q = nameSearch.trim().toLowerCase();
@@ -201,7 +217,7 @@ export default function DatabasePage() {
     }
 
     return list;
-  }, [projects, countryFilter, selectedIndustry, statusFilter, nameSearch]);
+  }, [projects, countryFilter, statusFilter, confidenceFilter, nameSearch]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -212,7 +228,7 @@ export default function DatabasePage() {
   }, [filtered, safePage]);
 
   // reset page when filters change
-  useEffect(() => { setPage(1); }, [countryFilter, selectedIndustry, statusFilter, nameSearch]);
+  useEffect(() => { setPage(1); }, [countryFilter, statusFilter, confidenceFilter, nameSearch]);
 
   const pages = buildPages(safePage, totalPages);
 
@@ -226,65 +242,25 @@ export default function DatabasePage() {
     <>
       <PageMeta title="Database — FPSO Projects" description="项目数据库表格视图" />
       <Header rightContent={
-        <>
-          <div className="flex items-center gap-2">
-            <label htmlFor="db-country-select" className="hidden text-sm text-fpso-muted lg:inline">
-              Region
-            </label>
-            <select
-              id="db-country-select"
-              value={countryFilter}
-              onChange={(e) => setCountryFilter(e.target.value)}
-              className="h-9 min-w-[180px] rounded-md bg-fpso-card/85 px-3 py-1.5 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50"
-            >
-              <option value="All Countries">All Countries</option>
-              {countries.map((country) => {
-                const flag = getCountryFlag(projects, country);
-                return (
-                  <option key={country} value={country}>
-                    {flag ? `${flag} ${country}` : country}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <label htmlFor="db-industry-select" className="hidden text-sm text-fpso-muted lg:inline">
-              Industry
-            </label>
-            <select
-              id="db-industry-select"
-              value={selectedIndustry}
-              onChange={(e) => setSelectedIndustry(e.target.value)}
-              className="h-9 min-w-[180px] rounded-md bg-fpso-card/85 px-3 py-1.5 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50"
-            >
-              {INDUSTRY_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>{getIndustryLabel(opt)}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="relative inline-flex h-2.5 w-2.5">
-              {connectionStatus === "connected" && (
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fpso-green opacity-75" />
-              )}
-              <span
-                className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
-                  connectionStatus === "connected" ? "bg-fpso-green live-breath" : "bg-fpso-dim"
-                }`}
-              />
-            </span>
+        <div className="flex items-center gap-2">
+          <span className="relative inline-flex h-2.5 w-2.5">
+            {connectionStatus === "connected" && (
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fpso-green opacity-75" />
+            )}
             <span
-              className={`text-xs font-medium tracking-wider ${
-                connectionStatus === "connected" ? "text-fpso-green" : "text-fpso-dim"
+              className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
+                connectionStatus === "connected" ? "bg-fpso-green live-breath" : "bg-fpso-dim"
               }`}
-            >
-              {connectionStatus === "connected" ? "LIVE" : "STALE"}
-            </span>
-          </div>
-        </>
+            />
+          </span>
+          <span
+            className={`text-xs font-medium tracking-wider ${
+              connectionStatus === "connected" ? "text-fpso-green" : "text-fpso-dim"
+            }`}
+          >
+            {connectionStatus === "connected" ? "LIVE" : "STALE"}
+          </span>
+        </div>
       } />
 
       <main className="mx-auto w-full max-w-7xl px-6 py-8">
@@ -300,6 +276,26 @@ export default function DatabasePage() {
 
         {/* filters */}
         <section className="mb-6 flex flex-wrap items-center gap-4 rounded-lg border border-fpso-border bg-fpso-card px-5 py-3">
+          {/* country */}
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-fpso-muted">Country</label>
+            <select
+              value={countryFilter}
+              onChange={(e) => setCountryFilter(e.target.value)}
+              className="h-8 min-w-[140px] rounded-md bg-fpso-bg/70 px-2.5 py-1 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50 border border-fpso-border"
+            >
+              <option value="All Countries">All Countries</option>
+              {countries.map((c) => {
+                const flag = getCountryFlag(projects, c);
+                return (
+                  <option key={c} value={c}>
+                    {flag ? `${flag} ${c}` : c}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
           {/* status */}
           <div className="flex items-center gap-2">
             <label className="text-xs font-medium text-fpso-muted">Status</label>
@@ -311,6 +307,21 @@ export default function DatabasePage() {
               {STATUS_OPTIONS.map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}
+            </select>
+          </div>
+
+          {/* confidence */}
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-fpso-muted">Confidence</label>
+            <select
+              value={confidenceFilter}
+              onChange={(e) => setConfidenceFilter(e.target.value)}
+              className="h-8 min-w-[120px] rounded-md bg-fpso-bg/70 px-2.5 py-1 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50 border border-fpso-border"
+            >
+              <option value="All">All</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
             </select>
           </div>
 
@@ -339,6 +350,7 @@ export default function DatabasePage() {
                     <th className="px-4 py-3">Project</th>
                     <th className="px-4 py-3">Country</th>
                     <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Confidence</th>
                     <th className="px-4 py-3">Summary</th>
                     <th className="px-4 py-3">Source</th>
                     <th className="px-4 py-3">Date</th>
@@ -347,7 +359,7 @@ export default function DatabasePage() {
                 <tbody>
                   {paged.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-16 text-center text-fpso-muted">
+                      <td colSpan={7} className="px-4 py-16 text-center text-fpso-muted">
                         No projects match the current filters.
                       </td>
                     </tr>
@@ -367,6 +379,11 @@ export default function DatabasePage() {
                         <td className="px-4 py-2.5">
                           <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${statusBgClass(p.status)}`}>
                             {p.status || "Unknown"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${confidenceBgClass(p.confidence ?? "medium")}`}>
+                            {p.confidence ?? "medium"}
                           </span>
                         </td>
                         <td className="px-4 py-2.5 text-fpso-muted max-w-[280px] truncate">
@@ -481,6 +498,11 @@ export default function DatabasePage() {
               <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusBgClass(selected.status)}`}>
                 {selected.status || "Unknown"}
               </span>
+              {selected.confidence && (
+                <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${confidenceBgClass(selected.confidence)}`}>
+                  {selected.confidence}
+                </span>
+              )}
             </div>
 
             {/* summary */}
@@ -493,7 +515,7 @@ export default function DatabasePage() {
 
             {/* stainless steel grade */}
             <section className="mb-6">
-              <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">Stainless Steel Grade</h4>
+              <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">Supply Chain Material Matching</h4>
               <p className="text-sm text-fpso-fg">
                 {selected.stainlessSteel || "—"}
               </p>
