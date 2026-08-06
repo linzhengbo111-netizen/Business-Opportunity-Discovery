@@ -103,6 +103,7 @@ function mapRowToProject(row: Record<string, unknown>): Project {
     stainlessSteel: String(row.stainless_steel ?? ""),
     application:    String(row.application ?? ""),
     confidence,
+    procurementChain: String(row.procurement_chain ?? ""),
   };
 }
 

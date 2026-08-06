@@ -88,6 +88,7 @@ function mapRowToProject(row: Record<string, unknown>): Project {
     stainlessSteel: String(row.stainless_steel ?? ""),
     application:    String(row.application ?? ""),
     confidence,
+    procurementChain: String(row.procurement_chain ?? ""),
   };
 }
 
@@ -351,6 +352,7 @@ export default function DatabasePage() {
                     <th className="px-4 py-3">Country</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Confidence</th>
+                    <th className="px-4 py-3">Procurement</th>
                     <th className="px-4 py-3">Summary</th>
                     <th className="px-4 py-3">Source</th>
                     <th className="px-4 py-3">Date</th>
@@ -359,7 +361,7 @@ export default function DatabasePage() {
                 <tbody>
                   {paged.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-16 text-center text-fpso-muted">
+                      <td colSpan={8} className="px-4 py-16 text-center text-fpso-muted">
                         No projects match the current filters.
                       </td>
                     </tr>
@@ -385,6 +387,15 @@ export default function DatabasePage() {
                           <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${confidenceBgClass(p.confidence ?? "medium")}`}>
                             {p.confidence ?? "medium"}
                           </span>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          {p.procurementChain ? (
+                            <span className="inline-block rounded-full px-2.5 py-0.5 text-xs font-medium bg-fpso-green/15 text-fpso-green max-w-[200px] truncate" title={p.procurementChain}>
+                              采购链: {p.procurementChain}
+                            </span>
+                          ) : (
+                            <span className="text-fpso-dim">—</span>
+                          )}
                         </td>
                         <td className="px-4 py-2.5 text-fpso-muted max-w-[280px] truncate">
                           {truncate(p.summary, 60)}
@@ -528,6 +539,20 @@ export default function DatabasePage() {
                 {selected.application || "—"}
               </p>
             </section>
+
+            {/* procurement chain */}
+            {selected.procurementChain && (
+              <section className="mb-6">
+                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">Procurement Chain</h4>
+                <div className="flex flex-wrap gap-1.5">
+                  {selected.procurementChain.split(", ").map((entity) => (
+                    <span key={entity} className="rounded-md bg-fpso-green/15 px-2.5 py-1 text-xs font-medium text-fpso-green">
+                      {entity}
+                    </span>
+                  ))}
+                </div>
+              </section>
+            )}
 
             {/* source */}
             <section>

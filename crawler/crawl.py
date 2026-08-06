@@ -615,6 +615,7 @@ def promote_accepted_candidates(supabase):
                 "source_date": merged_source_date,
                 "stainless_steel": group[0].get("stainless_steel", ""),
                 "application": group[0].get("application", ""),
+                "procurement_chain": group[0].get("procurement_chain", ""),
             }
 
             existing = project_table.select("id").eq("name", effective_name).execute()
@@ -964,6 +965,7 @@ def auto_ingest_to_projects(supabase):
                 "source_date": merged_source_date,
                 "stainless_steel": group[0].get("stainless_steel", ""),
                 "application": group[0].get("application", ""),
+                "procurement_chain": group[0].get("procurement_chain", ""),
                 "confidence": confidence,
             }
 

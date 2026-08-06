@@ -21,6 +21,7 @@ export interface Project {
   application: string;
   industry?: string;
   confidence?: 'high' | 'medium' | 'low';
+  procurementChain?: string;
 }
 
 export interface CountryCoordinate {

@@ -49,6 +49,8 @@ import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
+from adapters.media_common import extract_procurement
+
 # ---- Paths ---------------------------------------------------------------
 
 BASE_DIR = Path(__file__).resolve().parent.parent  # crawler/
@@ -400,6 +402,9 @@ def build_candidate_event(article: dict, html_sha256: str,
     if article.get("summary") and article["summary"] != article["title"]:
         summary_parts.append(f"Excerpt: {article['summary'][:200]}")
 
+    full_text = f"{article['title']} {article.get('summary', '')}"
+    procurement = extract_procurement(full_text)
+
     return {
         "project_name_raw": project_name[:255],
         "country": "",  # SBM is global contractor — country extraction needs project context
@@ -410,6 +415,7 @@ def build_candidate_event(article: dict, html_sha256: str,
         "event_type": article.get("event_type", EVENT_TYPE_CONTRACT),
         "fetched_at": NOW_ISO,
         "evidence_quote": f"{article['title']} ({article.get('date', '')})",
+        "procurement_chain": procurement,
         "raw_json": json.dumps({
             "article": article,
             "html_sha256": html_sha256,

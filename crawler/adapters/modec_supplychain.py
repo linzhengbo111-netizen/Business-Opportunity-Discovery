@@ -49,6 +49,8 @@ import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
+from adapters.media_common import extract_procurement
+
 # ---- Paths ---------------------------------------------------------------
 
 BASE_DIR = Path(__file__).resolve().parent.parent  # crawler/
@@ -302,6 +304,7 @@ def build_candidate_events(sections: list[dict], links: list[dict],
     }
 
     # Main event
+    procurement_main = extract_procurement(all_text) if all_text else ""
     events.append({
         "project_name_raw": "MODEC Supply Chain Registration",
         "country": "Brazil",
@@ -312,6 +315,7 @@ def build_candidate_events(sections: list[dict], links: list[dict],
         "event_type": EVENT_TYPE,
         "fetched_at": NOW_ISO,
         "evidence_quote": evidence[:500],
+        "procurement_chain": procurement_main,
         "raw_json": json.dumps(raw_meta, ensure_ascii=False),
     })
 
@@ -324,6 +328,7 @@ def build_candidate_events(sections: list[dict], links: list[dict],
                 "html_sha256": html_sha256,
                 "source_url_fetched": url_fetched,
             }
+            sec_procurement = extract_procurement(section["content"]) if section.get("content") else ""
             events.append({
                 "project_name_raw": f"MODEC: {section['heading'][:200]}",
                 "country": "Brazil",
@@ -334,6 +339,7 @@ def build_candidate_events(sections: list[dict], links: list[dict],
                 "event_type": EVENT_TYPE,
                 "fetched_at": NOW_ISO,
                 "evidence_quote": section["content"][:500],
+                "procurement_chain": sec_procurement,
                 "raw_json": json.dumps(sec_meta, ensure_ascii=False),
             })
 

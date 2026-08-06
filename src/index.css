@@ -164,6 +164,14 @@
     display: none;
   }
 
+  /* 采购链标签 */
+  .procurement-tag {
+    transition: background-color 0.15s;
+  }
+  .procurement-tag:hover {
+    filter: brightness(1.2);
+  }
+
   /* 状态圆点 */
   .status-dot {
     box-shadow: 0 0 6px currentColor;
@@ -176,16 +184,17 @@
     max-width: 1000px;
   }
 
-  /* 国家选择下拉框定制 */
-  #country-select {
-    appearance: none;
-    background-color: rgba(19, 26, 46, 0.85);
-    border: 1px solid hsl(var(--primary));
-    color: hsl(var(--foreground));
-  }
-
-  #country-select option {
+  /* 下拉选项深色主题 */
+  select option {
     background-color: #131a2e;
     color: #f8fafc;
+  }
+
+  /* 自定义下拉箭头 — 替换浏览器原生样式（配合 appearance-none） */
+  select.appearance-none {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 28px;
   }
 }

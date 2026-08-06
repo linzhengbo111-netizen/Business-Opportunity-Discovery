@@ -114,6 +114,7 @@ function mapRowToProject(row: Record<string, unknown>): Project {
     application: String(row.application ?? ""),
     industry: String(row.industry ?? "FPSO"),
     confidence,
+    procurementChain: String(row.procurement_chain ?? ""),
   };
 }
 
@@ -143,6 +144,7 @@ function mapCandidateToProject(row: Record<string, unknown>): Project {
     application: "",
     industry: "FPSO",
     confidence,
+    procurementChain: "",
   };
 }
 
@@ -656,6 +658,11 @@ export default function DashboardPage() {
                         >
                           {project.application}
                         </span>
+                        {project.procurementChain && (
+                          <span className="rounded bg-fpso-green/10 px-1.5 py-0.5 text-xs font-medium text-fpso-green">
+                            采购链: {project.procurementChain}
+                          </span>
+                        )}
                       </div>
 
                       <div className="mt-2 flex min-w-0 items-center gap-2">
@@ -782,6 +789,20 @@ export default function DashboardPage() {
                   ) : "—"}
                 </p>
               </div>
+
+              {/* 采购链 */}
+              {selectedProject.procurementChain && (
+                <div>
+                  <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">Procurement Chain</h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedProject.procurementChain.split(", ").map((entity) => (
+                      <span key={entity} className="rounded bg-fpso-green/10 px-2 py-0.5 text-xs font-medium text-fpso-green">
+                        {entity}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* 来源链接 */}
               <div>

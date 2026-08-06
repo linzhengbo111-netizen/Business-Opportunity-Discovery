@@ -1911,6 +1911,112 @@ STATUS_PATTERNS = {
     ],
 }
 
+# ---- FPSO procurement entity extraction ---------------------------------
+
+PROCUREMENT_ENTITIES = {
+    # FPSO Contractors / Shipyards
+    "SBM Offshore": "Contractor/Shipyard",
+    "MODEC": "Contractor/Shipyard",
+    "Yinson": "Contractor/Shipyard",
+    "Bumi Armada": "Contractor/Shipyard",
+    "BW Offshore": "Contractor/Shipyard",
+    "Bluewater": "Contractor/Shipyard",
+    "Teekay": "Contractor/Shipyard",
+    "Altera Infrastructure": "Contractor/Shipyard",
+    "MISC Berhad": "Contractor/Shipyard",
+    "COSCO Shipping": "Contractor/Shipyard",
+    "COSCO": "Contractor/Shipyard",
+    "Seatrium": "Contractor/Shipyard",
+    "Sembcorp Marine": "Contractor/Shipyard",
+    "Keppel Offshore": "Contractor/Shipyard",
+    "Keppel O&M": "Contractor/Shipyard",
+    "Samsung Heavy Industries": "Contractor/Shipyard",
+    "Hyundai Heavy Industries": "Contractor/Shipyard",
+    "Hanwha Ocean": "Contractor/Shipyard",
+    "Daewoo Shipbuilding": "Contractor/Shipyard",
+    "DSME": "Contractor/Shipyard",
+    # Topsides EPC
+    "TechnipFMC": "Topsides EPC",
+    "Technip": "Topsides EPC",
+    "Petrofac": "Topsides EPC",
+    "Saipem": "Topsides EPC",
+    "Worley": "Topsides EPC",
+    "Wood Group": "Topsides EPC",
+    "Wood PLC": "Topsides EPC",
+    "Aker Solutions": "Topsides EPC",
+    "Aibel": "Topsides EPC",
+    "McDermott": "Topsides EPC",
+    "Subsea 7": "Topsides EPC",
+    "Fluor": "Topsides EPC",
+    "Bechtel": "Topsides EPC",
+    "KBR": "Topsides EPC",
+    # Key Equipment Suppliers
+    "Siemens Energy": "Equipment Supplier",
+    "Siemens": "Equipment Supplier",
+    "ABB": "Equipment Supplier",
+    "GE Power": "Equipment Supplier",
+    "General Electric": "Equipment Supplier",
+    "MAN Energy Solutions": "Equipment Supplier",
+    "Wärtsilä": "Equipment Supplier",
+    "Wartsila": "Equipment Supplier",
+    "Mitsubishi Heavy Industries": "Equipment Supplier",
+    "Rolls-Royce": "Equipment Supplier",
+    "Caterpillar": "Equipment Supplier",
+    "Solar Turbines": "Equipment Supplier",
+    "Baker Hughes": "Equipment Supplier",
+    "Schlumberger": "Equipment Supplier",
+    "SLB": "Equipment Supplier",
+    "Halliburton": "Equipment Supplier",
+    "NOV": "Equipment Supplier",
+    "National Oilwell Varco": "Equipment Supplier",
+    "Cameron": "Equipment Supplier",
+    "FMC Technologies": "Equipment Supplier",
+    "OneSubsea": "Equipment Supplier",
+    "Alfa Laval": "Equipment Supplier",
+    "Sulzer": "Equipment Supplier",
+    "Flowserve": "Equipment Supplier",
+    "Emerson": "Equipment Supplier",
+    "Honeywell": "Equipment Supplier",
+    "Yokogawa": "Equipment Supplier",
+    "Kongsberg": "Equipment Supplier",
+}
+
+
+def extract_procurement(text):
+    """Scan article text for known FPSO procurement entities.
+
+    Matches against PROCUREMENT_ENTITIES dictionary (contractors/shipyards,
+    topsides EPC firms, and equipment suppliers). Uses word-boundary regex
+    to avoid false positives on short names (e.g. ABB inside "scabbard").
+    Deduplicates substring matches (e.g. "Technip" inside "TechnipFMC").
+
+    Only FPSO-relevant entities are in the dictionary, so non-FPSO articles
+    naturally produce empty results.
+
+    Returns comma-separated string of matched entity names, or empty string.
+    """
+    if not text:
+        return ""
+    matches = []
+    text_lower = text.lower()
+    for entity_name in PROCUREMENT_ENTITIES:
+        pattern = rf"\b{re.escape(entity_name.lower())}\b"
+        if re.search(pattern, text_lower):
+            matches.append(entity_name)
+    # Deduplicate: remove shorter entity if it is a substring of
+    # a longer matched entity (e.g. "Technip" inside "TechnipFMC").
+    if len(matches) > 1:
+        matches.sort(key=len, reverse=True)
+        filtered = []
+        for m in matches:
+            m_lower = m.lower()
+            if not any(m_lower != kept.lower() and m_lower in kept.lower()
+                       for kept in filtered):
+                filtered.append(m)
+        matches = filtered
+    return ", ".join(matches) if matches else ""
+
+
 # Words that are not real project names even if they follow "FPSO"
 GENERIC_WORDS = {
     "the", "a", "an", "for", "and", "with", "new", "first", "latest",
@@ -2359,6 +2465,8 @@ def crawl_media_site(site_config, session, supabase=None):
 
             project_name, country, status = extract_project_info(title, summary)
 
+            procurement = extract_procurement(f"{title} {summary}")
+
             articles.append({
                 "name": project_name,
                 "country": country or "",
@@ -2373,6 +2481,7 @@ def crawl_media_site(site_config, session, supabase=None):
                 "event_type": "ARTICLE_MENTION",
                 "evidence_quote": (summary or title)[:500],
                 "publication_date": raw_date or "",
+                "procurement_chain": procurement,
             })
             log.info("  %s | %s | %s", status, country or "?", project_name[:50])
 
@@ -2415,6 +2524,7 @@ def insert_candidate_events(supabase, articles):
                                    or a.get("summary", ""))[:500],
                 "publication_date": a.get("publication_date")
                                     or a.get("source_date", ""),
+                "procurement_chain": a.get("procurement_chain", ""),
             }
             table.insert(record).execute()
             inserted += 1
