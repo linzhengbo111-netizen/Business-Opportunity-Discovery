@@ -49,6 +49,9 @@ import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from media_common import _safe_decode_response
+
 # ---- Paths ---------------------------------------------------------------
 
 BASE_DIR = Path(__file__).resolve().parent.parent  # crawler/
@@ -114,13 +117,7 @@ def fetch_page(url: str, session: requests.Session) -> Optional[str]:
         resp = session.get(url, timeout=60)
         resp.raise_for_status()
         log.info("  HTTP %d, %d bytes", resp.status_code, len(resp.content))
-        ct = resp.headers.get("Content-Type", "")
-        if "charset" in ct.lower():
-            return resp.text
-        try:
-            return resp.content.decode("utf-8")
-        except UnicodeDecodeError:
-            return resp.text
+        return _safe_decode_response(resp)
     except requests.exceptions.HTTPError as e:
         log.warning("  HTTP %s — %s",
                      e.response.status_code if hasattr(e, 'response') else '?', url)

@@ -54,6 +54,9 @@ import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from media_common import _safe_decode_response
+
 # ---- Paths ---------------------------------------------------------------
 
 BASE_DIR = Path(__file__).resolve().parent.parent  # crawler/
@@ -318,6 +321,144 @@ def parse_date_from_text(text: str) -> Optional[str]:
     return None
 
 
+# ============================================================================
+# 2.5. 技术规格提取 (from text)
+# ============================================================================
+
+# Patterns for extracting technical specifications from development plan text.
+# All patterns are regex-based and strictly based on the source text.
+# When uncertain, fields are left empty (None) — never guessed.
+
+def extract_water_depth_from_text(text: str) -> Optional[int]:
+    """Extract water depth in meters from text.
+    Matches patterns like:
+      - "lâmina d'água de 2.140 m"
+      - "water depth: 1,500 m"
+      - "profundidade de 2.200 metros"
+      - "水深 1500 米"
+    """
+    if not text:
+        return None
+    patterns = [
+        # Portuguese: "lâmina d'água de X m" / "lâmina d'água: X m"
+        r"(?:l[âa]mina\s+d['’]?[áa]gua)\s*(?:de\s+)?(?::\s*)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?)\s*(?:m|metros|metros)",
+        # "profundidade de X m" / "profundidade: X m"
+        r"profundidade\s*(?:de\s+)?(?::\s*)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?)\s*(?:m|metros|metros)",
+        # English: "water depth of X m" / "water depth: X m"
+        r"water\s+depth\s*(?:of\s+)?(?::\s*)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?)\s*(?:m|meters?)",
+        # "depth: X m"
+        r"\bdepth\s*(?::\s*)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?)\s*(?:m|meters?)\b",
+        # Chinese: "水深 X 米"
+        r"水深\s*[:：]?\s*(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?)\s*米",
+    ]
+    for pat in patterns:
+        m = re.search(pat, text, re.IGNORECASE)
+        if m:
+            try:
+                val = m.group(1).replace(",", "").replace(".", "")
+                n = int(val)
+                if 10 <= n <= 5000:  # reasonable range for FPSO water depth
+                    return n
+            except (ValueError, TypeError):
+                continue
+    return None
+
+
+def extract_oil_capacity_from_text(text: str) -> Optional[int]:
+    """Extract oil production capacity in bpd from text.
+    Matches patterns like:
+      - "capacidade de 150.000 bbl/d"
+      - "150,000 barrels per day"
+      - "产能 150,000 桶/天"
+    """
+    if not text:
+        return None
+    patterns = [
+        # Portuguese: "capacidade de produção de petróleo: X bbl/d"
+        r"(?:capacidade\s+(?:de\s+)?produ[çc][ãa]o\s+(?:de\s+)?petr[óo]leo)\s*(?::\s*)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?)\s*(?:bbl/?d|barris)",
+        # "produção de X bbl/d" / "produção de até X bbl/d"
+        r"produ[çc][ãa]o\s*(?:de\s+)?(?:at[ée]\s+)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?)\s*(?:bbl/?d|barris)",
+        # English: "capacity of X bpd" / "X barrels per day"
+        r"(?:capacity|production)\s*(?:of\s+)?(?:up\s+to\s+)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?)\s*(?:bpd|barrels?\s+per\s+day)",
+        # "X bpd" / "X bbl/d" (bare number+unit)
+        r"(\d{2,3}(?:[.,]\d{3})*(?:[.,]\d+)?)\s*(?:bpd|bbl/?d)\b",
+        # Chinese: "产能 X 桶/天"
+        r"(?:产能|产量)\s*[:：]?\s*(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?)\s*(?:桶|bbl)/?(?:天|d|日)",
+    ]
+    for pat in patterns:
+        m = re.search(pat, text, re.IGNORECASE)
+        if m:
+            try:
+                val = m.group(1).replace(",", "").replace(".", "")
+                n = int(val)
+                if 1000 <= n <= 500000:  # reasonable range
+                    return n
+            except (ValueError, TypeError):
+                continue
+    return None
+
+
+def extract_gas_capacity_from_text(text: str) -> Optional[int]:
+    """Extract gas production capacity in million m³/d from text.
+    Matches patterns like:
+      - "produção de gás de 5 Mm³/d"
+      - "gas capacity: 3 million m³/d"
+      - "天然气产能 5 百万立方米/天"
+    """
+    if not text:
+        return None
+    patterns = [
+        # Portuguese: "produção de gás: X Mm³/d" / "produção de gás de X milhões m³/d"
+        r"(?:produ[çc][ãa]o\s+(?:de\s+)?g[áa]s)\s*(?::\s*)?(?:de\s+)?(\d{1,3}(?:[.,]\d+)?)\s*(?:milh[õo]es?\s+(?:de\s+)?m[³3]/?d|Mm[³3]/?d)",
+        # English: "gas capacity of X MMcmd" / "X million m³/d"
+        r"(?:gas\s+(?:capacity|production))\s*(?:of\s+)?(?:up\s+to\s+)?(\d{1,3}(?:[.,]\d+)?)\s*(?:MMcmd|million\s+(?:m[³3]|cubic\s+meters?)/?d)",
+        # "X MMcmd" (bare number+unit)
+        r"(\d{1,3}(?:[.,]\d+)?)\s*MMcmd\b",
+        # Chinese: "天然气产能 X 百万立方米/天"
+        r"(?:天然气|燃气)\s*(?:产能|产量)\s*[:：]?\s*(\d{1,3}(?:[.,]\d+)?)\s*(?:百万|Million)\s*(?:立方米|m[³3])/?(?:天|d|日)",
+    ]
+    for pat in patterns:
+        m = re.search(pat, text, re.IGNORECASE)
+        if m:
+            try:
+                val = m.group(1).replace(",", "").replace(".", "")
+                n = int(float(val))
+                if 1 <= n <= 100:  # reasonable range for MMcmd
+                    return n
+            except (ValueError, TypeError):
+                continue
+    return None
+
+
+def extract_hull_type_from_text(text: str) -> Optional[str]:
+    """Extract FPSO hull type from text.
+    Matches known hull types mentioned in development plans.
+    """
+    if not text:
+        return None
+    text_lower = text.lower()
+    hull_types = [
+        ("Spread Moored", [r"spread\s+moored?", r"spread\s+mooring"]),
+        ("Turret", [r"\bturret\b", r"internal\s+turret", r"external\s+turret",
+                    r"turret\s+mooring", r"turret\s+system"]),
+        ("FLNG conversion", [r"flng\s+conversion", r"lng\s+conversion",
+                              r"converted\s+(?:to\s+)?(?:flng|lng)",
+                              r"convers[ãa]o\s+(?:para\s+)?(?:flng|gnl)"]),
+        ("Newbuild", [r"\bnewbuild\b", r"new\s+build", r"newly\s+built",
+                      r"constru[çc][ãa]o\s+nova", r"rec[ée]m[\s-]constru[íi]d[ao]"]),
+        ("Conversion", [r"\bconversion\b", r"converted\s+(?:tanker|vlcc|supertanker)",
+                        r"convers[ãa]o\s+(?:de\s+)?(?:navio|petroleiro)"]),
+        ("FSO", [r"\bfso\b", r"floating\s+storage\s+offloading"]),
+    ]
+    matched = []
+    for name, patterns in hull_types:
+        for pat in patterns:
+            if re.search(pat, text_lower):
+                matched.append(name)
+                break
+    return ", ".join(matched) if matched else None
+
+
 def extract_date_from_url(url: str) -> Optional[str]:
     """Try to extract date from URL/filename patterns."""
     if not url:
@@ -385,12 +526,19 @@ def _download_html_with_curl(url: str) -> str:
         if len(raw) == 0:
             raise RuntimeError("curl downloaded 0 bytes")
         log.info("curl downloaded %d bytes", len(raw))
-        # Try UTF-8 first, then Latin-1 (common for Brazilian gov.br sites)
-        for enc in ["utf-8", "latin-1", "iso-8859-1", "cp1252"]:
+        # Try UTF-8 first, then UTF-8 with replacement chars
+        # Avoid Latin-1 trap (Latin-1 never raises UnicodeDecodeError,
+        # so it "succeeds" but produces garbled text for UTF-8 content)
+        text = None
+        for enc in ["utf-8-sig", "utf-8"]:
             try:
-                return raw.decode(enc)
+                text = raw.decode(enc)
+                log.info("curl response decoded as %s", enc)
+                return text
             except UnicodeDecodeError:
                 continue
+        # UTF-8 failed — use replacement chars to preserve readable content
+        log.warning("curl response decoded as utf-8 with replacement chars")
         return raw.decode("utf-8", errors="replace")
     finally:
         Path(tmp_path).unlink(missing_ok=True)
@@ -404,14 +552,7 @@ def fetch_page(url: str, session: requests.Session) -> Optional[str]:
         resp = session.get(url, timeout=60)
         resp.raise_for_status()
         log.info("  HTTP %d, %d bytes", resp.status_code, len(resp.content))
-        # Safe decode: trust explicit charset header, else try UTF-8 first
-        ct = resp.headers.get("Content-Type", "")
-        if "charset" in ct.lower():
-            return resp.text
-        try:
-            return resp.content.decode("utf-8")
-        except UnicodeDecodeError:
-            return resp.text  # fall back to requests' apparent encoding
+        return _safe_decode_response(resp)
     except (requests.exceptions.SSLError, requests.exceptions.ConnectionError) as e:
         log.warning("  Python requests SSL/connection error: %s", str(e)[:120])
         log.info("  Falling back to curl for gov.br SSL compatibility...")
@@ -843,6 +984,13 @@ def build_candidate_event(doc: dict, raw_html_path: str = "") -> dict:
     if publication_date:
         evidence_quote += f" (Published: {publication_date})"
 
+    # 技术规格提取 (strictly based on source text, empty when uncertain)
+    combined_text = f"{title} {text}"
+    water_depth = extract_water_depth_from_text(combined_text)
+    oil_cap = extract_oil_capacity_from_text(combined_text)
+    gas_cap = extract_gas_capacity_from_text(combined_text)
+    hull_type = extract_hull_type_from_text(combined_text)
+
     return {
         "project_name_raw": project_name_raw[:255],
         "country": "Brazil",
@@ -855,6 +1003,14 @@ def build_candidate_event(doc: dict, raw_html_path: str = "") -> dict:
         "evidence_quote": evidence_quote[:500],
         "publication_date": publication_date or TODAY,
         "raw_json": json.dumps(doc, ensure_ascii=False),
+        # 技术规格字段
+        "water_depth_m": water_depth,
+        "oil_capacity_bpd": oil_cap,
+        "gas_capacity_mmcmd": gas_cap,
+        "hull_type": hull_type,
+        "field_name": field_name if field_name else None,
+        "operator_name": operator if operator else None,
+        "basin": None,  # ANP development plans don't always name the basin
     }
 
 

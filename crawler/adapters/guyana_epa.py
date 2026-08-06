@@ -45,11 +45,15 @@ import random
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
-from urllib.parse import urljoin, urlparse, unquote
+from urllib.parse import urljoin, urlparse, unquote, parse_qs
 
 import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
+
+# Import shared safe decode (UTF-8 first, chardet fallback, replacement-char last resort)
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from media_common import _safe_decode_response
 
 # ---- Paths ---------------------------------------------------------------
 
@@ -500,7 +504,82 @@ def extract_date_from_filename(filename: str) -> Optional[str]:
 
 
 # ============================================================================
-# 4. HTTP 会话 & 页面获取
+# 4. WPDM URL 清理 & 文件名解码
+# ============================================================================
+
+
+def clean_wpdm_url(url: str) -> str:
+    """
+    Strip WPDM cache-busting query parameters (refresh, ind, _) from a URL.
+
+    WPDM appends refresh=<timestamp>&ind=<index> to download URLs, which
+    change on every page load. Stripping them yields a stable URL for
+    dedup and comparison purposes.
+
+    Also handles double-encoded URLs where special characters in the
+    filename parameter were percent-encoded twice.
+    """
+    if not url:
+        return url
+
+    # Parse and strip cache-busting params
+    parsed = urlparse(url)
+    if parsed.query:
+        qs = parse_qs(parsed.query, keep_blank_values=True)
+        # Remove WPDM cache params
+        for key in list(qs.keys()):
+            if key.lower() in ("refresh", "ind", "_", "v", "ver", "cache", "nocache", "t"):
+                qs.pop(key, None)
+        # Rebuild query string
+        clean_qs = "&".join(
+            f"{k}={v[0]}" for k, v in qs.items() if v
+        )
+        clean_url = parsed._replace(query=clean_qs).geturl()
+        # Strip trailing ? or &
+        clean_url = clean_url.rstrip("?&")
+        return clean_url
+
+    return url
+
+
+def decode_wpdm_filename(filename: str) -> str:
+    """
+    Decode a WPDM filename that may be URL-encoded or double-encoded.
+
+    WPDM stores filenames in URL-encoded form inside download links.
+    If the browser or our HTML parser has already decoded the URL once,
+    percent-encoded bytes like %C3%B3 (UTF-8 ó) may survive as literal
+    text. We decode any remaining percent-encoding.
+
+    Also handles the case where UTF-8 bytes were decoded as Latin-1
+    (double-encoding mojibake) by detecting the signature patterns.
+    """
+    if not filename:
+        return filename
+
+    # Step 1: If the filename still contains percent-encoding, decode it
+    if "%" in filename:
+        try:
+            decoded = unquote(filename, encoding="utf-8")
+            filename = decoded
+        except Exception:
+            pass  # keep original if unquote fails
+
+    # Step 2: Detect double-encoded UTF-8 (mojibake signature)
+    # Characters like Ã (U+00C3) or Â (U+00C2) followed by continuation bytes
+    # indicate UTF-8 bytes were decoded as Latin-1
+    if any(ord(c) in (0xC0, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5) for c in filename):
+        try:
+            # Convert back: encode to Latin-1 bytes, then decode as UTF-8
+            filename = filename.encode("latin-1").decode("utf-8")
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            pass  # can't fix, return as-is
+
+    return filename
+
+
+# ============================================================================
+# 5. HTTP 会话 & 页面获取
 # ============================================================================
 
 
@@ -527,14 +606,7 @@ def fetch_page(url: str, session: requests.Session) -> Optional[str]:
         resp = session.get(url, timeout=60)
         resp.raise_for_status()
         log.info("  HTTP %d, %d bytes", resp.status_code, len(resp.content))
-        # Safe decode: trust explicit charset header, else try UTF-8 first
-        ct = resp.headers.get("Content-Type", "")
-        if "charset" in ct.lower():
-            return resp.text
-        try:
-            return resp.content.decode("utf-8")
-        except UnicodeDecodeError:
-            return resp.text
+        return _safe_decode_response(resp)
     except requests.exceptions.HTTPError as e:
         log.warning("  HTTP %s — %s", e.response.status_code if hasattr(e, 'response') else '?', url)
         return None
@@ -624,8 +696,9 @@ def parse_wpdm_documents(html: str) -> list[dict]:
             title_el = item.select_one(".wpdm-filelist-item__title")
             title = title_el.get_text(strip=True) if title_el else ""
 
-            # Extract data-filename
+            # Extract data-filename and decode any URL-encoding or mojibake
             filename = item.get("data-filename", "")
+            filename = decode_wpdm_filename(filename)
 
             # Extract download URL
             download_link = item.select_one("a.inddl")
@@ -635,6 +708,8 @@ def parse_wpdm_documents(html: str) -> list[dict]:
                 # Resolve relative URL
                 if download_url and not download_url.startswith("http"):
                     download_url = urljoin(EPA_BASE_URL, download_url)
+                # Strip WPDM cache-busting params for stable URLs
+                download_url = clean_wpdm_url(download_url)
 
             # If no title from element, use filename
             if not title and filename:
@@ -1011,14 +1086,9 @@ def _doc_key(doc: dict) -> str:
     Uses download_url (with cache-busting params stripped) if available,
     otherwise title + filename.
     """
-    import re as _re
     url = (doc.get("download_url") or "").strip()
     if url:
-        # Strip WPDM cache-busting query params (refresh, ind, _)
-        normalized = _re.sub(r'[&?]refresh=\d+', '', url)
-        normalized = _re.sub(r'[&?]ind=\d+', '', normalized)
-        # Also strip trailing ? or & left after param removal
-        normalized = normalized.rstrip('?&')
+        normalized = clean_wpdm_url(url)
         return f"url:{normalized}"
     title = (doc.get("title") or "").strip()
     fname = (doc.get("filename") or "").strip()

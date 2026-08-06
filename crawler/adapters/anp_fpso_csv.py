@@ -486,16 +486,23 @@ def parse_csv(raw: bytes) -> tuple[list[dict], list[str]]:
     Returns:
         (records, csv_headers) — 每条记录是 {standard_field: value} 的字典。
     """
-    # 编码检测: ANP 通常用 UTF-8-BOM 或 Latin-1
-    for encoding in ["utf-8-sig", "utf-8", "latin-1", "iso-8859-1", "cp1252"]:
+    # 编码检测: ANP 通常用 UTF-8-BOM。优先 UTF-8，失败后用 replacement chars
+    # 避免回退到 Latin-1 陷阱（Latin-1 永远能解码，但会产出乱码）
+    text = None
+    for encoding in ["utf-8-sig", "utf-8"]:
         try:
             text = raw.decode(encoding)
             log.info("CSV decoded as %s", encoding)
             break
         except UnicodeDecodeError:
             continue
-    else:
-        raise ValueError("Unable to decode ANP CSV with any known encoding")
+
+    if text is None:
+        # UTF-8 failed entirely — try UTF-8 with replacement chars
+        # to preserve as much readable content as possible
+        text = raw.decode("utf-8", errors="replace")
+        log.warning("CSV decoded as utf-8 with replacement chars (%d bad bytes)",
+                    text.count('�'))
 
     # Strip any remaining BOM from start of text
     if text and text[0] == "﻿":
@@ -828,6 +835,23 @@ def build_candidate_event(
     # publication_date: use CSV start_date field (NOT fetched_at)
     publication_date = start_date if start_date else ""
 
+    # Parse numeric fields for technical spec columns
+    def _parse_int(val: str) -> Optional[int]:
+        """Parse a string to int, returning None if unparseable or zero."""
+        if not val or not val.strip():
+            return None
+        try:
+            # Remove thousands separators and decimal places
+            cleaned = val.strip().replace(".", "").replace(",", "")
+            n = int(float(cleaned))
+            return n if n > 0 else None
+        except (ValueError, TypeError):
+            return None
+
+    water_depth = _parse_int(water_depth)
+    oil_cap = _parse_int(oil_cap)
+    gas_cap = _parse_int(gas_cap)
+
     return {
         "project_name_raw": facility_name,
         "country": "Brazil",
@@ -841,6 +865,14 @@ def build_candidate_event(
         "publication_date": publication_date,
         # 审计字段: 保留原始 JSON
         "raw_json": json.dumps(record, ensure_ascii=False),
+        # 技术规格字段 (ANP CSV 直接提供)
+        "water_depth_m": water_depth,
+        "oil_capacity_bpd": oil_cap,
+        "gas_capacity_mmcmd": gas_cap,
+        "hull_type": ptype if ptype else None,
+        "field_name": field if field else None,
+        "operator_name": operator if operator else None,
+        "basin": basin if basin else None,
     }
 
 
