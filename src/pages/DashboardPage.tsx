@@ -11,11 +11,56 @@ import {
 } from "recharts";
 import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
-import type { Project } from "@/data/projects";
+import type { Project, MaterialMatchResult } from "@/data/projects";
 import { countryCoordinates, sampleProjects, countryToFlagEmoji, COUNTRY_ALIASES } from "@/data/projects";
 import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
 import { supabase } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
+import { matchMaterials, specsFromRow, hasAnySpecs, parseRecommendation } from "@/lib/material_matcher";
+
+/** A single timeline milestone from candidate_events. */
+interface TimelineEvent {
+  id: number;
+  eventType: string;
+  publicationDate: string;
+  sourceName: string;
+  sourceUrl: string;
+  evidenceQuote: string;
+  summary: string;
+}
+
+/** Human-readable labels for known event_type values. */
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  "EIA_SUBMITTED": "EIA Submitted",
+  "DEVELOPMENT_CONSENT_GRANTED": "Development Consent Granted",
+  "REGULATORY_DATA": "Regulatory Filing",
+  "FPSO_CONTRACT_AWARDED": "FPSO Contract Awarded",
+  "DEVELOPMENT_PLAN_SUBMITTED": "Development Plan Submitted",
+  "DEVELOPMENT_PLAN_UPDATED": "Development Plan Updated",
+  "PERMIT_GRANTED": "Permit Granted",
+  "LICENSE_GRANTED": "License Granted",
+  "FIELD_DEVELOPMENT_PLAN": "Field Development Plan",
+  "PRODUCTION_START": "Production Start",
+  "FIRST_OIL": "First Oil",
+  "VENDOR_REGISTRATION_ACTION": "Vendor Registration",
+  "PUBLIC_NOTICE": "Public Notice",
+  "CONTRACT_ANNOUNCEMENT": "Contract Announcement",
+  "ARTICLE_MENTION": "Article Mention",
+  "BACKFILL_COUNTRY": "Backfill Entry",
+};
+
+function formatEventType(et: string): string {
+  return EVENT_TYPE_LABELS[et] ?? et.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** Timeline dot color by event category. */
+function timelineDotColor(eventType: string): string {
+  const et = eventType.toUpperCase();
+  if (/PRODUCTION_START|FIRST_OIL/.test(et)) return "bg-fpso-green";
+  if (/CONTRACT|AWARDED|GRANTED|LICENSE/.test(et)) return "bg-fpso-blue";
+  if (/EIA|PLAN|REGULATORY|PERMIT/.test(et)) return "bg-fpso-orange";
+  return "bg-fpso-muted";
+}
 
 interface Stats {
   total: number;
@@ -90,6 +135,20 @@ function normalizeCountry(raw: string): string {
   return COUNTRY_ALIASES[trimmed] ?? COUNTRY_ALIASES[trimmed.toLowerCase()] ?? trimmed;
 }
 
+/** Parse a nullable int column from Supabase row. */
+function toNum(v: unknown): number | null {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Parse a nullable text column from Supabase row. */
+function toStr(v: unknown): string | null {
+  if (v == null || v === "") return null;
+  const s = String(v).trim();
+  return s || null;
+}
+
 /** Map a raw Supabase row (snake_case columns) to the camelCase Project interface. */
 function mapRowToProject(row: Record<string, unknown>): Project {
   const rawCountry = String(row.country ?? "").trim();
@@ -115,6 +174,15 @@ function mapRowToProject(row: Record<string, unknown>): Project {
     industry: String(row.industry ?? "FPSO"),
     confidence,
     procurementChain: String(row.procurement_chain ?? ""),
+    // Technical specs
+    waterDepthM: toNum(row.water_depth_m),
+    oilCapacityBpd: toNum(row.oil_capacity_bpd),
+    gasCapacityMmcmd: toNum(row.gas_capacity_mmcmd),
+    hullType: toStr(row.hull_type),
+    fieldName: toStr(row.field_name),
+    operatorName: toStr(row.operator_name),
+    basin: toStr(row.basin),
+    recommendationJson: toStr(row.recommendation_json),
   };
 }
 
@@ -145,6 +213,15 @@ function mapCandidateToProject(row: Record<string, unknown>): Project {
     industry: "FPSO",
     confidence,
     procurementChain: "",
+    // Technical specs from candidate_events
+    waterDepthM: toNum(row.water_depth_m),
+    oilCapacityBpd: toNum(row.oil_capacity_bpd),
+    gasCapacityMmcmd: toNum(row.gas_capacity_mmcmd),
+    hullType: toStr(row.hull_type),
+    fieldName: toStr(row.field_name),
+    operatorName: toStr(row.operator_name),
+    basin: toStr(row.basin),
+    recommendationJson: null,
   };
 }
 
@@ -163,6 +240,9 @@ export default function DashboardPage() {
   const [selectedIndustry, setSelectedIndustry] = useState("All Industries");
   const [selectedConfidence, setSelectedConfidence] = useState("High");
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [modalTab, setModalTab] = useState<"overview" | "timeline">("overview");
+  const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
+  const [timelineLoading, setTimelineLoading] = useState(false);
   const { version, status: connectionStatus } = useProjectRealtime();
 
   // ---- 从 Supabase 获取项目数据 ----
@@ -336,6 +416,58 @@ export default function DashboardPage() {
       console.log("[Map] ✅ All countries have coordinates.");
     }
   }, [filteredCountries, loading]);
+
+  // ---- 获取项目时间线事件 ----
+  useEffect(() => {
+    if (!selectedProject) {
+      setTimelineEvents([]);
+      return;
+    }
+    const industry = selectedProject.industry ?? "FPSO";
+    if (industry !== "FPSO") {
+      setTimelineEvents([]);
+      return;
+    }
+    const canonicalId = normalizeProjectName(selectedProject.name);
+    if (!canonicalId) {
+      setTimelineEvents([]);
+      return;
+    }
+
+    let cancelled = false;
+    setTimelineLoading(true);
+
+    async function fetchTimeline() {
+      const { data, error } = await supabase
+        .from("candidate_events")
+        .select("id, event_type, publication_date, source_name, source_url, evidence_quote, summary")
+        .eq("canonical_project_id", canonicalId)
+        .order("publication_date", { ascending: true });
+
+      if (cancelled) return;
+
+      if (error) {
+        console.error("[Timeline] Fetch failed:", error.message);
+        setTimelineEvents([]);
+      } else {
+        const events: TimelineEvent[] = (data ?? []).map((row: Record<string, unknown>) => ({
+          id: Number(row.id),
+          eventType: String(row.event_type ?? ""),
+          publicationDate: String(row.publication_date ?? ""),
+          sourceName: String(row.source_name ?? ""),
+          sourceUrl: String(row.source_url ?? ""),
+          evidenceQuote: String(row.evidence_quote ?? ""),
+          summary: String(row.summary ?? ""),
+        }));
+        setTimelineEvents(events);
+      }
+      setTimelineLoading(false);
+    }
+
+    fetchTimeline();
+
+    return () => { cancelled = true; };
+  }, [selectedProject]);
 
   const handleDotClick = (country: string) => {
     setSelectedCountry(country);
@@ -709,10 +841,25 @@ export default function DashboardPage() {
       </footer>
 
       {/* 项目详情模态框 */}
-      {selectedProject && (
+      {selectedProject && (() => {
+        const isFpso = (selectedProject.industry ?? "FPSO") === "FPSO";
+        const specs = {
+          waterDepthM: selectedProject.waterDepthM,
+          oilCapacityBpd: selectedProject.oilCapacityBpd,
+          gasCapacityMmcmd: selectedProject.gasCapacityMmcmd,
+          hullType: selectedProject.hullType,
+          fieldName: selectedProject.fieldName,
+          operatorName: selectedProject.operatorName,
+          basin: selectedProject.basin,
+        };
+        const rec = parseRecommendation(selectedProject.recommendationJson);
+        const showSpecs = hasAnySpecs(specs);
+        const showRec = rec !== null;
+
+        return (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          onClick={() => setSelectedProject(null)}
+          onClick={() => { setSelectedProject(null); setModalTab("overview"); }}
         >
           {/* 遮罩层 */}
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
@@ -726,7 +873,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between border-b border-fpso-border px-6 py-4">
               <h2 className="text-base font-semibold text-fpso-fg">Project Detail</h2>
               <button
-                onClick={() => setSelectedProject(null)}
+                onClick={() => { setSelectedProject(null); setModalTab("overview"); }}
                 className="rounded-md p-1.5 text-fpso-muted transition-colors hover:bg-fpso-bg/50 hover:text-fpso-fg"
                 aria-label="Close"
               >
@@ -736,7 +883,42 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            {/* 内容区 */}
+            {/* Tab 导航 —— 仅 FPSO 行业显示 Timeline 标签 */}
+            {isFpso && (
+              <div className="flex border-b border-fpso-border px-6">
+                <button
+                  type="button"
+                  onClick={() => setModalTab("overview")}
+                  className={`relative px-4 py-2.5 text-sm font-medium transition-colors ${
+                    modalTab === "overview"
+                      ? "text-fpso-blue"
+                      : "text-fpso-muted hover:text-fpso-fg"
+                  }`}
+                >
+                  Overview
+                  {modalTab === "overview" && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-fpso-blue" />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalTab("timeline")}
+                  className={`relative px-4 py-2.5 text-sm font-medium transition-colors ${
+                    modalTab === "timeline"
+                      ? "text-fpso-blue"
+                      : "text-fpso-muted hover:text-fpso-fg"
+                  }`}
+                >
+                  Timeline
+                  {modalTab === "timeline" && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-fpso-blue" />
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* ---- Overview 内容 ---- */}
+            {modalTab === "overview" && (
             <div className="space-y-5 px-6 py-5">
               {/* 项目名称 */}
               <h3 className="text-xl font-bold text-fpso-fg">{selectedProject.name}</h3>
@@ -804,6 +986,96 @@ export default function DashboardPage() {
                 </div>
               )}
 
+              {/* Technical Specs & Material Matching */}
+              {(showSpecs || showRec) && (
+                <div>
+                  <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-fpso-dim">
+                    Technical Specs &amp; Material Matching
+                  </h4>
+                  {showSpecs && (
+                    <div className="mb-3 overflow-hidden rounded-md border border-fpso-border">
+                      <table className="w-full text-xs">
+                        <tbody>
+                          {specs.waterDepthM != null && (
+                            <tr className="border-b border-fpso-border/50">
+                              <td className="px-3 py-1.5 text-fpso-muted font-medium">Water Depth</td>
+                              <td className="px-3 py-1.5 text-fpso-fg font-mono">{specs.waterDepthM.toLocaleString()} m</td>
+                            </tr>
+                          )}
+                          {specs.oilCapacityBpd != null && (
+                            <tr className="border-b border-fpso-border/50">
+                              <td className="px-3 py-1.5 text-fpso-muted font-medium">Oil Capacity</td>
+                              <td className="px-3 py-1.5 text-fpso-fg font-mono">{specs.oilCapacityBpd.toLocaleString()} bpd</td>
+                            </tr>
+                          )}
+                          {specs.gasCapacityMmcmd != null && (
+                            <tr className="border-b border-fpso-border/50">
+                              <td className="px-3 py-1.5 text-fpso-muted font-medium">Gas Capacity</td>
+                              <td className="px-3 py-1.5 text-fpso-fg font-mono">{specs.gasCapacityMmcmd.toLocaleString()} MMcmd</td>
+                            </tr>
+                          )}
+                          {specs.hullType && (
+                            <tr className="border-b border-fpso-border/50">
+                              <td className="px-3 py-1.5 text-fpso-muted font-medium">Hull Type</td>
+                              <td className="px-3 py-1.5 text-fpso-fg">{specs.hullType}</td>
+                            </tr>
+                          )}
+                          {specs.fieldName && (
+                            <tr className="border-b border-fpso-border/50">
+                              <td className="px-3 py-1.5 text-fpso-muted font-medium">Field</td>
+                              <td className="px-3 py-1.5 text-fpso-fg">{specs.fieldName}</td>
+                            </tr>
+                          )}
+                          {specs.operatorName && (
+                            <tr className="border-b border-fpso-border/50">
+                              <td className="px-3 py-1.5 text-fpso-muted font-medium">Operator</td>
+                              <td className="px-3 py-1.5 text-fpso-fg">{specs.operatorName}</td>
+                            </tr>
+                          )}
+                          {specs.basin && (
+                            <tr>
+                              <td className="px-3 py-1.5 text-fpso-muted font-medium">Basin</td>
+                              <td className="px-3 py-1.5 text-fpso-fg">{specs.basin}</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  {showRec && (
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs text-fpso-muted">Grades:</span>
+                        {rec.grades.map((g) => (
+                          <span key={g} className="rounded bg-fpso-blue/10 px-2 py-0.5 text-xs font-medium text-fpso-blue">
+                            {g}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs text-fpso-muted">Applications:</span>
+                        {rec.applications.map((a) => (
+                          <span key={a} className="rounded bg-fpso-orange/10 px-2 py-0.5 text-xs font-medium text-fpso-orange">
+                            {a}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-fpso-muted">Confidence:</span>
+                        <span className={`rounded px-2 py-0.5 text-xs font-medium ${
+                          rec.confidence === "high" ? "bg-fpso-green/15 text-fpso-green" :
+                          rec.confidence === "medium" ? "bg-fpso-orange/15 text-fpso-orange" :
+                          "bg-fpso-muted/15 text-fpso-muted"
+                        }`}>
+                          {rec.confidence}
+                        </span>
+                      </div>
+                      <p className="text-xs leading-relaxed text-fpso-dim italic">{rec.reasoning}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* 来源链接 */}
               <div>
                 <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">Source</h4>
@@ -830,9 +1102,81 @@ export default function DashboardPage() {
                 </p>
               </div>
             </div>
+            )}
+
+            {/* ---- Timeline 内容 ---- */}
+            {modalTab === "timeline" && (
+            <div className="px-6 py-5 max-h-96 overflow-y-auto">
+              {timelineLoading ? (
+                <div className="flex items-center justify-center py-10">
+                  <span className="text-sm text-fpso-muted">Loading timeline…</span>
+                </div>
+              ) : timelineEvents.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-fpso-dim mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-sm text-fpso-muted">No milestone events found for this project.</p>
+                  <p className="text-xs text-fpso-dim mt-1">
+                    Timeline data is sourced from candidate_events with a matching canonical project ID.
+                  </p>
+                </div>
+              ) : (
+                <div className="relative">
+                  {/* 竖线 */}
+                  <div className="absolute left-[11px] top-1 bottom-1 w-0.5 bg-fpso-border" />
+                  <div className="space-y-4">
+                    {timelineEvents.map((evt) => (
+                      <div key={evt.id} className="relative flex gap-4">
+                        {/* 圆点 */}
+                        <div className={`relative z-10 mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full border-2 border-fpso-card ${timelineDotColor(evt.eventType)}`} />
+                        {/* 内容卡片 */}
+                        <div className="flex-1 min-w-0 rounded-md border border-fpso-border bg-fpso-bg/50 px-3 py-2.5">
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className="text-xs font-semibold text-fpso-fg">
+                              {formatEventType(evt.eventType)}
+                            </span>
+                            <span className="text-[10px] text-fpso-dim font-mono flex-shrink-0">
+                              {evt.publicationDate || "—"}
+                            </span>
+                          </div>
+                          {evt.summary && (
+                            <p className="text-xs text-fpso-fg/80 leading-relaxed mb-1.5">
+                              {evt.summary}
+                            </p>
+                          )}
+                          {evt.evidenceQuote && (
+                            <blockquote className="border-l-2 border-fpso-blue/30 pl-2.5 text-[11px] text-fpso-muted italic leading-relaxed mb-1.5">
+                              &ldquo;{evt.evidenceQuote}&rdquo;
+                            </blockquote>
+                          )}
+                          <div className="flex items-center gap-1.5">
+                            {evt.sourceUrl ? (
+                              <a
+                                href={evt.sourceUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] text-fpso-blue hover:underline inline-flex items-center gap-0.5"
+                              >
+                                {evt.sourceName || evt.sourceUrl}
+                                <span className="text-[0.8em]">↗</span>
+                              </a>
+                            ) : (
+                              <span className="text-[10px] text-fpso-dim">{evt.sourceName || "—"}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            )}
           </div>
         </div>
-      )}
+        );
+      })()}
     </>
   );
 }
