@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 """
-FPSO Project Crawler — orchestrator for industry media adapters.
+FPSO Project Crawler — orchestrator for all 15 adapters (P0/P1/P2).
 
-Delegates site-specific scraping to individual adapters in crawler/adapters/:
-  offshore_energy.py  — Offshore Energy (P1)
-  oe_digital.py       — OE Digital (P1)
-  world_oil.py        — World Oil (P2)
-  splash247.py        — Splash247 (P2)
+Delegates scraping to individual adapters in crawler/adapters/:
+  Tier 1 线索发现 (media):      offshore_energy, oe_digital, world_oil, splash247
+  Tier 2 官方验证 (government):  anp_fpso_csv, anp_development_plan, guyana_epa,
+                                 guyana_petroleum, nsta_fdp, equinor_rosebank
+  Tier 3 采购链拆解 (contractor): modec_supplychain, sbm_newsroom
+  Tier 4 商业入口 (supplier):     petrobras_supplier, petrofac_supplier, equinor_supplier
 
 Also provides promote / backfill / auto-promote modes for the candidate_events
 → projects pipeline.
 
 Usage:
-  python crawler/crawl.py                  # run all 4 media adapters
+  python crawler/crawl.py                  # run all 15 adapters
   python crawler/crawl.py --promote        # promote accepted candidates to projects
   python crawler/crawl.py --auto-promote   # auto-accept all pending + promote
   python crawler/crawl.py --backfill       # re-extract countries, write to candidate_events
@@ -47,10 +48,28 @@ from adapters.media_common import (  # noqa: E402
     country_to_flag,
 )
 
+# Tier 1 — 线索发现 (media)
 from adapters.offshore_energy import run_adapter as run_offshore_energy  # noqa: E402
 from adapters.oe_digital import run_adapter as run_oe_digital  # noqa: E402
 from adapters.world_oil import run_adapter as run_world_oil  # noqa: E402
 from adapters.splash247 import run_adapter as run_splash247  # noqa: E402
+
+# Tier 2 — 官方验证 (government P0)
+from adapters.anp_fpso_csv import run_adapter as run_anp_fpso_csv  # noqa: E402
+from adapters.anp_development_plan import run_adapter as run_anp_development_plan  # noqa: E402
+from adapters.guyana_epa import run_adapter as run_guyana_epa  # noqa: E402
+from adapters.guyana_petroleum import run_adapter as run_guyana_petroleum  # noqa: E402
+from adapters.nsta_fdp import run_adapter as run_nsta_fdp  # noqa: E402
+from adapters.equinor_rosebank import run_adapter as run_equinor_rosebank  # noqa: E402
+
+# Tier 3 — 采购链拆解 (contractor)
+from adapters.modec_supplychain import run_adapter as run_modec_supplychain  # noqa: E402
+from adapters.sbm_newsroom import run_adapter as run_sbm_newsroom  # noqa: E402
+
+# Tier 4 — 商业入口 (supplier portal)
+from adapters.petrobras_supplier import run_adapter as run_petrobras_supplier  # noqa: E402
+from adapters.petrofac_supplier import run_adapter as run_petrofac_supplier  # noqa: E402
+from adapters.equinor_supplier import run_adapter as run_equinor_supplier  # noqa: E402
 
 # ---- Config -----------------------------------------------------------
 
@@ -72,13 +91,28 @@ logging.basicConfig(
 )
 log = logging.getLogger("fpso-crawler")
 
-# ---- Media adapter registry --------------------------------------------
+# ---- Adapter registry (15 adapters across 4 tiers) --------------------
 
-MEDIA_ADAPTERS = [
-    ("Offshore Energy", run_offshore_energy),
-    ("OE Digital",       run_oe_digital),
-    ("World Oil",        run_world_oil),
-    ("Splash247",        run_splash247),
+ALL_ADAPTERS = [
+    # Tier 1 — 线索发现 (media, daily high-frequency)
+    ("Offshore Energy",    run_offshore_energy,    "P1", 1),
+    ("OE Digital",         run_oe_digital,         "P1", 1),
+    ("World Oil",          run_world_oil,          "P2", 1),
+    ("Splash247",          run_splash247,          "P2", 1),
+    # Tier 2 — 官方验证 (government P0, weekly-check cadence)
+    ("ANP CSV",            run_anp_fpso_csv,       "P0", 2),
+    ("ANP Dev Plan",       run_anp_development_plan, "P0", 2),
+    ("Guyana EPA",         run_guyana_epa,         "P0", 2),
+    ("Guyana Petroleum",   run_guyana_petroleum,   "P0", 2),
+    ("NSTA FDP",           run_nsta_fdp,           "P0", 2),
+    ("Equinor Rosebank",   run_equinor_rosebank,   "P0", 2),
+    # Tier 3 — 采购链拆解 (contractor)
+    ("MODEC Supply Chain", run_modec_supplychain,  "P0", 3),
+    ("SBM Newsroom",       run_sbm_newsroom,       "P1", 3),
+    # Tier 4 — 商业入口 (supplier portals)
+    ("Petrobras Supplier", run_petrobras_supplier, "P0", 4),
+    ("Petrofac Supplier",  run_petrofac_supplier,  "P1", 4),
+    ("Equinor Supplier",   run_equinor_supplier,   "P1", 4),
 ]
 
 
@@ -375,24 +409,25 @@ def auto_promote_candidates(supabase):
 
 
 # ========================================================================
-# Crawl mode: run all 4 media adapters
+# Crawl mode: run all 15 adapters
 # ========================================================================
 
 
 def run_all_adapters(dry_run=False, local_only=False):
-    """Run all 4 media adapters sequentially with polite delays."""
+    """Run all 15 adapters sequentially with polite delays. Continue-on-error."""
     log.info("=" * 54)
     log.info("FPSO Project Crawler — %s", TODAY)
     log.info("=" * 54)
 
     mode_str = "DRY-RUN" if dry_run else ("LOCAL-ONLY" if local_only else "FULL")
-    log.info("Mode: %s | Adapters: %d", mode_str, len(MEDIA_ADAPTERS))
+    log.info("Mode: %s | Adapters: %d", mode_str, len(ALL_ADAPTERS))
 
     all_results = []
 
-    for i, (name, runner) in enumerate(MEDIA_ADAPTERS):
+    for i, (name, runner, priority, tier) in enumerate(ALL_ADAPTERS):
         log.info("=" * 54)
-        log.info("[%d/%d] Running %s adapter...", i + 1, len(MEDIA_ADAPTERS), name)
+        log.info("[%d/%d] Running %s adapter (P%s / Tier %d)...",
+                 i + 1, len(ALL_ADAPTERS), name, priority, tier)
         log.info("=" * 54)
 
         try:
@@ -402,8 +437,8 @@ def run_all_adapters(dry_run=False, local_only=False):
             log.error("Adapter %s failed!", name, exc_info=True)
             all_results.append((name, {"error": "Adapter crashed", "total_articles": 0, "inserted": 0}))
 
-        # Polite delay between sites (except after last)
-        if i < len(MEDIA_ADAPTERS) - 1:
+        # Polite delay between adapters (except after last)
+        if i < len(ALL_ADAPTERS) - 1:
             delay = random.uniform(2, 5)
             log.info("Sleeping %.1fs before next adapter...", delay)
             time.sleep(delay)
@@ -415,17 +450,23 @@ def run_all_adapters(dry_run=False, local_only=False):
 
     total_articles = 0
     total_inserted = 0
+    errors = 0
 
     for name, result in all_results:
         articles = result.get("total_articles", 0)
         inserted = result.get("inserted", 0)
         error = result.get("error")
-        status = f"ERROR: {error}" if error else f"{articles} articles, {inserted} inserted"
+        if error:
+            errors += 1
+            status = f"ERROR: {error}"
+        else:
+            status = f"{articles} articles, {inserted} inserted"
         log.info("  %-20s → %s", name, status)
         total_articles += articles
         total_inserted += inserted
 
-    log.info("  %-20s   %d articles, %d inserted", "TOTAL", total_articles, total_inserted)
+    log.info("  %-20s   %d articles, %d inserted (%d errors)",
+             "TOTAL", total_articles, total_inserted, errors)
     log.info("Crawl complete.")
 
     unrecognized = sum(r.get("unrecognized", 0) for _, r in all_results)
