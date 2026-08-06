@@ -54,6 +54,14 @@ import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
+# pdfplumber for PDF text extraction (ANP development plans)
+try:
+    import pdfplumber
+    PDFPLUMBER_AVAILABLE = True
+except ImportError:
+    pdfplumber = None  # type: ignore
+    PDFPLUMBER_AVAILABLE = False
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from media_common import _safe_decode_response
 
@@ -476,6 +484,245 @@ def extract_date_from_url(url: str) -> Optional[str]:
             if 2020 <= y <= 2030 and 1 <= mo <= 12 and 1 <= d <= 31:
                 return f"{y:04d}-{mo:02d}-{d:02d}"
     return None
+
+
+# ============================================================================
+# 2.6. PDF 文本提取 & 技术规格解析
+# ============================================================================
+
+# Material keywords — stainless steel grades and alloys
+MATERIAL_KEYWORDS = [
+    "stainless steel", "stainless",
+    "duplex", "super duplex", "superduplex",
+    "316L", "316 L", "316LN",
+    "2205", "UNS S32205", "UNS S31803",
+    "2507", "UNS S32750",
+    "CRA", "corrosion resistant alloy", "corrosion-resistant alloy",
+    "cladding", "clad",
+    "Inconel", "Alloy 625", "Alloy 825",
+    "6Mo", "6 Mo", "UNS S31254", "254 SMO",
+    "13Cr", "13 Cr", "Super 13Cr",
+    "22Cr", "22 Cr", "25Cr", "25 Cr",
+    "austenitic", "ferritic", "martensitic",
+]
+
+# Media / corrosive agent keywords
+MEDIA_KEYWORDS = [
+    "H2S", "hydrogen sulfide", "hydrogen sulphide",
+    "CO2", "carbon dioxide",
+    "sour gas", "sour service", "sour environment",
+    "sweet gas", "sweet service",
+    "chloride", "Cl-", "chlorides",
+    "pH", "acidic", "acid gas",
+    "mercury", "Hg",
+    "MEG", "monoethylene glycol",
+    "oxygen", "O2",
+    "sand", "erosion", "abrasive",
+]
+
+# Technical parameter keywords with patterns
+TECH_PARAM_PATTERNS = [
+    # (canonical_name, [patterns])
+    ("water_depth", [
+        r"(?:water\s+depth|l[âa]mina\s+d['']?[áa]gua|profundidade)\s*(?:de\s+)?(?:at[ée]\s+)?(?::\s*)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?)\s*(?:m|metros?|meters?)",
+    ]),
+    ("production_capacity", [
+        r"(?:production\s+(?:capacity|rate)|capacidade\s+(?:de\s+)?produ[çc][ãa]o|produ[çc][ãa]o)\s*(?:de\s+)?(?:at[ée]\s+)?(?::\s*)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?)\s*(?:bpd|bbl/?d|barris?\s+(?:por\s+)?dia|barrels?\s+(?:per\s+)?day)",
+    ]),
+    ("injection_pressure", [
+        r"(?:injection\s+pressure|press[ãa]o\s+de\s+inje[çc][ãa]o|press[ãa]o\s+de\s+reinje[çc][ãa]o)\s*(?:de\s+)?(?:at[ée]\s+)?(?::\s*)?(\d{1,4}(?:[.,]\d+)?)\s*(?:bar|psi|kgf|MPa)",
+    ]),
+    ("operating_temperature", [
+        r"(?:operating\s+temperature|temperatura\s+(?:de\s+)?opera[çc][ãa]o|temperatura\s+(?:de\s+)?projeto|design\s+temperature)\s*(?:de\s+)?(?:at[ée]\s+)?(?::\s*)?(\d{1,3}(?:[.,]\d+)?)\s*(?:[°º]C|Celsius|[°º]F|Fahrenheit)",
+    ]),
+]
+
+# Application context patterns — where the material is used
+APPLICATION_PATTERNS = [
+    r"(?:for|para|in|em|of|de)\s+(?:the\s+)?("
+    r"cargo\s+oil\s+tanks?"
+    r"|process\s+piping"
+    r"|production\s+risers?"
+    r"|flowlines?"
+    r"|manifolds?"
+    r"|heat\s+exchangers?"
+    r"|pressure\s+vessels?"
+    r"|separators?"
+    r"|scrubbers?"
+    r"|desalters?"
+    r"|deaerators?"
+    r"|water\s+injection\s+systems?"
+    r"|gas\s+injection\s+systems?"
+    r"|gas\s+compression"
+    r"|flare\s+systems?"
+    r"|offloading\s+systems?"
+    r"|mooring\s+systems?"
+    r"|hull"
+    r"|topside"
+    r"|subsea\s+equipment"
+    r")",
+]
+
+
+def extract_pdf_text(pdf_path: str) -> Optional[str]:
+    """Extract full text from a PDF file using pdfplumber.
+
+    Args:
+        pdf_path: Absolute or relative path to the PDF file.
+
+    Returns:
+        Extracted text as a single string, or None if extraction fails.
+    """
+    if not PDFPLUMBER_AVAILABLE:
+        log.warning("pdfplumber not available — cannot extract PDF text")
+        return None
+
+    path = Path(pdf_path)
+    if not path.exists():
+        log.warning("PDF not found: %s", pdf_path)
+        return None
+    if not path.suffix.lower() == ".pdf":
+        log.warning("Not a PDF file: %s", pdf_path)
+        return None
+
+    try:
+        text_parts = []
+        with pdfplumber.open(str(path)) as pdf:
+            for page in pdf.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text_parts.append(page_text)
+        full_text = "\n".join(text_parts)
+        if full_text.strip():
+            log.info("  PDF text extracted: %s — %d chars from %d pages",
+                     path.name, len(full_text), len(text_parts))
+            return full_text
+        else:
+            log.warning("  PDF text extraction produced empty result: %s", path.name)
+            return None
+    except Exception as e:
+        log.warning("  PDF text extraction failed: %s — %s", path.name, e)
+        return None
+
+
+def parse_technical_specs(text: str) -> dict:
+    """Search PDF text for material, media, and technical parameter keywords.
+
+    Args:
+        text: Full text extracted from a PDF (or any page text).
+
+    Returns:
+        Dict with keys:
+          - evidence_quote: excerpt around first match (150 chars each side)
+          - stainless_steel: comma-separated material keywords found
+          - application: application context (if found)
+          - media: comma-separated media keywords found
+          - tech_params: dict of technical parameter values
+          - has_material: bool, True if any material keyword was found
+    """
+    if not text:
+        return {
+            "evidence_quote": "",
+            "stainless_steel": "",
+            "application": "",
+            "media": "",
+            "tech_params": {},
+            "has_material": False,
+        }
+
+    text_lower = text.lower()
+
+    # --- Material keywords ---
+    found_materials = []
+    for kw in MATERIAL_KEYWORDS:
+        if kw.lower() in text_lower:
+            found_materials.append(kw)
+
+    # Deduplicate: "super duplex" subsumes "duplex" hits
+    deduped_materials = _deduplicate_materials(found_materials)
+
+    # --- Media keywords ---
+    found_media = []
+    for kw in MEDIA_KEYWORDS:
+        if kw.lower() in text_lower:
+            found_media.append(kw)
+
+    # --- Technical parameters ---
+    tech_params = {}
+    for param_name, patterns in TECH_PARAM_PATTERNS:
+        for pat in patterns:
+            m = re.search(pat, text, re.IGNORECASE)
+            if m:
+                tech_params[param_name] = m.group(0).strip()[:100]
+                break
+
+    # --- Application context ---
+    application = ""
+    for pat in APPLICATION_PATTERNS:
+        m = re.search(pat, text, re.IGNORECASE)
+        if m:
+            application = m.group(1).strip()
+            break
+
+    # --- Evidence quote ---
+    evidence_quote = ""
+    if deduped_materials:
+        # Find position of first material keyword
+        first_match = None
+        for mat in deduped_materials:
+            idx = text_lower.find(mat.lower())
+            if idx >= 0 and (first_match is None or idx < first_match[0]):
+                first_match = (idx, mat)
+
+        if first_match:
+            idx, _ = first_match
+            start = max(0, idx - 150)
+            end = min(len(text), idx + 150)
+            snippet = text[start:end].replace("\n", " ").strip()
+            if start > 0:
+                snippet = "..." + snippet
+            if end < len(text):
+                snippet = snippet + "..."
+            evidence_quote = snippet
+
+    return {
+        "evidence_quote": evidence_quote[:1000],
+        "stainless_steel": ", ".join(deduped_materials) if deduped_materials else "",
+        "application": application,
+        "media": ", ".join(found_media) if found_media else "",
+        "tech_params": tech_params,
+        "has_material": len(deduped_materials) > 0,
+    }
+
+
+def _deduplicate_materials(materials: list[str]) -> list[str]:
+    """Remove redundant material keywords.
+
+    E.g., if 'super duplex' and 'duplex' both appear, keep only 'super duplex'.
+    If '316L' and 'stainless steel' both appear, keep both (they add info).
+    """
+    if not materials:
+        return []
+
+    mat_lower = [m.lower() for m in materials]
+    result = []
+
+    # Group: "super duplex" subsumes "duplex"
+    has_super_duplex = any("super duplex" in m or "superduplex" in m for m in mat_lower)
+    # Group: "corrosion resistant alloy" subsumes "CRA"
+    has_cra_full = any("corrosion resistant alloy" in m for m in mat_lower)
+
+    for i, m in enumerate(materials):
+        ml = m.lower()
+        if has_super_duplex and ml in ("duplex",):
+            continue
+        if has_cra_full and ml in ("cra",):
+            continue
+        if ml == "stainless" and any("stainless steel" in x for x in mat_lower):
+            continue
+        result.append(m)
+
+    return result
 
 
 # ============================================================================
@@ -947,6 +1194,20 @@ def deduplicate_documents(documents: list[dict]) -> list[dict]:
 # ============================================================================
 
 
+def _parse_numeric_from_text(text: str) -> Optional[int]:
+    """Extract the first numeric value from a tech param match string."""
+    if not text:
+        return None
+    m = re.search(r"(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?)", text)
+    if m:
+        try:
+            val = m.group(1).replace(",", "").replace(".", "")
+            return int(val)
+        except (ValueError, TypeError):
+            return None
+    return None
+
+
 def build_candidate_event(doc: dict, raw_html_path: str = "") -> dict:
     """Convert a parsed document into a candidate_events record."""
     title = doc.get("title", "")
@@ -991,6 +1252,24 @@ def build_candidate_event(doc: dict, raw_html_path: str = "") -> dict:
     gas_cap = extract_gas_capacity_from_text(combined_text)
     hull_type = extract_hull_type_from_text(combined_text)
 
+    # PDF-extracted technical specs (from parse_technical_specs)
+    pdf_specs = doc.get("_pdf_specs", {}) or {}
+    pdf_stainless = pdf_specs.get("stainless_steel", "")
+    pdf_application = pdf_specs.get("application", "")
+    pdf_evidence = pdf_specs.get("evidence_quote", "")
+    pdf_media = pdf_specs.get("media", "")
+    pdf_tech_params = pdf_specs.get("tech_params", {}) or {}
+
+    # evidence_quote priority: PDF excerpt > title + text preview
+    final_evidence = pdf_evidence if pdf_evidence else evidence_quote
+
+    # Merge PDF-extracted tech params with text-extracted ones (text takes precedence)
+    if pdf_tech_params:
+        if not water_depth and pdf_tech_params.get("water_depth"):
+            water_depth = _parse_numeric_from_text(pdf_tech_params["water_depth"])
+        if not oil_cap and pdf_tech_params.get("production_capacity"):
+            oil_cap = _parse_numeric_from_text(pdf_tech_params["production_capacity"])
+
     return {
         "project_name_raw": project_name_raw[:255],
         "country": "Brazil",
@@ -1000,7 +1279,7 @@ def build_candidate_event(doc: dict, raw_html_path: str = "") -> dict:
         "review_status": "pending",
         "event_type": event_type,
         "fetched_at": NOW_ISO,
-        "evidence_quote": evidence_quote[:500],
+        "evidence_quote": final_evidence[:500],
         "publication_date": publication_date or TODAY,
         "raw_json": json.dumps(doc, ensure_ascii=False),
         # 技术规格字段
@@ -1011,6 +1290,9 @@ def build_candidate_event(doc: dict, raw_html_path: str = "") -> dict:
         "field_name": field_name if field_name else None,
         "operator_name": operator if operator else None,
         "basin": None,  # ANP development plans don't always name the basin
+        # PDF 文本提取字段
+        "stainless_steel": pdf_stainless if pdf_stainless else None,
+        "application": pdf_application if pdf_application else None,
     }
 
 
@@ -1294,6 +1576,7 @@ def run_adapter(
             if result and result[0]:
                 file_hash, local_path = result
                 doc["file_hash"] = file_hash
+                doc["_local_pdf_path"] = local_path  # used for PDF text extraction
                 if not dry_run and not local_only:
                     save_to_source_documents(
                         local_path, file_hash, "PDF",
@@ -1303,6 +1586,17 @@ def run_adapter(
                         publication_date=doc.get("publication_date", ""),
                         supabase=supabase,
                     )
+
+                # Extract text from downloaded PDF and parse technical specs
+                if local_path and Path(local_path).exists():
+                    pdf_text = extract_pdf_text(local_path)
+                    if pdf_text:
+                        pdf_specs = parse_technical_specs(pdf_text)
+                        doc["_pdf_specs"] = pdf_specs
+                        if pdf_specs.get("has_material"):
+                            log.info("  Material keywords found: %s", pdf_specs.get("stainless_steel", ""))
+                        else:
+                            log.info("  No material keywords found in PDF text")
     else:
         log.info("--- Skipping Downloads (--skip-download) ---")
 
