@@ -56,7 +56,7 @@ jobs:
 
       # ---- P1 企业来源 ----
       - name: Run SBM Offshore Newsroom adapter
-        run: python crawler/adapters/sbm_newsroom.py --local-only
+        run: python crawler/adapters/sbm_newsroom.py
         continue-on-error: true
 
       - name: Run Equinor Supplier adapter

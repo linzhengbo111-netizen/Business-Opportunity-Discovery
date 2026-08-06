@@ -119,7 +119,12 @@ def promote_accepted_candidates(supabase):
     log.info("Accepted candidates: %d", len(candidates))
 
     # ---- Step 1: normalize and group candidates --------
-    groups = {}
+    # Group by canonical_project_id when available (P0-4.1 fix).
+    # Candidates that normalized to the same canonical ID are merged;
+    # candidates that failed normalization are grouped by raw name only
+    # and never merged with matched candidates (separate key namespace).
+    groups = {}       # group_key → [candidates]
+    group_names = {}  # group_key → effective project name
     normalization_log = []
 
     for c in candidates:
@@ -129,14 +134,17 @@ def promote_accepted_candidates(supabase):
         if canonical_id:
             display_name = get_display_name(canonical_id)
             effective_name = display_name
+            group_key = ("canonical", canonical_id)
             normalization_log.append((raw_name, canonical_id, display_name))
         else:
             effective_name = raw_name
+            group_key = ("raw", raw_name)
             normalization_log.append((raw_name, None, raw_name))
 
-        if effective_name not in groups:
-            groups[effective_name] = []
-        groups[effective_name].append(c)
+        if group_key not in groups:
+            groups[group_key] = []
+            group_names[group_key] = effective_name
+        groups[group_key].append(c)
 
     # Report normalization results
     matched = sum(1 for _, cid, _ in normalization_log if cid)
@@ -165,7 +173,8 @@ def promote_accepted_candidates(supabase):
     new = 0
     updated = 0
 
-    for effective_name, group in groups.items():
+    for group_key, group in groups.items():
+        effective_name = group_names[group_key]
         try:
             if len(group) == 1:
                 c = group[0]
