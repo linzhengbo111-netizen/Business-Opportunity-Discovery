@@ -49,7 +49,7 @@ import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
-from adapters.media_common import extract_procurement
+from adapters.media_common import extract_procurement, _safe_decode_response
 
 # ---- Paths ---------------------------------------------------------------
 
@@ -214,7 +214,7 @@ def fetch_page(url: str, session: requests.Session) -> Optional[str]:
         resp = session.get(url, timeout=60)
         resp.raise_for_status()
         log.info("  HTTP %d, %d bytes", resp.status_code, len(resp.content))
-        return resp.text
+        return _safe_decode_response(resp)
     except requests.exceptions.HTTPError as e:
         log.warning("  HTTP %s — %s",
                      e.response.status_code if hasattr(e, 'response') else '?', url)

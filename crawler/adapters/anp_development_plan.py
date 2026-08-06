@@ -385,6 +385,12 @@ def _download_html_with_curl(url: str) -> str:
         if len(raw) == 0:
             raise RuntimeError("curl downloaded 0 bytes")
         log.info("curl downloaded %d bytes", len(raw))
+        # Try UTF-8 first, then Latin-1 (common for Brazilian gov.br sites)
+        for enc in ["utf-8", "latin-1", "iso-8859-1", "cp1252"]:
+            try:
+                return raw.decode(enc)
+            except UnicodeDecodeError:
+                continue
         return raw.decode("utf-8", errors="replace")
     finally:
         Path(tmp_path).unlink(missing_ok=True)
@@ -398,7 +404,14 @@ def fetch_page(url: str, session: requests.Session) -> Optional[str]:
         resp = session.get(url, timeout=60)
         resp.raise_for_status()
         log.info("  HTTP %d, %d bytes", resp.status_code, len(resp.content))
-        return resp.text
+        # Safe decode: trust explicit charset header, else try UTF-8 first
+        ct = resp.headers.get("Content-Type", "")
+        if "charset" in ct.lower():
+            return resp.text
+        try:
+            return resp.content.decode("utf-8")
+        except UnicodeDecodeError:
+            return resp.text  # fall back to requests' apparent encoding
     except (requests.exceptions.SSLError, requests.exceptions.ConnectionError) as e:
         log.warning("  Python requests SSL/connection error: %s", str(e)[:120])
         log.info("  Falling back to curl for gov.br SSL compatibility...")

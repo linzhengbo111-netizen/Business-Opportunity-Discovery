@@ -2302,6 +2302,31 @@ def build_session():
     return session
 
 
+def _safe_decode_response(r):
+    """Decode response body to text, preferring UTF-8.
+    Uses response.apparent_encoding (chardet) when server omits charset.
+    Falls back to UTF-8 with replacement chars as last resort.
+    Returns decoded text string."""
+    content_type = r.headers.get("Content-Type", "")
+    # If server explicitly declares charset, trust it
+    if "charset" in content_type.lower():
+        return r.text
+    # Try UTF-8 first (most web content is UTF-8)
+    try:
+        return r.content.decode("utf-8")
+    except UnicodeDecodeError:
+        pass
+    # Fall back to apparent encoding (chardet-based)
+    apparent = getattr(r, "apparent_encoding", None)
+    if apparent and apparent.lower().replace("-", "") != "utf8":
+        try:
+            return r.content.decode(apparent)
+        except (UnicodeDecodeError, LookupError):
+            pass
+    # Last resort: UTF-8 with replacement chars (preserves what we can)
+    return r.content.decode("utf-8", errors="replace")
+
+
 def fetch_url(url, session):
     """GET a URL. Returns response or None on failure."""
     try:
@@ -2410,10 +2435,13 @@ def crawl_media_site(site_config, session, supabase=None):
         log.warning("  All search URLs failed, skipping.")
         return articles
 
-    # Save raw HTML to source_documents for audit trail
-    save_raw_html_media(r.text, site_config, supabase=supabase)
+    # Decode response safely (UTF-8 preferred, fallback to chardet)
+    html_text = _safe_decode_response(r)
 
-    soup = BeautifulSoup(r.text, "html.parser")
+    # Save raw HTML to source_documents for audit trail
+    save_raw_html_media(html_text, site_config, supabase=supabase)
+
+    soup = BeautifulSoup(html_text, "html.parser")
     elem_list = find_article_elements(soup, site_config)
     log.info("  Found %d candidate containers", len(elem_list))
 

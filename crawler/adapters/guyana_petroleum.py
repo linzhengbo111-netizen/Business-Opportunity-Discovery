@@ -425,7 +425,13 @@ def fetch_page(url: str, session: requests.Session) -> Optional[str]:
         resp = session.get(url, timeout=60)
         resp.raise_for_status()
         log.info("  HTTP %d, %d bytes", resp.status_code, len(resp.content))
-        return resp.text
+        ct = resp.headers.get("Content-Type", "")
+        if "charset" in ct.lower():
+            return resp.text
+        try:
+            return resp.content.decode("utf-8")
+        except UnicodeDecodeError:
+            return resp.text
     except requests.exceptions.HTTPError as e:
         log.warning("  HTTP %s — %s",
                      e.response.status_code if hasattr(e, 'response') else '?', url)
