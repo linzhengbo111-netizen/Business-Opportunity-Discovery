@@ -2,6 +2,7 @@ import DashboardPage from './pages/DashboardPage';
 import DatabasePage from './pages/DatabasePage';
 import ReviewPage from './pages/ReviewPage';
 import SettingsPage from './pages/SettingsPage';
+import IndustryBreakdownPage from './pages/IndustryBreakdownPage';
 import type { ReactNode } from 'react';
 
 export interface RouteConfig {
@@ -30,6 +31,12 @@ export const routes: RouteConfig[] = [
     name: 'Review',
     path: '/review',
     element: <ReviewPage />,
+    public: true,
+  },
+  {
+    name: 'IndustryBreakdown',
+    path: '/industry-breakdown',
+    element: <IndustryBreakdownPage />,
     public: true,
   },
   {

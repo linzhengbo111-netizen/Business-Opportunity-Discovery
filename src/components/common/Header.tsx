@@ -20,6 +20,7 @@ export default function Header({ rightContent }: { rightContent?: ReactNode }) {
         <nav className="absolute left-1/2 -translate-x-1/2 z-10 hidden items-center gap-8 md:flex">
           <NavLink to="/" end className={linkClass}>Dashboard</NavLink>
           <NavLink to="/database" className={linkClass}>Database</NavLink>
+          <NavLink to="/industry-breakdown" className={linkClass}>行业拆解</NavLink>
           <NavLink to="/settings" className={linkClass}>Settings</NavLink>
         </nav>
 
