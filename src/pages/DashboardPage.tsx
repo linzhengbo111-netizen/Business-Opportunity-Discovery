@@ -19,6 +19,7 @@ import { supabase } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
 import { useSubscription } from "@/hooks/useSubscription";
 import { matchMaterials, specsFromRow, hasAnySpecs, parseRecommendation } from "@/lib/material_matcher";
+import { exportOpportunityList } from "@/lib/export_opportunities";
 import { Building2, Hammer, CalendarDays, PlusCircle, Anchor, Waves, Gauge } from "lucide-react";
 import FilterSidebar from "@/components/dashboard/FilterSidebar";
 import { motion } from "motion/react";
@@ -638,6 +639,11 @@ export default function DashboardPage() {
     setSelectedStatuses(new Set(["Under Construction", "Planned"]));
   }
 
+  /** Handle CSV export of factory-qualified projects in current view. */
+  function handleExport() {
+    exportOpportunityList(filteredProjects, window.location.origin);
+  }
+
   const todayStr = new Date().toISOString().slice(0, 10);
 
   return (
@@ -681,6 +687,8 @@ export default function DashboardPage() {
           onConfidenceChange={setSelectedConfidence}
           onStatusToggle={toggleStatus}
           onClear={clearAllFilters}
+          onExport={handleExport}
+          filteredCount={filteredProjects.length}
         />
 
         <main className="flex-1 min-w-0 px-6 py-10">

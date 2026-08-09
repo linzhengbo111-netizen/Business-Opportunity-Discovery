@@ -1,4 +1,4 @@
-import { PanelLeftClose, PanelLeftOpen, RotateCcw } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, RotateCcw, Download } from "lucide-react";
 import type { Project } from "@/data/projects";
 
 const INDUSTRY_OPTIONS = [
@@ -32,6 +32,10 @@ interface FilterSidebarProps {
   onConfidenceChange: (value: string) => void;
   onStatusToggle: (status: string) => void;
   onClear: () => void;
+  /** Called when user clicks the export button. */
+  onExport?: () => void;
+  /** Number of projects in the current filtered view. */
+  filteredCount?: number;
 }
 
 /** Look up a country's flag emoji from the project list. */
@@ -61,12 +65,16 @@ export default function FilterSidebar({
   onConfidenceChange,
   onStatusToggle,
   onClear,
+  onExport,
+  filteredCount = 0,
 }: FilterSidebarProps) {
   const hasFilters =
     selectedCountry !== "All Countries" ||
     selectedIndustry !== "All Industries" ||
     selectedConfidence !== "All" ||
     selectedStatuses.size > 0;
+
+  const exportDisabled = !onExport || filteredCount === 0;
 
   return (
     <aside
@@ -191,6 +199,35 @@ export default function FilterSidebar({
               })}
             </div>
           </FilterGroup>
+
+          {/* Export button */}
+          {onExport && (
+            <div className="pt-3 border-t border-white/5">
+              <button
+                type="button"
+                onClick={onExport}
+                disabled={exportDisabled}
+                title={
+                  exportDisabled
+                    ? "Export disabled: no projects in current view"
+                    : `Export ${filteredCount} visible projects to CSV (only factory-qualified items included)`
+                }
+                className={`inline-flex w-full items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-semibold transition-all ${
+                  exportDisabled
+                    ? "cursor-not-allowed bg-fpso-bg/30 text-fpso-dim border border-white/5"
+                    : "bg-fpso-blue/15 text-fpso-blue border border-fpso-blue/30 hover:bg-fpso-blue/25 hover:border-fpso-blue/50 active:scale-[0.98]"
+                }`}
+              >
+                <Download className="h-3.5 w-3.5" />
+                导出商机清单
+              </button>
+              {!exportDisabled && (
+                <p className="mt-1.5 text-[10px] leading-relaxed text-fpso-dim text-center">
+                  CSV — 仅含工厂可做的项目
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </aside>

@@ -856,3 +856,184 @@ export function hasAnySpecs(specs: TechnicalSpecs): boolean {
     (specs.basin != null && specs.basin !== "")
   );
 }
+
+// ---- Procurement Timeline Estimation -------------------------------------
+
+/** Result of procurement window estimation. */
+export interface ProcurementWindowResult {
+  /** ISO date string of estimated procurement start (YYYY-MM-DD). */
+  estimated_date: string;
+  /** Confidence of the estimate. */
+  confidence: "high" | "medium" | "low";
+  /** Human-readable reasoning chain. */
+  reasoning: string;
+}
+
+/**
+ * Minimal project shape needed by `estimateProcurementWindow`.
+ * Accepts both the full Project type and partial objects.
+ */
+export interface ProcurementProjectInput {
+  name?: string;
+  status?: string;
+  summary?: string;
+  industry?: string;
+  source?: { date?: string };
+  createdAt?: string | null;
+}
+
+/**
+ * A single timeline milestone (minimal shape).
+ * Pass timeline events from candidate_events to improve estimate accuracy.
+ */
+export interface ProcurementTimelineEvent {
+  eventType?: string;
+  publicationDate?: string;
+}
+
+/**
+ * Estimate when a project will enter its stainless steel procurement window.
+ *
+ * Heuristics based on FPSO industry procurement patterns:
+ *   - FID + 6 months is typical start for long-lead equipment inquiries
+ *   - Construction start → bulk piping procurement follows within 3-6 months
+ *   - Earlier phases (EIA/FEED) → window is further out (12-18 months)
+ *
+ * Confidence is higher when timeline events (FPSO_CONTRACT_AWARDED) are
+ * available; lower when only status-based inference is possible.
+ *
+ * @param project - Project data (status, summary, name, etc.).
+ * @param timelineEvents - Optional timeline milestones from candidate_events.
+ * @returns Estimated procurement window with date, confidence, and reasoning.
+ */
+export function estimateProcurementWindow(
+  project: ProcurementProjectInput,
+  timelineEvents?: ProcurementTimelineEvent[],
+): ProcurementWindowResult {
+  const now = new Date();
+  const status = (project.status ?? "").trim();
+  const summary = (project.summary ?? "").toLowerCase();
+  const name = (project.name ?? "").toLowerCase();
+  const combined = summary + " " + name;
+
+  // ---- Rule 1: FPSO_CONTRACT_AWARDED timeline event → high-confidence estimate ----
+  const contractEvent = timelineEvents?.find(
+    (e) => (e.eventType ?? "").toUpperCase() === "FPSO_CONTRACT_AWARDED",
+  );
+  if (contractEvent?.publicationDate) {
+    const contractDate = new Date(contractEvent.publicationDate);
+    if (!isNaN(contractDate.getTime())) {
+      // Procurement starts 2-4 months after contract award (mid-point: 3 months)
+      const estDate = new Date(contractDate);
+      estDate.setMonth(estDate.getMonth() + 3);
+      return {
+        estimated_date: estDate.toISOString().slice(0, 10),
+        confidence: "high",
+        reasoning:
+          `FPSO contract awarded on ${contractEvent.publicationDate.slice(0, 10)}. ` +
+          `Long-lead equipment procurement typically begins 2-4 months post-award. ` +
+          `Estimated window opens ${estDate.toISOString().slice(0, 10)}.`,
+      };
+    }
+  }
+
+  // ---- Rule 2: Under Construction → imminent procurement (3-6 months) ----
+  if (status === "Under Construction") {
+    const estDate = new Date(now);
+    estDate.setMonth(estDate.getMonth() + 4); // mid-point of 3-6 months
+    return {
+      estimated_date: estDate.toISOString().slice(0, 10),
+      confidence: "medium",
+      reasoning:
+        "Project is Under Construction. Bulk piping and fittings procurement " +
+        "typically occurs during construction phase. Estimated window: 3-6 months. " +
+        "Urgent needs may be sooner — contact EPC contractor to confirm schedule.",
+    };
+  }
+
+  // ---- Rule 3: Planned + FEED/FID phase → 6-12 months ----
+  if (status === "Planned") {
+    const isFeed =
+      combined.includes("feed") ||
+      combined.includes("front end") ||
+      combined.includes("fid") ||
+      combined.includes("final investment");
+    const isEia =
+      combined.includes("eia") ||
+      combined.includes("environmental") ||
+      combined.includes("pre-feed") ||
+      combined.includes("conceptual") ||
+      combined.includes("feasibility");
+
+    if (isFeed) {
+      const estDate = new Date(now);
+      estDate.setMonth(estDate.getMonth() + 9); // mid-point of 6-12 months
+      return {
+        estimated_date: estDate.toISOString().slice(0, 10),
+        confidence: "medium",
+        reasoning:
+          "Project is Planned with FEED/FID phase detected. FID typically triggers " +
+          "long-lead equipment procurement within 6-12 months. Estimated window: " +
+          `${estDate.toISOString().slice(0, 10)}. Monitor for FID announcement.`,
+      };
+    }
+
+    if (isEia) {
+      const estDate = new Date(now);
+      estDate.setMonth(estDate.getMonth() + 15); // mid-point of 12-18 months
+      return {
+        estimated_date: estDate.toISOString().slice(0, 10),
+        confidence: "low",
+        reasoning:
+          "Project is in early planning / EIA phase. Procurement window likely " +
+          "12-18 months out. Re-evaluate when project reaches FEED or FID. " +
+          `Estimated window: ${estDate.toISOString().slice(0, 10)}.`,
+      };
+    }
+
+    // Planned but no phase detected → FPSO default
+    const isFpso = (project.industry ?? "").toUpperCase() === "FPSO";
+    const estDate = new Date(now);
+    estDate.setMonth(estDate.getMonth() + (isFpso ? 9 : 12));
+    return {
+      estimated_date: estDate.toISOString().slice(0, 10),
+      confidence: "low",
+      reasoning:
+        isFpso
+          ? "Planned FPSO project. Industry norm: long-lead equipment procurement " +
+            "begins ~6 months post-FID. Without confirmed FID date, estimating " +
+            `${estDate.toISOString().slice(0, 10)}. Monitor for FID announcement.`
+          : "Planned project without detailed phase data. Conservative estimate: " +
+            `12 months out (${estDate.toISOString().slice(0, 10)}). ` +
+            "Add timeline data for higher-confidence estimate.",
+    };
+  }
+
+  // ---- Rule 4: Delivered / complete → retrospective, no active window ----
+  if (status === "Delivered" || status === "Completed") {
+    return {
+      estimated_date: "N/A",
+      confidence: "high",
+      reasoning:
+        "Project is already delivered/completed. Procurement window has passed. " +
+        "Consider targeting MRO (maintenance, repair, operations) spares instead.",
+    };
+  }
+
+  // ---- Rule 5: Unknown status → FPSO default heuristic ----
+  const isFpso = (project.industry ?? "").toUpperCase() === "FPSO";
+  const estDate = new Date(now);
+  estDate.setMonth(estDate.getMonth() + 6);
+  return {
+    estimated_date: estDate.toISOString().slice(0, 10),
+    confidence: "low",
+    reasoning:
+      isFpso
+        ? "Insufficient project data for precise estimation. FPSO industry default: " +
+          "long-lead equipment procurement typically starts ~6 months post-FID. " +
+          `Conservative estimate: ${estDate.toISOString().slice(0, 10)}. ` +
+          "Add status and timeline data for higher-confidence estimate."
+        : "Insufficient project data. Conservative estimate: 6 months from today. " +
+          "Add status, phase, and timeline events for higher-confidence estimate.",
+  };
+}
