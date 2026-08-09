@@ -53,6 +53,33 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   "BACKFILL_COUNTRY": "Backfill Entry",
 };
 
+/** Human-readable next-milestone labels for the card preview. */
+const NEXT_MILESTONE_LABELS: Record<string, string> = {
+  "EIA_SUBMITTED": "环评审批中",
+  "FID_CONFIRMED": "FID已确认",
+  "FPSO_CONTRACT_AWARDED": "合同已授予",
+  "PRODUCTION_START": "已投产",
+  "DEVELOPMENT_CONSENT_GRANTED": "开发许可已批准",
+  "DEVELOPMENT_PLAN_SUBMITTED": "开发计划已提交",
+  "DEVELOPMENT_PLAN_UPDATED": "开发计划已更新",
+  "PERMIT_GRANTED": "许可已批准",
+  "LICENSE_GRANTED": "许可证已授予",
+  "FIELD_DEVELOPMENT_PLAN": "油田开发规划中",
+  "FIRST_OIL": "首次产油",
+  "CONTRACT_ANNOUNCEMENT": "合同公告",
+  "VENDOR_REGISTRATION_ACTION": "供应商注册",
+  "REGULATORY_DATA": "监管备案",
+  "PUBLIC_NOTICE": "公示中",
+  "ARTICLE_MENTION": "媒体报道",
+  "BACKFILL_COUNTRY": "数据回填",
+};
+
+/** A single candidate_events row for milestone computation. */
+interface MilestoneEvent {
+  eventType: string;
+  publicationDate: string;
+}
+
 function formatEventType(et: string): string {
   return EVENT_TYPE_LABELS[et] ?? et.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
@@ -234,6 +261,7 @@ function mapRowToProject(row: Record<string, unknown>): Project {
     operatorName: toStr(row.operator_name),
     basin: toStr(row.basin),
     recommendationJson: toStr(row.recommendation_json),
+    createdAt: toStr(row.created_at),
   };
 }
 
@@ -273,6 +301,7 @@ function mapCandidateToProject(row: Record<string, unknown>): Project {
     operatorName: toStr(row.operator_name),
     basin: toStr(row.basin),
     recommendationJson: null,
+    createdAt: toStr(row.created_at),
   };
 }
 
@@ -285,6 +314,7 @@ export default function DashboardPage() {
   const [selectedConfidence, setSelectedConfidence] = useState("All");
   const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(new Set());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [milestoneMap, setMilestoneMap] = useState<Map<string, { label: string; year: string }>>(new Map());
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [modalTab, setModalTab] = useState<"overview" | "timeline">("overview");
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
@@ -375,6 +405,46 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
+  }, [version]);
+
+  // ---- Fetch milestone data for next-milestone preview ----
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchMilestones() {
+      const { data, error } = await supabase
+        .from("candidate_events")
+        .select("canonical_project_id, event_type, publication_date")
+        .not("canonical_project_id", "is", null);
+
+      if (cancelled || error || !data) return;
+
+      // Group by canonical_project_id, keep latest event per project
+      const latest = new Map<string, MilestoneEvent>();
+      for (const row of data) {
+        const pid = String(row.canonical_project_id ?? "").trim();
+        if (!pid) continue;
+        const date = String(row.publication_date ?? "").trim();
+        const cur = latest.get(pid);
+        if (!cur || date > cur.publicationDate) {
+          latest.set(pid, { eventType: String(row.event_type ?? ""), publicationDate: date });
+        }
+      }
+
+      const map = new Map<string, { label: string; year: string }>();
+      for (const [pid, evt] of latest) {
+        const label = NEXT_MILESTONE_LABELS[evt.eventType]
+          ?? evt.eventType.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+        const year = evt.publicationDate ? evt.publicationDate.slice(0, 4) : "";
+        map.set(pid, { label, year });
+      }
+
+      if (!cancelled) setMilestoneMap(map);
+    }
+
+    fetchMilestones();
+
+    return () => { cancelled = true; };
   }, [version]);
 
   // ---- 派生数据 ----
@@ -880,6 +950,16 @@ export default function DashboardPage() {
                         <span className="text-[11px] text-fpso-dim">{project.source.name || "—"}</span>
                       )}
                       <span className="text-[10px] text-fpso-dim font-mono tabular-nums">{project.source.date}</span>
+                      {(() => {
+                        const candidates = [project.source.date, project.createdAt].filter(Boolean) as string[];
+                        const latest = candidates.sort().pop()?.slice(0, 10);
+                        if (!latest || latest === project.source.date?.slice(0, 10)) return null;
+                        return (
+                          <span className="text-[10px] text-fpso-muted font-mono tabular-nums">
+                            Updated: {latest}
+                          </span>
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -971,6 +1051,22 @@ export default function DashboardPage() {
                           />
                         ))}
                       </div>
+                    );
+                  })()}
+
+                  {/* Next milestone preview */}
+                  {(() => {
+                    const canonicalId = normalizeProjectName(project.name);
+                    const ms = canonicalId ? milestoneMap.get(canonicalId) : undefined;
+                    if (!ms) {
+                      return (
+                        <p className="mt-1 ml-4 text-[10px] text-fpso-muted/50">暂无里程碑</p>
+                      );
+                    }
+                    return (
+                      <p className="mt-1 ml-4 text-[10px] text-fpso-blue/70">
+                        Next: {ms.label}{ms.year ? ` ${ms.year}` : ""}
+                      </p>
                     );
                   })()}
                 </motion.div>

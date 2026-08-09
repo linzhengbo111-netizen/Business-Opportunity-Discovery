@@ -22,6 +22,26 @@ export interface Project {
   industry?: string;
   confidence?: 'high' | 'medium' | 'low';
   procurementChain?: string;
+  /** Technical specification fields — extracted from regulatory data or article text */
+  waterDepthM?: number | null;
+  oilCapacityBpd?: number | null;
+  gasCapacityMmcmd?: number | null;
+  hullType?: string | null;
+  fieldName?: string | null;
+  operatorName?: string | null;
+  basin?: string | null;
+  /** Stainless steel matching result (JSON string from recommendation_json column) */
+  recommendationJson?: string | null;
+  /** Row creation timestamp (Supabase created_at). Used for "last updated" display. */
+  createdAt?: string | null;
+}
+
+/** Parsed material matching result */
+export interface MaterialMatchResult {
+  grades: string[];
+  applications: string[];
+  confidence: 'high' | 'medium' | 'low';
+  reasoning: string;
 }
 
 export interface CountryCoordinate {
