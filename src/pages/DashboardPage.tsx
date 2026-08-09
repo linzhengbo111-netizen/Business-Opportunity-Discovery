@@ -125,6 +125,19 @@ function statusDotClass(status: string): string {
   }
 }
 
+function statusBorderLClass(status: string): string {
+  switch (status) {
+    case "Under Construction":
+      return "border-l-fpso-blue";
+    case "Delivered":
+      return "border-l-fpso-green";
+    case "Planned":
+      return "border-l-fpso-orange";
+    default:
+      return "border-l-fpso-muted";
+  }
+}
+
 function confidenceBadgeClass(confidence: string): string {
   switch (confidence) {
     case "high":
@@ -553,7 +566,7 @@ export default function DashboardPage() {
         <section className="mb-8">
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             {/* Total Projects */}
-            <div className="group relative overflow-hidden rounded-lg border border-fpso-border/60 bg-fpso-card/40 backdrop-blur-sm p-4 transition-all hover:border-fpso-blue/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(0,212,255,0.06)]">
+            <div className="group relative overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300 p-4 transition-all hover:border-fpso-blue/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(0,212,255,0.06)]">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <Building2 className="h-20 w-20 text-fpso-blue" />
               </div>
@@ -569,7 +582,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Active (Under Construction) */}
-            <div className="group relative overflow-hidden rounded-lg border border-fpso-border/60 bg-fpso-card/40 backdrop-blur-sm p-4 transition-all hover:border-fpso-blue/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(0,212,255,0.06)]">
+            <div className="group relative overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300 p-4 transition-all hover:border-fpso-blue/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(0,212,255,0.06)]">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <Hammer className="h-20 w-20 text-fpso-blue" />
               </div>
@@ -586,7 +599,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Planned */}
-            <div className="group relative overflow-hidden rounded-lg border border-fpso-border/60 bg-fpso-card/40 backdrop-blur-sm p-4 transition-all hover:border-fpso-orange/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(255,159,67,0.06)]">
+            <div className="group relative overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300 p-4 transition-all hover:border-fpso-orange/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(255,159,67,0.06)]">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <CalendarDays className="h-20 w-20 text-fpso-orange" />
               </div>
@@ -603,7 +616,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Added This Week */}
-            <div className="group relative overflow-hidden rounded-lg border border-fpso-border/60 bg-fpso-card/40 backdrop-blur-sm p-4 transition-all hover:border-fpso-green/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(16,185,129,0.06)]">
+            <div className="group relative overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300 p-4 transition-all hover:border-fpso-green/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(16,185,129,0.06)]">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <PlusCircle className="h-20 w-20 text-fpso-green" />
               </div>
@@ -628,7 +641,7 @@ export default function DashboardPage() {
             <span className="text-xs text-fpso-muted">Equirectangular Projection</span>
           </div>
 
-          <div className="map-container relative w-full overflow-hidden rounded-lg border border-fpso-border bg-fpso-card">
+          <div className="map-container relative w-full overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300">
             <img
               src="/world-map.png"
               alt="世界地图轮廓"
@@ -666,7 +679,7 @@ export default function DashboardPage() {
         {/* 图表区域 */}
         <section className="mb-10 grid grid-cols-1 gap-6 lg:grid-cols-2">
           {/* 国家分布饼图 */}
-          <div className="rounded-lg border border-fpso-border bg-fpso-card p-5">
+          <div className="rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md p-5 shadow-xl hover:shadow-2xl transition-shadow duration-300">
             <h3 className="mb-4 text-sm font-medium text-fpso-fg">Country Distribution</h3>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
@@ -724,7 +737,7 @@ export default function DashboardPage() {
           </div>
 
           {/* 状态分布柱状图 */}
-          <div className="rounded-lg border border-fpso-border bg-fpso-card p-5">
+          <div className="rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md p-5 shadow-xl hover:shadow-2xl transition-shadow duration-300">
             <h3 className="mb-4 text-sm font-medium text-fpso-fg">Status Breakdown</h3>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
@@ -778,7 +791,7 @@ export default function DashboardPage() {
             </span>
           </div>
 
-          <div className="rounded-lg border border-fpso-border bg-fpso-card">
+          <div className="rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300">
             {loading ? (
               <div className="px-5 py-10 text-center text-sm text-fpso-muted">Loading projects…</div>
             ) : filteredProjects.length === 0 ? (
@@ -790,7 +803,7 @@ export default function DashboardPage() {
                 <div
                   key={project.name}
                   onClick={() => setSelectedProject(project)}
-                  className="project-row group cursor-pointer border-b border-fpso-border/60 px-5 py-4 last:border-b-0 transition-all hover:bg-fpso-blue/[0.04] hover:border-fpso-border"
+                  className={`project-row group cursor-pointer border-b border-white/5 border-l-4 px-5 py-5 last:border-b-0 transition-all hover:bg-fpso-blue/[0.04] hover:border-white/10 ${statusBorderLClass(project.status)}`}
                 >
                   {/* Row 1: status dot + name + country + source */}
                   <div className="flex items-start justify-between gap-3">
@@ -905,7 +918,7 @@ export default function DashboardPage() {
       </main>
 
       {/* 页脚 */}
-      <footer className="mt-auto border-t border-fpso-border bg-fpso-bg">
+      <footer className="mt-auto border-t border-white/5 bg-fpso-bg">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-6 py-5 md:flex-row">
           <span className="text-xs text-fpso-dim">
             Data aggregated from public sources. For internal analysis only.
@@ -936,15 +949,15 @@ export default function DashboardPage() {
           onClick={() => { setSelectedProject(null); setModalTab("overview"); }}
         >
           {/* 遮罩层 */}
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
 
           {/* 模态框本体 */}
           <div
             onClick={(e) => e.stopPropagation()}
-            className="relative z-10 w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl border border-fpso-border bg-fpso-card shadow-2xl animate-fade-in"
+            className="relative z-10 w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-2xl animate-fade-in"
           >
             {/* 顶部栏 */}
-            <div className="flex-shrink-0 flex items-center justify-between border-b border-fpso-border px-6 py-4">
+            <div className="flex-shrink-0 flex items-center justify-between border-b border-white/5 px-6 py-4">
               <h2 className="text-base font-semibold text-fpso-fg">Project Detail</h2>
               <button
                 onClick={() => { setSelectedProject(null); setModalTab("overview"); }}
@@ -959,7 +972,7 @@ export default function DashboardPage() {
 
             {/* Tab 导航 —— 仅 FPSO 行业显示 Timeline 标签 */}
             {isFpso && (
-              <div className="flex-shrink-0 flex border-b border-fpso-border px-6">
+              <div className="flex-shrink-0 flex border-b border-white/5 px-6">
                 <button
                   type="button"
                   onClick={() => setModalTab("overview")}
@@ -1067,41 +1080,41 @@ export default function DashboardPage() {
                     Technical Specs &amp; Material Matching
                   </h4>
                   {showSpecs && (
-                    <div className="mb-3 overflow-hidden rounded-md border border-fpso-border">
+                    <div className="mb-3 overflow-hidden rounded-md border border-white/5">
                       <table className="w-full text-xs">
                         <tbody>
                           {specs.waterDepthM != null && (
-                            <tr className="border-b border-fpso-border/50">
+                            <tr className="border-b border-white/5">
                               <td className="px-3 py-1.5 text-fpso-muted font-medium">Water Depth</td>
                               <td className="px-3 py-1.5 text-fpso-fg font-mono">{specs.waterDepthM.toLocaleString()} m</td>
                             </tr>
                           )}
                           {specs.oilCapacityBpd != null && (
-                            <tr className="border-b border-fpso-border/50">
+                            <tr className="border-b border-white/5">
                               <td className="px-3 py-1.5 text-fpso-muted font-medium">Oil Capacity</td>
                               <td className="px-3 py-1.5 text-fpso-fg font-mono">{specs.oilCapacityBpd.toLocaleString()} bpd</td>
                             </tr>
                           )}
                           {specs.gasCapacityMmcmd != null && (
-                            <tr className="border-b border-fpso-border/50">
+                            <tr className="border-b border-white/5">
                               <td className="px-3 py-1.5 text-fpso-muted font-medium">Gas Capacity</td>
                               <td className="px-3 py-1.5 text-fpso-fg font-mono">{specs.gasCapacityMmcmd.toLocaleString()} MMcmd</td>
                             </tr>
                           )}
                           {specs.hullType && (
-                            <tr className="border-b border-fpso-border/50">
+                            <tr className="border-b border-white/5">
                               <td className="px-3 py-1.5 text-fpso-muted font-medium">Hull Type</td>
                               <td className="px-3 py-1.5 text-fpso-fg">{specs.hullType}</td>
                             </tr>
                           )}
                           {specs.fieldName && (
-                            <tr className="border-b border-fpso-border/50">
+                            <tr className="border-b border-white/5">
                               <td className="px-3 py-1.5 text-fpso-muted font-medium">Field</td>
                               <td className="px-3 py-1.5 text-fpso-fg">{specs.fieldName}</td>
                             </tr>
                           )}
                           {specs.operatorName && (
-                            <tr className="border-b border-fpso-border/50">
+                            <tr className="border-b border-white/5">
                               <td className="px-3 py-1.5 text-fpso-muted font-medium">Operator</td>
                               <td className="px-3 py-1.5 text-fpso-fg">{specs.operatorName}</td>
                             </tr>
@@ -1205,7 +1218,7 @@ export default function DashboardPage() {
                         {/* 圆点 */}
                         <div className={`relative z-10 mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full border-2 border-fpso-card ${timelineDotColor(evt.eventType)}`} />
                         {/* 内容卡片 */}
-                        <div className="flex-1 min-w-0 rounded-md border border-fpso-border bg-fpso-bg/50 px-3 py-2.5">
+                        <div className="flex-1 min-w-0 rounded-md border border-white/5 bg-fpso-bg/40 backdrop-blur-md px-3 py-2.5">
                           <div className="flex items-center justify-between gap-2 mb-1">
                             <span className="text-xs font-semibold text-fpso-fg">
                               {formatEventType(evt.eventType)}
