@@ -2885,6 +2885,26 @@ def crawl_media_site(site_config, session, supabase=None):
                         summary = txt
                         break
 
+            # ---- Fetch full article body for richer extraction ----
+            full_text = f"{title} {summary}"
+            if link:
+                try:
+                    article_r = fetch_url(link, session)
+                    if article_r:
+                        article_html = _safe_decode_response(article_r)
+                        article_soup = BeautifulSoup(article_html, "html.parser")
+                        article_body = (
+                            article_soup.find("article")
+                            or article_soup.find("div", class_=re.compile(r"content|article|post|entry|single"))
+                        )
+                        if article_body:
+                            article_text = article_body.get_text(" ", strip=True)
+                            full_text = f"{title} {summary} {article_text}"
+                        else:
+                            full_text = f"{title} {summary} {article_soup.get_text(' ', strip=True)}"
+                except Exception:
+                    pass  # fall back to listing-page title+summary
+
             # date
             raw_date = parse_date(elem, date_selectors)
 
@@ -2898,9 +2918,9 @@ def crawl_media_site(site_config, session, supabase=None):
 
             project_name, country, status = extract_project_info(title, summary)
 
-            procurement = extract_procurement(f"{title} {summary}")
-            tech_specs = extract_tech_specs_from_article(f"{title} {summary}")
-            corrosive = extract_corrosive_media(f"{title} {summary}")
+            procurement = extract_procurement(full_text)
+            tech_specs = extract_tech_specs_from_article(full_text)
+            corrosive = extract_corrosive_media(full_text)
 
             articles.append({
                 "name": project_name,
