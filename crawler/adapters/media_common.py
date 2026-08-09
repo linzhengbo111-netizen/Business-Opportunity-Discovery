@@ -41,6 +41,10 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 TODAY = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
+# Only keep articles published on or after this date.
+# Historical news (pre-2023) is noise for stainless-steel business discovery.
+MIN_PUBLICATION_DATE = "2023-01-01"
+
 USER_AGENT = (
     "Mozilla/5.0 (compatible; FPSOCrawler/1.0)"
 )
@@ -2017,6 +2021,225 @@ def extract_procurement(text):
     return ", ".join(matches) if matches else ""
 
 
+# ---- Technical spec extraction from article text -----------------------
+# Strictly based on source text. When uncertain, returns None — never guesses.
+
+def _parse_int_from_match(val_str: str) -> Optional[int]:
+    """Parse matched numeric string to int. Returns None on failure or zero."""
+    if not val_str:
+        return None
+    try:
+        # Remove thousands separators; handle both "." and "," as separators
+        cleaned = re.sub(r"[.,](?=\d{3}(?:[.,]|\b))", "", val_str)
+        # Remove remaining punctuation
+        cleaned = re.sub(r"[.,]", "", cleaned)
+        n = int(float(cleaned))
+        return n if n > 0 else None
+    except (ValueError, TypeError):
+        return None
+
+
+def extract_water_depth_from_article(text: str) -> Optional[int]:
+    """Extract water depth in meters from article text.
+    Matches patterns like "水深 2140 米", "water depth of 1,500 m",
+    "in 2,000 meters of water", "profundidade de 2.200 m".
+    """
+    if not text:
+        return None
+    patterns = [
+        # "X meters of water" / "X m water depth"
+        r"(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?)\s*(?:meters?|m)\s+(?:of\s+)?water\s+depth",
+        r"water\s+depth\s*(?:of\s+)?(?::\s*)?(?:approximately\s+)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?)\s*(?:m|meters?)",
+        r"in\s+(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?)\s*(?:m|meters?)\s+(?:of\s+)?water",
+        # Portuguese
+        r"l[âa]mina\s+d['’]?[áa]gua\s*(?:de\s+)?(?:aproximadamente\s+)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?)\s*(?:m|metros?)",
+        r"profundidade\s*(?:de\s+)?(?:aproximadamente\s+)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?)\s*(?:m|metros?)",
+        # Chinese
+        r"水深\s*[:：]?\s*(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?)\s*米",
+    ]
+    for pat in patterns:
+        m = re.search(pat, text, re.IGNORECASE)
+        if m:
+            n = _parse_int_from_match(m.group(1))
+            if n is not None and 10 <= n <= 5000:
+                return n
+    return None
+
+
+def extract_oil_capacity_from_article(text: str) -> Optional[int]:
+    """Extract oil production capacity in bpd from article text.
+    Matches "150,000 barrels per day", "produção de 180 mil bbl/d", etc.
+    """
+    if not text:
+        return None
+    patterns = [
+        # "X barrels per day" / "X bpd" / "X bbl/d"
+        r"(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?)\s*(?:barrels?\s+per\s+day|bpd|bbl/?d)",
+        # "capacity of X bpd"
+        r"(?:capacity|production|output)\s*(?:of\s+)?(?:up\s+to\s+)?(?:approximately\s+)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?)\s*(?:bpd|barrels?\s+per\s+day|bbl/?d)",
+        # Portuguese: "produção de X bbl/d" / "X mil barris por dia"
+        r"produ[çc][ãa]o\s*(?:de\s+)?(?:at[ée]\s+)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?)\s*(?:mil\s+)?(?:bbl/?d|barris)",
+        # "X-million-barrel-per-day"
+        r"(\d{1,3}(?:[.,]\d+)?)\s*[-]?\s*million[-]?\s*(?:barrels?\s+per\s+day|bpd)",
+        # Chinese
+        r"(?:产能|产量|日产)\s*[:：]?\s*(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?)\s*(?:万)?\s*(?:桶|bbl)/?(?:天|d|日)",
+    ]
+    for pat in patterns:
+        m = re.search(pat, text, re.IGNORECASE)
+        if m:
+            val_str = m.group(1)
+            # Handle "X million barrels" case separately
+            n = _parse_int_from_match(val_str)
+            if n is not None:
+                if "million" in m.group(0).lower():
+                    n = n * 1000000
+                if 1000 <= n <= 500000:
+                    return n
+    return None
+
+
+def extract_gas_capacity_from_article(text: str) -> Optional[int]:
+    """Extract gas production capacity in million m³/d from article text.
+    Matches "5 MMcmd", "3 million cubic meters per day", "produção de gás de 8 Mm³/d".
+    """
+    if not text:
+        return None
+    patterns = [
+        # "X MMcmd" / "X million cubic meters per day"
+        r"(\d{1,3}(?:[.,]\d+)?)\s*(?:MMcmd|million\s+(?:cubic\s+)?m(?:eters?)?[³3]?\s*(?:per\s+day|/?d))",
+        # "X Mm³/d" / "X Mm3/d"
+        r"(\d{1,3}(?:[.,]\d+)?)\s*Mm[³3]/?d",
+        # Portuguese: "produção de gás de X milhões de m³/d"
+        r"(?:g[áa]s|gas)\s*(?:capacity|produ[çc][ãa]o)\s*(?:de\s+)?(?:at[ée]\s+)?(\d{1,3}(?:[.,]\d+)?)\s*(?:milh[õo]es?|million)",
+        # Chinese
+        r"(?:天然气|燃气)\s*(?:产能|产量)\s*[:：]?\s*(\d{1,3}(?:[.,]\d+)?)\s*(?:百万|Million)\s*(?:立方米|m[³3])",
+    ]
+    for pat in patterns:
+        m = re.search(pat, text, re.IGNORECASE)
+        if m:
+            try:
+                val_clean = m.group(1).replace(",", "").replace(".", "")
+                # Check for decimal (e.g. "3.5")
+                if "." in m.group(1) or "," in m.group(1):
+                    n = int(float(m.group(1).replace(",", ".")))
+                else:
+                    n = int(val_clean)
+                if 1 <= n <= 100:
+                    return n
+            except (ValueError, TypeError):
+                continue
+    return None
+
+
+def extract_hull_type_from_article(text: str) -> Optional[str]:
+    """Extract FPSO hull type from article text.
+    Matches known configurations: turret, spread-moored, conversion, newbuild, FLNG, FSO.
+    """
+    if not text:
+        return None
+    text_lower = text.lower()
+    hull_types = [
+        ("Turret", [r"\bturret\b", r"internal\s+turret", r"external\s+turret",
+                    r"turret\s+moor(?:ed|ing)?", r"turret\s+system"]),
+        ("Spread Moored", [r"spread\s+moored?", r"spread\s+mooring",
+                           r"spread[- ]moored?", r"spread\s+moor"]),
+        ("FLNG conversion", [r"flng\s+conversion", r"lng\s+conversion",
+                              r"converted\s+(?:to\s+)?(?:flng|lng)"]),
+        ("Newbuild", [r"\bnewbuild\b", r"new(?:ly)?[\s-]built",
+                      r"purpose[\s-]built"]),
+        ("Conversion", [r"\bconversion\b", r"converted\s+(?:tanker|vlcc|supertanker|hull)"]),
+        ("FSO", [r"\bfso\b", r"floating\s+storage\s+(?:and\s+)?offloading"]),
+    ]
+    matched = []
+    for name, patterns in hull_types:
+        for pat in patterns:
+            if re.search(pat, text_lower):
+                matched.append(name)
+                break
+    return ", ".join(matched) if matched else None
+
+
+def extract_operator_from_article(text: str) -> Optional[str]:
+    """Extract operator name from article text using OPERATOR_COUNTRY lookup.
+    Only returns operators strongly tied to known countries (non-None mapping).
+    """
+    if not text:
+        return None
+    op_keys = sorted(
+        [k for k, v in OPERATOR_COUNTRY.items() if v is not None],
+        key=len, reverse=True,
+    )
+    for op_name in op_keys:
+        if re.search(rf"\b{re.escape(op_name)}\b", text, re.IGNORECASE):
+            return op_name
+    return None
+
+
+def extract_basin_from_article(text: str) -> Optional[str]:
+    """Extract sedimentary basin name from article text using REGION_TO_COUNTRY.
+    Returns basin name if found in the known basins list.
+    """
+    if not text:
+        return None
+    # Known basins with country mapping
+    basin_names = [
+        "Santos Basin", "Campos Basin", "Espírito Santo Basin",
+        "Espirito Santo Basin", "Sergipe-Alagoas Basin", "Potiguar Basin",
+        "Ceará Basin", "Foz do Amazonas Basin", "Pelotas Basin",
+        "Stabroek Block", "Guyana-Suriname Basin",
+        "Kwanza Basin", "Lower Congo Basin", "Niger Delta Basin",
+        "Tano Basin", "Rovuma Basin", "Browse Basin", "Carnarvon Basin",
+        "Bonaparte Basin", "Sarawak Basin", "Sabah Basin",
+        "Kutei Basin", "Cuu Long Basin", "Nam Con Son Basin",
+        "Krishna Godavari Basin", "Orange Basin", "Jeanne d'Arc Basin",
+        "Nile Delta Basin", "Levant Basin",
+        # Portuguese names
+        "Bacia de Santos", "Bacia de Campos",
+    ]
+    text_lower = text.lower()
+    for basin in sorted(basin_names, key=len, reverse=True):
+        if basin.lower() in text_lower:
+            return basin
+    return None
+
+
+def extract_field_name_from_article(text: str) -> Optional[str]:
+    """Extract oil/gas field name from article text using UNIQUE_FIELD_OWNER."""
+    if not text:
+        return None
+    text_lower = text.lower()
+    for field_name in sorted(UNIQUE_FIELD_OWNER.keys(), key=len, reverse=True):
+        if field_name.lower() in text_lower:
+            return field_name
+    return None
+
+
+def extract_tech_specs_from_article(text: str) -> dict:
+    """Extract all technical specifications from article text.
+    Returns dict with nullable int/text values. All extractions are
+    strictly based on source text — uncertain fields are None.
+    """
+    if not text:
+        return {
+            "water_depth_m": None,
+            "oil_capacity_bpd": None,
+            "gas_capacity_mmcmd": None,
+            "hull_type": None,
+            "field_name": None,
+            "operator_name": None,
+            "basin": None,
+        }
+    return {
+        "water_depth_m": extract_water_depth_from_article(text),
+        "oil_capacity_bpd": extract_oil_capacity_from_article(text),
+        "gas_capacity_mmcmd": extract_gas_capacity_from_article(text),
+        "hull_type": extract_hull_type_from_article(text),
+        "field_name": extract_field_name_from_article(text),
+        "operator_name": extract_operator_from_article(text),
+        "basin": extract_basin_from_article(text),
+    }
+
+
 # Words that are not real project names even if they follow "FPSO"
 GENERIC_WORDS = {
     "the", "a", "an", "for", "and", "with", "new", "first", "latest",
@@ -2491,9 +2714,18 @@ def crawl_media_site(site_config, session, supabase=None):
             # date
             raw_date = parse_date(elem, date_selectors)
 
+            # ---- Time filter: skip articles published before 2023 ----
+            if raw_date and raw_date < MIN_PUBLICATION_DATE:
+                log.info("  SKIP (too old: %s): %s", raw_date, title[:60])
+                continue
+            if not raw_date:
+                # No date found — keep but flag for lower confidence downstream
+                log.info("  KEEP (no date, low confidence): %s", title[:60])
+
             project_name, country, status = extract_project_info(title, summary)
 
             procurement = extract_procurement(f"{title} {summary}")
+            tech_specs = extract_tech_specs_from_article(f"{title} {summary}")
 
             articles.append({
                 "name": project_name,
@@ -2510,6 +2742,7 @@ def crawl_media_site(site_config, session, supabase=None):
                 "evidence_quote": (summary or title)[:500],
                 "publication_date": raw_date or "",
                 "procurement_chain": procurement,
+                **tech_specs,
             })
             log.info("  %s | %s | %s", status, country or "?", project_name[:50])
 
@@ -2553,6 +2786,14 @@ def insert_candidate_events(supabase, articles):
                 "publication_date": a.get("publication_date")
                                     or a.get("source_date", ""),
                 "procurement_chain": a.get("procurement_chain", ""),
+                # 技术规格字段
+                "water_depth_m": a.get("water_depth_m"),
+                "oil_capacity_bpd": a.get("oil_capacity_bpd"),
+                "gas_capacity_mmcmd": a.get("gas_capacity_mmcmd"),
+                "hull_type": a.get("hull_type"),
+                "field_name": a.get("field_name"),
+                "operator_name": a.get("operator_name"),
+                "basin": a.get("basin"),
             }
             table.insert(record).execute()
             inserted += 1

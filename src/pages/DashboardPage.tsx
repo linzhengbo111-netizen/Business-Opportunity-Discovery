@@ -312,7 +312,9 @@ export default function DashboardPage() {
   const [selectedCountry, setSelectedCountry] = useState("All Countries");
   const [selectedIndustry, setSelectedIndustry] = useState("All Industries");
   const [selectedConfidence, setSelectedConfidence] = useState("All");
-  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(new Set());
+  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(
+    new Set(["Under Construction", "Planned"]),
+  );
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [milestoneMap, setMilestoneMap] = useState<Map<string, { label: string; year: string }>>(new Map());
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -613,7 +615,7 @@ export default function DashboardPage() {
     setSelectedCountry("All Countries");
     setSelectedIndustry("All Industries");
     setSelectedConfidence("All");
-    setSelectedStatuses(new Set());
+    setSelectedStatuses(new Set(["Under Construction", "Planned"]));
   }
 
   const todayStr = new Date().toISOString().slice(0, 10);

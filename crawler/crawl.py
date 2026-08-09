@@ -363,6 +363,25 @@ def auto_classify(supabase):
             except Exception as exc:
                 log.warning("  Auto-accept update error (id=%s): %s", cid, exc)
 
+        # ---- Rule E: publication_date before 2023-01-01 → auto-reject ----
+        # Historical news (pre-2023) is noise for stainless-steel opportunity discovery.
+        if not classified:
+            pub_date = (c.get("publication_date", "") or "").strip()
+            if pub_date and pub_date < "2023-01-01":
+                trail = f"\n[Auto-rejected: Historical data (pub_date={pub_date} < 2023-01-01)]"
+                new_evidence = (evidence + trail) if evidence else trail.strip()
+                try:
+                    candidate_table.update({
+                        "review_status": "rejected",
+                        "evidence_quote": new_evidence,
+                    }).eq("id", cid).execute()
+                    auto_rejected += 1
+                    classified = True
+                    log.debug("  AUTO_REJECTED (old): %s | %s | pub_date=%s",
+                              project_name_raw[:40], source_name, pub_date)
+                except Exception as exc:
+                    log.warning("  Old-date reject update error (id=%s): %s", cid, exc)
+
         # ---- Rule B: media tier-1 without FPSO relevance → auto-reject ----
         if not classified and tier == 1:
             has_fpso_kw = any(kw in summary for kw in FPSO_RELEVANCE_KEYWORDS)
@@ -625,7 +644,17 @@ def promote_accepted_candidates(supabase):
                 "basin": group[0].get("basin", ""),
             }
 
-            existing = project_table.select("id").eq("name", effective_name).execute()
+            # ---- Skip Delivered projects with old dates (pre-2023 noise) ----
+            existing = project_table.select("id, status").eq("name", effective_name).execute()
+            existing_status = ""
+            if existing.data:
+                existing_status = existing.data[0].get("status", "")
+            # Skip if already Delivered in projects table and candidate date is old
+            if existing_status == "Delivered" and merged_source_date < "2023-01-01":
+                log.info("  SKIP (Delivered + old date): %s | %s",
+                         effective_name[:60], merged_source_date)
+                continue
+
             if existing.data:
                 project_table.update(project_data).eq("name", effective_name).execute()
                 updated += 1
@@ -983,7 +1012,16 @@ def auto_ingest_to_projects(supabase):
                 "confidence": confidence,
             }
 
-            existing = project_table.select("id").eq("name", effective_name).execute()
+            # ---- Skip Delivered projects with old dates (pre-2023 noise) ----
+            existing = project_table.select("id, status").eq("name", effective_name).execute()
+            existing_status = ""
+            if existing.data:
+                existing_status = existing.data[0].get("status", "")
+            if existing_status == "Delivered" and merged_source_date < "2023-01-01":
+                log.info("  SKIP (Delivered + old date): %s | %s",
+                         effective_name[:60], merged_source_date)
+                continue
+
             if existing.data:
                 project_table.update(project_data).eq("name", effective_name).execute()
                 updated_count += 1

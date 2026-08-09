@@ -4,6 +4,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
 import type { Project } from "@/data/projects";
@@ -11,6 +12,7 @@ import { sampleProjects, COUNTRY_ALIASES } from "@/data/projects";
 import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
 import { supabase } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
+import { hasAnySpecs, parseRecommendation } from "@/lib/material_matcher";
 
 /* ------------------------------------------------------------------ */
 /*  shared helpers (same semantics as DashboardPage)                   */
@@ -67,6 +69,20 @@ function normalizeCountry(raw: string): string {
   return COUNTRY_ALIASES[trimmed] ?? COUNTRY_ALIASES[trimmed.toLowerCase()] ?? trimmed;
 }
 
+/** Parse a nullable int column from Supabase row. */
+function toNum(v: unknown): number | null {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Parse a nullable text column from Supabase row. */
+function toStr(v: unknown): string | null {
+  if (v == null || v === "") return null;
+  const s = String(v).trim();
+  return s || null;
+}
+
 function mapRowToProject(row: Record<string, unknown>): Project {
   const rawCountry = String(row.country ?? "").trim();
   const country = normalizeCountry(rawCountry);
@@ -89,6 +105,15 @@ function mapRowToProject(row: Record<string, unknown>): Project {
     application:    String(row.application ?? ""),
     confidence,
     procurementChain: String(row.procurement_chain ?? ""),
+    // Technical specs
+    waterDepthM: toNum(row.water_depth_m),
+    oilCapacityBpd: toNum(row.oil_capacity_bpd),
+    gasCapacityMmcmd: toNum(row.gas_capacity_mmcmd),
+    hullType: toStr(row.hull_type),
+    fieldName: toStr(row.field_name),
+    operatorName: toStr(row.operator_name),
+    basin: toStr(row.basin),
+    recommendationJson: toStr(row.recommendation_json),
   };
 }
 
@@ -96,7 +121,14 @@ function mapRowToProject(row: Record<string, unknown>): Project {
 /*  constants                                                          */
 /* ------------------------------------------------------------------ */
 
-const STATUS_OPTIONS = ["All", "Under Construction", "Delivered", "Planned", "Unknown"];
+const STATUS_OPTIONS = ["Active Projects", "All", "Under Construction", "Delivered", "Planned", "Unknown"];
+const INDUSTRY_OPTIONS = [
+  "All Industries",
+  "FPSO",
+  "Desalination",
+  "LNG",
+  "General Stainless",
+] as const;
 const PAGE_SIZE = 20;
 const MAX_VISIBLE_PAGES = 5;
 
@@ -138,14 +170,23 @@ function buildPages(current: number, total: number): (number | "...")[] {
 /* ------------------------------------------------------------------ */
 
 export default function DatabasePage() {
+  const [searchParams] = useSearchParams();
+
   /* ---- state ---- */
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // filters
+  // filters — industry seeded from ?industry= URL param
+  const [industryFilter, setIndustryFilter] = useState(() => {
+    const fromUrl = searchParams.get("industry");
+    if (fromUrl && (INDUSTRY_OPTIONS as readonly string[]).includes(fromUrl)) {
+      return fromUrl;
+    }
+    return "All Industries";
+  });
   const [countryFilter, setCountryFilter] = useState("All Countries");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [confidenceFilter, setConfidenceFilter] = useState("High");
+  const [statusFilter, setStatusFilter] = useState("Active Projects");
+  const [confidenceFilter, setConfidenceFilter] = useState("All");
   const [nameSearch, setNameSearch] = useState("");
 
   // pagination
@@ -201,10 +242,15 @@ export default function DatabasePage() {
   const filtered = useMemo(() => {
     let list = projects;
 
+    if (industryFilter !== "All Industries") {
+      list = list.filter((p) => (p.industry ?? "FPSO") === industryFilter);
+    }
     if (countryFilter !== "All Countries") {
       list = list.filter((p) => p.country.trim() === countryFilter);
     }
-    if (statusFilter !== "All") {
+    if (statusFilter === "Active Projects") {
+      list = list.filter((p) => p.status === "Under Construction" || p.status === "Planned");
+    } else if (statusFilter !== "All") {
       list = list.filter((p) => p.status === statusFilter);
     }
     if (confidenceFilter !== "All") {
@@ -218,7 +264,7 @@ export default function DatabasePage() {
     }
 
     return list;
-  }, [projects, countryFilter, statusFilter, confidenceFilter, nameSearch]);
+  }, [projects, industryFilter, countryFilter, statusFilter, confidenceFilter, nameSearch]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -229,7 +275,7 @@ export default function DatabasePage() {
   }, [filtered, safePage]);
 
   // reset page when filters change
-  useEffect(() => { setPage(1); }, [countryFilter, statusFilter, confidenceFilter, nameSearch]);
+  useEffect(() => { setPage(1); }, [industryFilter, countryFilter, statusFilter, confidenceFilter, nameSearch]);
 
   const pages = buildPages(safePage, totalPages);
 
@@ -276,10 +322,28 @@ export default function DatabasePage() {
         </section>
 
         {/* filters */}
-        <section className="mb-6 flex flex-wrap items-center gap-4 rounded-lg border border-fpso-border bg-fpso-card px-5 py-3">
-          {/* country */}
+        <section className="mb-6 flex flex-wrap items-center gap-4 rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md px-5 py-3 shadow-xl hover:shadow-2xl transition-shadow duration-300">
+          {/* industry */}
           <div className="flex items-center gap-2">
-            <label className="text-xs font-medium text-fpso-muted">Country</label>
+            <label className="text-xs font-medium text-fpso-muted">Industry</label>
+            <select
+              value={industryFilter}
+              onChange={(e) => setIndustryFilter(e.target.value)}
+              className="h-8 min-w-[150px] rounded-md bg-fpso-bg/70 px-2.5 py-1 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50 border border-fpso-border"
+            >
+              {INDUSTRY_OPTIONS.map((opt) => {
+                const label =
+                  opt === "Desalination" ? `${opt} (海水淡化)` :
+                  opt === "General Stainless" ? `${opt} (其他不锈钢)` :
+                  opt;
+                return <option key={opt} value={opt}>{label}</option>;
+              })}
+            </select>
+          </div>
+
+          {/* region */}
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-fpso-muted">Region</label>
             <select
               value={countryFilter}
               onChange={(e) => setCountryFilter(e.target.value)}
@@ -340,14 +404,14 @@ export default function DatabasePage() {
         </section>
 
         {/* table */}
-        <section className="overflow-hidden rounded-lg border border-fpso-border bg-fpso-card">
+        <section className="overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300">
           {loading ? (
             <Spinner />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-fpso-border bg-fpso-bg/50 text-left text-xs font-medium uppercase tracking-wider text-fpso-muted">
+                  <tr className="border-b border-white/5 bg-fpso-bg/40 backdrop-blur-md text-left text-xs font-medium uppercase tracking-wider text-fpso-muted">
                     <th className="px-4 py-3">Project</th>
                     <th className="px-4 py-3">Country</th>
                     <th className="px-4 py-3">Status</th>
@@ -370,7 +434,7 @@ export default function DatabasePage() {
                       <tr
                         key={p.name}
                         onClick={() => setSelected(p)}
-                        className="border-b border-fpso-border/50 transition-colors hover:bg-fpso-blue/5 cursor-pointer"
+                        className="border-b border-white/5 transition-colors hover:bg-fpso-blue/5 cursor-pointer"
                       >
                         <td className="px-4 py-2.5 font-medium text-fpso-fg max-w-[220px] truncate">
                           {p.name}
@@ -428,7 +492,7 @@ export default function DatabasePage() {
 
           {/* pagination */}
           {!loading && totalPages > 1 && (
-            <div className="flex items-center justify-between border-t border-fpso-border px-4 py-3">
+            <div className="flex items-center justify-between border-t border-white/5 px-4 py-3">
               <span className="text-xs text-fpso-dim">
                 Page {safePage} of {totalPages}
               </span>
@@ -475,14 +539,14 @@ export default function DatabasePage() {
       {/* detail panel overlay */}
       {selected && (
         <div
-          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm transition-opacity"
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md transition-opacity"
           onClick={() => setSelected(null)}
         />
       )}
 
       {/* detail panel (slide-in from right) */}
       <aside
-        className={`fixed right-0 top-0 z-50 h-full w-full max-w-lg overflow-y-auto border-l border-fpso-border bg-fpso-card shadow-2xl transition-transform duration-300 ${
+        className={`fixed right-0 top-0 z-50 h-full w-full max-w-lg overflow-y-auto border-l border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-2xl transition-transform duration-300 ${
           selected ? "translate-x-0" : "translate-x-full"
         }`}
       >
@@ -553,6 +617,113 @@ export default function DatabasePage() {
                 </div>
               </section>
             )}
+
+            {/* Technical Specs & Material Matching */}
+            {(() => {
+              const specs = {
+                waterDepthM: selected.waterDepthM,
+                oilCapacityBpd: selected.oilCapacityBpd,
+                gasCapacityMmcmd: selected.gasCapacityMmcmd,
+                hullType: selected.hullType,
+                fieldName: selected.fieldName,
+                operatorName: selected.operatorName,
+                basin: selected.basin,
+              };
+              const rec = parseRecommendation(selected.recommendationJson);
+              const showSpecs = hasAnySpecs(specs);
+              const showRec = rec !== null;
+              if (!showSpecs && !showRec) return null;
+              return (
+                <section className="mb-6">
+                  <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-fpso-dim">
+                    Technical Specs &amp; Material Matching
+                  </h4>
+                  {/* Technical parameters table */}
+                  {showSpecs && (
+                    <div className="mb-3 overflow-hidden rounded-md border border-white/5">
+                      <table className="w-full text-xs">
+                        <tbody>
+                          {specs.waterDepthM != null && (
+                            <tr className="border-b border-white/5">
+                              <td className="px-3 py-1.5 text-fpso-muted font-medium">Water Depth</td>
+                              <td className="px-3 py-1.5 text-fpso-fg font-mono">{specs.waterDepthM.toLocaleString()} m</td>
+                            </tr>
+                          )}
+                          {specs.oilCapacityBpd != null && (
+                            <tr className="border-b border-white/5">
+                              <td className="px-3 py-1.5 text-fpso-muted font-medium">Oil Capacity</td>
+                              <td className="px-3 py-1.5 text-fpso-fg font-mono">{specs.oilCapacityBpd.toLocaleString()} bpd</td>
+                            </tr>
+                          )}
+                          {specs.gasCapacityMmcmd != null && (
+                            <tr className="border-b border-white/5">
+                              <td className="px-3 py-1.5 text-fpso-muted font-medium">Gas Capacity</td>
+                              <td className="px-3 py-1.5 text-fpso-fg font-mono">{specs.gasCapacityMmcmd.toLocaleString()} MMcmd</td>
+                            </tr>
+                          )}
+                          {specs.hullType && (
+                            <tr className="border-b border-white/5">
+                              <td className="px-3 py-1.5 text-fpso-muted font-medium">Hull Type</td>
+                              <td className="px-3 py-1.5 text-fpso-fg">{specs.hullType}</td>
+                            </tr>
+                          )}
+                          {specs.fieldName && (
+                            <tr className="border-b border-white/5">
+                              <td className="px-3 py-1.5 text-fpso-muted font-medium">Field</td>
+                              <td className="px-3 py-1.5 text-fpso-fg">{specs.fieldName}</td>
+                            </tr>
+                          )}
+                          {specs.operatorName && (
+                            <tr className="border-b border-white/5">
+                              <td className="px-3 py-1.5 text-fpso-muted font-medium">Operator</td>
+                              <td className="px-3 py-1.5 text-fpso-fg">{specs.operatorName}</td>
+                            </tr>
+                          )}
+                          {specs.basin && (
+                            <tr>
+                              <td className="px-3 py-1.5 text-fpso-muted font-medium">Basin</td>
+                              <td className="px-3 py-1.5 text-fpso-fg">{specs.basin}</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  {/* Material recommendation */}
+                  {showRec && (
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs text-fpso-muted">Grades:</span>
+                        {rec.grades.map((g) => (
+                          <span key={g} className="rounded bg-fpso-blue/10 px-2 py-0.5 text-xs font-medium text-fpso-blue">
+                            {g}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs text-fpso-muted">Applications:</span>
+                        {rec.applications.map((a) => (
+                          <span key={a} className="rounded bg-fpso-orange/10 px-2 py-0.5 text-xs font-medium text-fpso-orange">
+                            {a}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-fpso-muted">Confidence:</span>
+                        <span className={`rounded px-2 py-0.5 text-xs font-medium ${
+                          rec.confidence === "high" ? "bg-fpso-green/15 text-fpso-green" :
+                          rec.confidence === "medium" ? "bg-fpso-orange/15 text-fpso-orange" :
+                          "bg-fpso-muted/15 text-fpso-muted"
+                        }`}>
+                          {rec.confidence}
+                        </span>
+                      </div>
+                      <p className="text-xs leading-relaxed text-fpso-dim italic">{rec.reasoning}</p>
+                    </div>
+                  )}
+                </section>
+              );
+            })()}
 
             {/* source */}
             <section>
