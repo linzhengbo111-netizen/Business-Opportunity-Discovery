@@ -19,7 +19,7 @@ import { supabase } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
 import { matchMaterials, specsFromRow, hasAnySpecs, parseRecommendation } from "@/lib/material_matcher";
 import { Building2, Hammer, CalendarDays, PlusCircle, Anchor, Waves, Gauge } from "lucide-react";
-import { motion } from "motion";
+import { motion } from "motion/react";
 
 /** A single timeline milestone from candidate_events. */
 interface TimelineEvent {
