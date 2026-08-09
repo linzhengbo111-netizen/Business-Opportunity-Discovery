@@ -19,6 +19,7 @@ import { supabase } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
 import { matchMaterials, specsFromRow, hasAnySpecs, parseRecommendation } from "@/lib/material_matcher";
 import { Building2, Hammer, CalendarDays, PlusCircle, Anchor, Waves, Gauge } from "lucide-react";
+import { motion } from "motion";
 
 /** A single timeline milestone from candidate_events. */
 interface TimelineEvent {
@@ -800,8 +801,13 @@ export default function DashboardPage() {
               </div>
             ) : (
               filteredProjects.map((project) => (
-                <div
+                <motion.div
                   key={project.name}
+                  layout
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.3, ease: "easeOut" }}
                   onClick={() => setSelectedProject(project)}
                   className={`project-row group cursor-pointer border-b border-white/5 border-l-4 px-5 py-5 last:border-b-0 transition-all hover:bg-fpso-blue/[0.04] hover:border-white/10 ${statusBorderLClass(project.status)}`}
                 >
@@ -910,7 +916,7 @@ export default function DashboardPage() {
                       ))}
                     </div>
                   )}
-                </div>
+                </motion.div>
               ))
             )}
           </div>
