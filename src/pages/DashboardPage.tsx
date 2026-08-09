@@ -663,11 +663,12 @@ export default function DashboardPage() {
                   key={dot.country}
                   type="button"
                   onClick={() => handleDotClick(dot.country)}
-                  className="map-pulse absolute z-10 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full border border-fpso-blue bg-fpso-blue shadow-[0_0_6px_rgba(0,212,255,0.6)] outline-none hover:scale-125 focus:ring-2 focus:ring-fpso-blue/50"
+                  className="map-pulse absolute z-10 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full border border-fpso-blue bg-fpso-blue outline-none focus:ring-2 focus:ring-fpso-blue/50"
                   style={{
                     left: `${dot.x}%`,
                     top: `${dot.y}%`,
                     animationDelay: dot.delay,
+                    "--dot-delay": dot.delay,
                   }}
                   aria-label={`${dot.country} 项目`}
                 />
