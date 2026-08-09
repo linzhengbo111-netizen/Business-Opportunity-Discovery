@@ -14,6 +14,7 @@ Each adapter imports this module and calls crawl_media_site() with its own
 site_config dict. Adapters handle CLI (--dry-run, --local-only, --test).
 """
 
+import json
 import os
 import re
 import sys
@@ -1566,6 +1567,64 @@ PROJECT_ALIASES = {
         "FPSO Maria Quitéria", "FPSO Maria Quiteria",
         "Maria Quitéria", "Maria Quiteria",
     ],
+    "brazil-almirante-tamandare": [
+        "FPSO Almirante Tamandaré (Búzios)",
+        "FPSO Almirante Tamandaré", "FPSO ALMIRANTE TAMANDARE",
+        "Almirante Tamandaré", "ALMIRANTE TAMANDARE",
+        "Almirante Tamandare", "Búzios 8 FPSO", "Buzios 8 FPSO",
+    ],
+    "brazil-bacalhau": [
+        "FPSO Bacalhau (Equinor)",
+        "FPSO Bacalhau", "FPSO BACALHAU", "Bacalhau", "BACALHAU",
+        "Bacalhau FPSO", "Equinor Bacalhau", "Bacalhau Field",
+    ],
+    "brazil-peregrino": [
+        "FPSO Peregrino (Equinor)",
+        "FPSO Peregrino", "FPSO PEREGRINO", "Peregrino", "PEREGRINO",
+        "Peregrino FPSO", "Equinor Peregrino", "Peregrino Field",
+    ],
+    "brazil-pioneiro-de-libra": [
+        "FPSO Pioneiro de Libra",
+        "FPSO Pioneiro de Libra", "FPSO PIONEIRO DE LIBRA",
+        "Pioneiro de Libra", "PIONEIRO DE LIBRA",
+        "Libra Pilot FPSO", "FPSO Pioneiro",
+    ],
+    "brazil-cidade-de-caraguatatuba": [
+        "FPSO Cidade de Caraguatatuba (MV-27)",
+        "FPSO Cidade de Caraguatatuba", "FPSO CIDADE DE CARAGUATATUBA",
+        "Cidade de Caraguatatuba", "CIDADE DE CARAGUATATUBA",
+        "MV-27", "FPSO CCG",
+    ],
+    "brazil-frade": [
+        "FPSO Frade",
+        "FPSO Frade", "FPSO FRADE", "Frade", "FRADE",
+        "Frade FPSO", "Chevron Frade",
+    ],
+    "brazil-sepetiba": [
+        "FPSO Cidade de Sepetiba (Sépia)",
+        "FPSO Sepetiba", "FPSO SEPETIBA", "FPSO Cidade de Sepetiba",
+        "Cidade de Sepetiba", "Sepetiba", "SEPETIBA",
+        "Sépia FPSO", "Sepia FPSO",
+    ],
+    "brazil-bravo": [
+        "FPSO Bravo (Petrobras)",
+        "FPSO Bravo", "FPSO BRAVO", "Bravo FPSO", "BRAVO",
+    ],
+    "brazil-carioca": [
+        "FPSO Carioca (Sépia Area)",
+        "FPSO Carioca", "FPSO CARIOCA", "Carioca", "CARIOCA",
+        "Carioca FPSO",
+    ],
+    "brazil-forte": [
+        "FPSO Forte",
+        "FPSO Forte", "FPSO FORTE", "Forte", "FORTE",
+        "Forte FPSO",
+    ],
+    "suriname-fpso": [
+        "Suriname FPSO (SBM Offshore)",
+        "Suriname FPSO", "SBM Offshore Suriname FPSO",
+        "Suriname-bound FPSO",
+    ],
     "brazil-atlanta": [
         "FPSO Atlanta",
         "FPSO Atlanta", "Atlanta FPSO", "Atlanta",
@@ -2240,6 +2299,121 @@ def extract_tech_specs_from_article(text: str) -> dict:
     }
 
 
+def extract_corrosive_media(text: str) -> dict:
+    """Extract corrosive media parameters (H2S, CO2, sour service, chloride)
+    from FPSO project article text.
+
+    Strict extraction: only returns True when a keyword is explicitly found
+    in the source text. Never infers from context (e.g. "pre-salt" alone
+    does NOT imply CO2 — the text must say "CO2" or "carbon dioxide").
+
+    Returns:
+        {
+            h2s: bool,
+            co2: bool,
+            sour_service: bool,   # "sour gas" / "sour service" explicitly stated
+            chloride: bool,
+            details: str,         # surrounding text snippets for manual review
+        }
+    """
+    result = {
+        "h2s": False,
+        "co2": False,
+        "sour_service": False,
+        "chloride": False,
+        "details": "",
+    }
+
+    if not text:
+        return result
+
+    text_lower = text.lower()
+    snippets = []
+
+    # ---- H2S / hydrogen sulfide ----
+    h2s_patterns = [
+        r"\bh2s\b",
+        r"hydrogen\s+sulf?ide",
+        r"hydrogen\s+sulphide",
+    ]
+    for pat in h2s_patterns:
+        for m in re.finditer(pat, text, re.IGNORECASE):
+            start = max(0, m.start() - 50)
+            end = min(len(text), m.end() + 50)
+            snippet = text[start:end].replace("\n", " ").strip()
+            snippets.append(f"[H2S] {snippet}")
+            result["h2s"] = True
+            break  # one match is enough for boolean
+        if result["h2s"]:
+            break
+
+    # ---- CO2 / carbon dioxide ----
+    co2_patterns = [
+        r"\bco2\b",
+        r"carbon\s+dioxide",
+    ]
+    for pat in co2_patterns:
+        for m in re.finditer(pat, text, re.IGNORECASE):
+            start = max(0, m.start() - 50)
+            end = min(len(text), m.end() + 50)
+            snippet = text[start:end].replace("\n", " ").strip()
+            snippets.append(f"[CO2] {snippet}")
+            result["co2"] = True
+            break
+        if result["co2"]:
+            break
+
+    # ---- Sour service / sour gas (explicitly stated) ----
+    sour_patterns = [
+        r"\bsour\s+(?:gas|service|environment|field|crude)\b",
+        r"\bacid\s+gas\b",
+    ]
+    for pat in sour_patterns:
+        for m in re.finditer(pat, text, re.IGNORECASE):
+            start = max(0, m.start() - 50)
+            end = min(len(text), m.end() + 50)
+            snippet = text[start:end].replace("\n", " ").strip()
+            snippets.append(f"[sour] {snippet}")
+            result["sour_service"] = True
+            break
+        if result["sour_service"]:
+            break
+
+    # ---- Chloride ----
+    chloride_patterns = [
+        r"\bchloride[s]?\b",
+        r"\bchlorine\b",
+    ]
+    for pat in chloride_patterns:
+        for m in re.finditer(pat, text, re.IGNORECASE):
+            start = max(0, m.start() - 50)
+            end = min(len(text), m.end() + 50)
+            snippet = text[start:end].replace("\n", " ").strip()
+            snippets.append(f"[chloride] {snippet}")
+            result["chloride"] = True
+            break
+        if result["chloride"]:
+            break
+
+    # ---- Operating temperature (record for context, not boolean) ----
+    temp_patterns = [
+        r"(?:operating|design)\s+temperature\s*(?:of\s+)?(?:up\s+to\s+)?(\d{2,4})\s*[°º]?\s*[CF]",
+        r"temperature\s*(?:of\s+)?(?:up\s+to\s+)?(\d{2,4})\s*[°º]?\s*[CF]",
+    ]
+    for pat in temp_patterns:
+        for m in re.finditer(pat, text, re.IGNORECASE):
+            start = max(0, m.start() - 50)
+            end = min(len(text), m.end() + 50)
+            snippet = text[start:end].replace("\n", " ").strip()
+            snippets.append(f"[temperature] {snippet}")
+            break
+        if any("temperature" in s for s in snippets):
+            break
+
+    result["details"] = " | ".join(snippets) if snippets else ""
+    return result
+
+
 # Words that are not real project names even if they follow "FPSO"
 GENERIC_WORDS = {
     "the", "a", "an", "for", "and", "with", "new", "first", "latest",
@@ -2726,6 +2900,7 @@ def crawl_media_site(site_config, session, supabase=None):
 
             procurement = extract_procurement(f"{title} {summary}")
             tech_specs = extract_tech_specs_from_article(f"{title} {summary}")
+            corrosive = extract_corrosive_media(f"{title} {summary}")
 
             articles.append({
                 "name": project_name,
@@ -2742,6 +2917,7 @@ def crawl_media_site(site_config, session, supabase=None):
                 "evidence_quote": (summary or title)[:500],
                 "publication_date": raw_date or "",
                 "procurement_chain": procurement,
+                "corrosive_media": corrosive,
                 **tech_specs,
             })
             log.info("  %s | %s | %s", status, country or "?", project_name[:50])
@@ -2794,6 +2970,7 @@ def insert_candidate_events(supabase, articles):
                 "field_name": a.get("field_name"),
                 "operator_name": a.get("operator_name"),
                 "basin": a.get("basin"),
+                "corrosive_media": json.dumps(a.get("corrosive_media", {})) if a.get("corrosive_media") else None,
             }
             table.insert(record).execute()
             inserted += 1

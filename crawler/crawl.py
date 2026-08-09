@@ -45,10 +45,12 @@ from adapters.media_common import (  # noqa: E402
     get_display_name,
     extract_country,
     extract_project_info,
+    extract_corrosive_media,
     country_to_flag,
 )
 
 from enricher import enrich_project, compute_enrichment_diff  # noqa: E402
+from notifier import notify_subscribers  # noqa: E402
 
 # Tier 1 — 线索发现 (media)
 from adapters.offshore_energy import run_adapter as run_offshore_energy  # noqa: E402
@@ -794,6 +796,81 @@ def auto_promote_candidates(supabase):
 
 
 # ========================================================================
+# Backfill canonical_project_id for existing candidate_events
+# ========================================================================
+
+
+def backfill_canonical_ids(supabase):
+    """Backfill canonical_project_id for all candidate_events where it is NULL.
+
+    Runs normalize_project_name() against project_name_raw and updates the
+    canonical_project_id column. This is necessary for the frontend timeline
+    views which filter candidate_events by canonical_project_id.
+    """
+    log.info("=" * 54)
+    log.info("BACKFILL-CANONICAL-IDS: filling NULL canonical_project_id values")
+    log.info("=" * 54)
+
+    candidate_table = supabase.table("candidate_events")
+
+    # Count total NULL rows
+    count_resp = candidate_table.select("id", count="exact") \
+        .is_("canonical_project_id", "null") \
+        .execute()
+    total_null = count_resp.count if hasattr(count_resp, 'count') else len(count_resp.data or [])
+    log.info("Rows with NULL canonical_project_id: %d", total_null)
+
+    if total_null == 0:
+        log.info("Nothing to backfill.")
+        return {"total": 0, "filled": 0, "unmatched": 0}
+
+    # Fetch all NULL rows (paginated)
+    all_null = []
+    offset = 0
+    while True:
+        resp = candidate_table.select("id, project_name_raw") \
+            .is_("canonical_project_id", "null") \
+            .order("id") \
+            .range(offset, offset + 999) \
+            .execute()
+        batch = resp.data or []
+        if not batch:
+            break
+        all_null.extend(batch)
+        if len(batch) < 1000:
+            break
+        offset += 1000
+
+    filled = 0
+    unmatched = 0
+
+    for row in all_null:
+        cid = row.get("id")
+        raw_name = row.get("project_name_raw", "")
+        canonical_id = normalize_project_name(raw_name)
+
+        if cid and canonical_id:
+            try:
+                candidate_table.update({
+                    "canonical_project_id": canonical_id,
+                }).eq("id", cid).execute()
+                filled += 1
+                if filled % 50 == 0:
+                    log.info("  Backfill progress: %d/%d filled", filled, len(all_null))
+            except Exception:
+                log.debug("  Backfill update error for id=%s", cid, exc_info=True)
+                unmatched += 1
+        else:
+            unmatched += 1
+            if raw_name:
+                log.debug("  No match: '%s' (id=%s)", raw_name[:60], cid)
+
+    log.info("Backfill complete: %d filled, %d unmatched (total %d)",
+             filled, unmatched, len(all_null))
+    return {"total": len(all_null), "filled": filled, "unmatched": unmatched}
+
+
+# ========================================================================
 # Crawl mode: run all 15 adapters
 # ========================================================================
 
@@ -827,6 +904,51 @@ def _summary_hits_reject_keywords(summary, project_name_raw):
     """Check if a media (tier=1) candidate matches financial/HR noise keywords."""
     text = ((summary or "") + " " + (project_name_raw or "")).lower()
     return any(kw in text for kw in MEDIA_REJECT_KEYWORDS)
+
+
+def _merge_corrosive_media(group):
+    """Merge corrosive_media dicts from multiple candidates in a group.
+
+    Boolean fields: OR logic (True if any candidate has it).
+    details string: concatenate distinct snippets from all candidates.
+    Returns JSON-serializable dict, or None if no candidate has any hits.
+    """
+    import json
+    merged = {"h2s": False, "co2": False, "sour_service": False, "chloride": False}
+    all_details = []
+
+    for c in group:
+        raw = c.get("corrosive_media")
+        if not raw:
+            continue
+        # May be a JSON string or a dict
+        if isinstance(raw, str):
+            try:
+                cm = json.loads(raw)
+            except (json.JSONDecodeError, TypeError):
+                continue
+        elif isinstance(raw, dict):
+            cm = raw
+        else:
+            continue
+
+        if cm.get("h2s"):
+            merged["h2s"] = True
+        if cm.get("co2"):
+            merged["co2"] = True
+        if cm.get("sour_service"):
+            merged["sour_service"] = True
+        if cm.get("chloride"):
+            merged["chloride"] = True
+        if cm.get("details"):
+            all_details.append(cm["details"])
+
+    merged["details"] = " | ".join(all_details) if all_details else ""
+
+    # Only return if at least one corrosive indicator is present
+    if any([merged["h2s"], merged["co2"], merged["sour_service"], merged["chloride"]]):
+        return json.dumps(merged)
+    return None
 
 
 def auto_ingest_to_projects(supabase, skip_enrich=False):
@@ -933,9 +1055,27 @@ def auto_ingest_to_projects(supabase, skip_enrich=False):
             group_names[group_key] = effective_name
         groups[group_key].append(c)
 
+    # ---- Step 1b: write canonical_project_id back to candidate_events ----
+    # Timeline queries on the frontend filter by canonical_project_id.
+    # Without this backfill, newly ingested events have NULL canonical_project_id
+    # and won't appear in any timeline view.
+    for c in kept:
+        raw_name = c.get("project_name_raw", "")
+        canonical_id = normalize_project_name(raw_name)
+        cid = c.get("id")
+        if cid and canonical_id:
+            try:
+                candidate_table.update({
+                    "canonical_project_id": canonical_id,
+                }).eq("id", cid).execute()
+            except Exception:
+                log.debug("  Could not update canonical_project_id for id=%s",
+                          cid, exc_info=True)
+
     # ---- Upsert each group into projects ----
     new_count = 0
     updated_count = 0
+    notified_projects = []  # track new/updated projects for notification
 
     for group_key, group in groups.items():
         effective_name = group_names[group_key]
@@ -1016,6 +1156,11 @@ def auto_ingest_to_projects(supabase, skip_enrich=False):
                 "confidence": confidence,
             }
 
+            # ---- Merge corrosive_media from all candidates in group ----
+            corrosive_merged = _merge_corrosive_media(group)
+            if corrosive_merged:
+                project_data["corrosive_media"] = corrosive_merged
+
             # ---- Skip Delivered projects with old dates (pre-2023 noise) ----
             existing = project_table.select("id, status").eq("name", effective_name).execute()
             existing_status = ""
@@ -1059,10 +1204,12 @@ def auto_ingest_to_projects(supabase, skip_enrich=False):
             if existing.data:
                 project_table.update(project_data).eq("name", effective_name).execute()
                 updated_count += 1
+                notified_projects.append(project_data)
                 log.info("  UPDATED: %s (confidence=%s)", effective_name[:60], confidence)
             else:
                 project_table.insert(project_data).execute()
                 new_count += 1
+                notified_projects.append(project_data)
                 log.info("  NEW: %s (confidence=%s)", effective_name[:60], confidence)
 
         except Exception:
@@ -1070,6 +1217,15 @@ def auto_ingest_to_projects(supabase, skip_enrich=False):
 
     log.info("Auto-ingest complete: %d new, %d updated, %d skipped (from %d candidates in %d groups)",
              new_count, updated_count, skipped_reject_kw, len(kept), len(groups))
+
+    # ---- Notify subscribers about new/updated projects ----
+    if notified_projects:
+        try:
+            notifier_result = notify_subscribers(supabase, notified_projects)
+            log.info("Notifier: %s", notifier_result)
+        except Exception:
+            log.warning("Notifier failed", exc_info=True)
+
     return new_count, updated_count, skipped_reject_kw
 
 
@@ -1220,6 +1376,11 @@ def main():
         action="store_true",
         help="Run auto-ingest on accepted candidates (standalone, no crawl).",
     )
+    parser.add_argument(
+        "--backfill-canonical-ids",
+        action="store_true",
+        help="Backfill NULL canonical_project_id on all candidate_events rows.",
+    )
     args = parser.parse_args()
 
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -1235,6 +1396,12 @@ def main():
         new, updated, skipped = auto_ingest_to_projects(supabase, skip_enrich=args.skip_enrich)
         log.info("Standalone auto-ingest: %d new, %d updated, %d skipped.",
                  new, updated, skipped)
+        return
+
+    # Backfill canonical_project_id for existing candidate_events
+    if args.backfill_canonical_ids:
+        result = backfill_canonical_ids(supabase)
+        log.info("Backfill canonical IDs: %s", result)
         return
 
     # Promote mode

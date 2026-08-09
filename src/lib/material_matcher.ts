@@ -41,6 +41,10 @@ export interface TechnicalSpecs {
   hasCO2?: boolean;
   hasHighTemp?: boolean;
   hasHighPressure?: boolean;
+  /** Explicit sour service declaration (NACE MR0175 required). */
+  sourService?: boolean;
+  /** Raw corrosive_media JSON from DB for reasoning enrichment. */
+  corrosiveMediaRaw?: Record<string, unknown> | null;
 }
 
 /** Per-grade annotation including factory scope. */
@@ -352,6 +356,20 @@ const RULES: Rule[] = [
     reason:
       "CO2 present: carbonic acid corrosion risk. Duplex/Super Duplex grades offer superior CO2 corrosion resistance over 316L.",
   },
+  {
+    name: "sour-service-explicit",
+    test: (s) => s.sourService === true,
+    grades: ["Super Duplex 2507", "Inconel 625", "6Mo (UNS S31254)"],
+    applications: [
+      "Sour Gas Piping",
+      "Gas Compression",
+      "Production Separators",
+      "Wellhead Components",
+      "Chemical Injection Lines",
+    ],
+    reason:
+      "Sour service explicitly declared: NACE MR0175/ISO 15156 compliance mandatory. Super Duplex 2507 for piping, Inconel 625 for critical wellhead/gas compression components. 316L NOT recommended for sour service.",
+  },
 
   // ===== Basin Rules =====
   {
@@ -524,7 +542,10 @@ export function matchMaterials(specs: TechnicalSpecs): MaterialMatchResult {
     specs.fieldName,
     specs.operatorName,
     specs.basin,
-  ].filter((v) => v != null && v !== "").length;
+    specs.hasH2S !== undefined ? 1 : 0,
+    specs.hasCO2 !== undefined ? 1 : 0,
+    specs.sourService !== undefined ? 1 : 0,
+  ].filter((v) => v != null && v !== "" && v !== 0).length;
 
   let confidence: "high" | "medium" | "low";
   if (firedRules.length >= 3 && dataPoints >= 3) {
@@ -543,6 +564,16 @@ export function matchMaterials(specs: TechnicalSpecs): MaterialMatchResult {
   } else if (finalGrades.length > 0) {
     reasoning +=
       ` [Factory filter: all recommended grades are producible.]`;
+  }
+
+  // Append corrosive media summary if present
+  const mediaFlags: string[] = [];
+  if (specs.hasH2S) mediaFlags.push("H₂S detected");
+  if (specs.hasCO2) mediaFlags.push("CO₂ detected");
+  if (specs.sourService) mediaFlags.push("Sour service (NACE MR0175)");
+  if (mediaFlags.length > 0) {
+    reasoning +=
+      ` [Corrosive media: ${mediaFlags.join(", ")}. Material selection accounts for corrosion resistance requirements.]`;
   }
 
   return {
@@ -831,6 +862,32 @@ export function specsFromRow(row: Record<string, unknown>): TechnicalSpecs {
     return String(v).trim() || null;
   };
 
+  // Parse corrosive_media JSONB column if present
+  let hasH2S: boolean | undefined;
+  let hasCO2: boolean | undefined;
+  let sourService: boolean | undefined;
+  let corrosiveMediaRaw: Record<string, unknown> | null = null;
+
+  const cmRaw = row.corrosive_media;
+  if (cmRaw && typeof cmRaw === "object" && !Array.isArray(cmRaw)) {
+    corrosiveMediaRaw = cmRaw as Record<string, unknown>;
+    if (typeof corrosiveMediaRaw.h2s === "boolean") hasH2S = corrosiveMediaRaw.h2s;
+    if (typeof corrosiveMediaRaw.co2 === "boolean") hasCO2 = corrosiveMediaRaw.co2;
+    if (typeof corrosiveMediaRaw.sour_service === "boolean") sourService = corrosiveMediaRaw.sour_service;
+  } else if (typeof cmRaw === "string" && cmRaw.trim()) {
+    try {
+      const parsed = JSON.parse(cmRaw);
+      if (parsed && typeof parsed === "object") {
+        corrosiveMediaRaw = parsed;
+        if (typeof parsed.h2s === "boolean") hasH2S = parsed.h2s;
+        if (typeof parsed.co2 === "boolean") hasCO2 = parsed.co2;
+        if (typeof parsed.sour_service === "boolean") sourService = parsed.sour_service;
+      }
+    } catch {
+      // Ignore malformed JSON
+    }
+  }
+
   return {
     waterDepthM: toNum(row.water_depth_m),
     oilCapacityBpd: toNum(row.oil_capacity_bpd),
@@ -839,6 +896,10 @@ export function specsFromRow(row: Record<string, unknown>): TechnicalSpecs {
     fieldName: toStr(row.field_name),
     operatorName: toStr(row.operator_name),
     basin: toStr(row.basin),
+    hasH2S,
+    hasCO2,
+    sourService,
+    corrosiveMediaRaw,
   };
 }
 
@@ -853,7 +914,10 @@ export function hasAnySpecs(specs: TechnicalSpecs): boolean {
     (specs.hullType != null && specs.hullType !== "") ||
     (specs.fieldName != null && specs.fieldName !== "") ||
     (specs.operatorName != null && specs.operatorName !== "") ||
-    (specs.basin != null && specs.basin !== "")
+    (specs.basin != null && specs.basin !== "") ||
+    specs.hasH2S != null ||
+    specs.hasCO2 != null ||
+    specs.sourService != null
   );
 }
 
