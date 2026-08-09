@@ -5,6 +5,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis,
@@ -17,6 +18,7 @@ import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
 import { supabase } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
 import { matchMaterials, specsFromRow, hasAnySpecs, parseRecommendation } from "@/lib/material_matcher";
+import { Building2, Hammer, CalendarDays, PlusCircle, Anchor, Waves, Gauge } from "lucide-react";
 
 /** A single timeline milestone from candidate_events. */
 interface TimelineEvent {
@@ -66,13 +68,21 @@ interface Stats {
   total: number;
   active: number;
   planned: number;
+  addedThisWeek: number;
 }
 
 function getStats(projects: Project[]): Stats {
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   return {
     total: projects.length,
     active: projects.filter((p) => p.status === "Under Construction").length,
     planned: projects.filter((p) => p.status === "Planned").length,
+    addedThisWeek: projects.filter((p) => {
+      if (!p.source.date) return false;
+      const d = new Date(p.source.date);
+      return !isNaN(d.getTime()) && d >= weekAgo;
+    }).length,
   };
 }
 
@@ -234,11 +244,12 @@ const INDUSTRY_OPTIONS = [
 ] as const;
 
 export default function DashboardPage() {
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCountry, setSelectedCountry] = useState("All Countries");
   const [selectedIndustry, setSelectedIndustry] = useState("All Industries");
-  const [selectedConfidence, setSelectedConfidence] = useState("High");
+  const [selectedConfidence, setSelectedConfidence] = useState("All");
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [modalTab, setModalTab] = useState<"overview" | "timeline">("overview");
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
@@ -483,31 +494,6 @@ export default function DashboardPage() {
       <Header rightContent={
         <>
           <div className="flex flex-shrink-0 items-center gap-2">
-            <label htmlFor="country-select" className="hidden text-sm text-fpso-muted lg:inline">
-              Region
-            </label>
-            <select
-              id="country-select"
-              value={selectedCountry}
-              onChange={(e) => {
-                setSelectedCountry(e.target.value);
-                console.log(`Region changed to: ${e.target.value}`);
-              }}
-              className="h-9 w-[160px] appearance-none rounded-md border border-fpso-border bg-fpso-card/85 px-3 py-1.5 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50"
-            >
-              <option value="All Countries">All Countries</option>
-              {countries.map((country) => {
-                const flag = getCountryFlag(projects, country);
-                return (
-                  <option key={country} value={country}>
-                    {flag ? `${flag} ${country}` : country}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
-
-          <div className="flex flex-shrink-0 items-center gap-2">
             <label htmlFor="industry-select" className="hidden text-sm text-fpso-muted lg:inline">
               Industry
             </label>
@@ -515,10 +501,13 @@ export default function DashboardPage() {
               id="industry-select"
               value={selectedIndustry}
               onChange={(e) => {
-                setSelectedIndustry(e.target.value);
-                console.log(`Industry changed to: ${e.target.value}`);
+                const value = e.target.value;
+                setSelectedIndustry(value);
+                if (value !== "All Industries") {
+                  navigate(`/database?industry=${encodeURIComponent(value)}`);
+                }
               }}
-              className="h-9 w-[160px] appearance-none rounded-md border border-fpso-border bg-fpso-card/85 px-3 py-1.5 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50"
+              className="h-9 w-[180px] appearance-none rounded-md border border-fpso-border bg-fpso-card/85 px-3 py-1.5 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50"
             >
               {INDUSTRY_OPTIONS.map((opt) => {
                 const label =
@@ -527,23 +516,6 @@ export default function DashboardPage() {
                   opt;
                 return <option key={opt} value={opt}>{label}</option>;
               })}
-            </select>
-          </div>
-
-          <div className="flex flex-shrink-0 items-center gap-2">
-            <label htmlFor="confidence-select" className="hidden text-sm text-fpso-muted lg:inline">
-              Confidence
-            </label>
-            <select
-              id="confidence-select"
-              value={selectedConfidence}
-              onChange={(e) => setSelectedConfidence(e.target.value)}
-              className="h-9 w-[120px] appearance-none rounded-md border border-fpso-border bg-fpso-card/85 px-3 py-1.5 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50"
-            >
-              <option value="All">All</option>
-              <option value="High">High</option>
-              <option value="Medium">Medium</option>
-              <option value="Low">Low</option>
             </select>
           </div>
 
@@ -571,10 +543,82 @@ export default function DashboardPage() {
 
       <main className="mx-auto w-full max-w-7xl px-6 py-10">
         {/* 页面标题 */}
-        <section className="mb-10">
+        <section className="mb-8">
           <h1 className="text-2xl font-semibold tracking-tight text-fpso-fg md:text-3xl">
             全球 FPSO 项目商机挖掘
           </h1>
+        </section>
+
+        {/* 指标统计带 */}
+        <section className="mb-8">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {/* Total Projects */}
+            <div className="group relative overflow-hidden rounded-lg border border-fpso-border/60 bg-fpso-card/40 backdrop-blur-sm p-4 transition-all hover:border-fpso-blue/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(0,212,255,0.06)]">
+              <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
+                <Building2 className="h-20 w-20 text-fpso-blue" />
+              </div>
+              <div className="relative z-10 flex items-center gap-3">
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-fpso-blue/10 ring-1 ring-fpso-blue/20">
+                  <Building2 className="h-4 w-4 text-fpso-blue" />
+                </span>
+                <div className="min-w-0">
+                  <div className="truncate text-[10px] font-semibold uppercase tracking-widest text-fpso-muted">Total Projects</div>
+                  <div className="font-mono text-2xl font-bold text-fpso-fg tabular-nums leading-tight">{filteredStats.total}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Active (Under Construction) */}
+            <div className="group relative overflow-hidden rounded-lg border border-fpso-border/60 bg-fpso-card/40 backdrop-blur-sm p-4 transition-all hover:border-fpso-blue/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(0,212,255,0.06)]">
+              <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
+                <Hammer className="h-20 w-20 text-fpso-blue" />
+              </div>
+              <div className="relative z-10 flex items-center gap-3">
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-fpso-blue/10 ring-1 ring-fpso-blue/20">
+                  <Hammer className="h-4 w-4 text-fpso-blue" />
+                </span>
+                <div className="min-w-0">
+                  <div className="truncate text-[10px] font-semibold uppercase tracking-widest text-fpso-muted">Active</div>
+                  <div className="font-mono text-2xl font-bold text-fpso-blue tabular-nums leading-tight">{filteredStats.active}</div>
+                  <div className="truncate text-[10px] text-fpso-dim">Under Construction</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Planned */}
+            <div className="group relative overflow-hidden rounded-lg border border-fpso-border/60 bg-fpso-card/40 backdrop-blur-sm p-4 transition-all hover:border-fpso-orange/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(255,159,67,0.06)]">
+              <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
+                <CalendarDays className="h-20 w-20 text-fpso-orange" />
+              </div>
+              <div className="relative z-10 flex items-center gap-3">
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-fpso-orange/10 ring-1 ring-fpso-orange/20">
+                  <CalendarDays className="h-4 w-4 text-fpso-orange" />
+                </span>
+                <div className="min-w-0">
+                  <div className="truncate text-[10px] font-semibold uppercase tracking-widest text-fpso-muted">Planned</div>
+                  <div className="font-mono text-2xl font-bold text-fpso-orange tabular-nums leading-tight">{filteredStats.planned}</div>
+                  <div className="truncate text-[10px] text-fpso-dim">Future Projects</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Added This Week */}
+            <div className="group relative overflow-hidden rounded-lg border border-fpso-border/60 bg-fpso-card/40 backdrop-blur-sm p-4 transition-all hover:border-fpso-green/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(16,185,129,0.06)]">
+              <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
+                <PlusCircle className="h-20 w-20 text-fpso-green" />
+              </div>
+              <div className="relative z-10 flex items-center gap-3">
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-fpso-green/10 ring-1 ring-fpso-green/20">
+                  <PlusCircle className="h-4 w-4 text-fpso-green" />
+                </span>
+                <div className="min-w-0">
+                  <div className="truncate text-[10px] font-semibold uppercase tracking-widest text-fpso-muted">Added This Week</div>
+                  <div className="font-mono text-2xl font-bold text-fpso-green tabular-nums leading-tight">{filteredStats.addedThisWeek}</div>
+                  <div className="truncate text-[10px] text-fpso-dim">New Discoveries</div>
+                </div>
+              </div>
+            </div>
+          </div>
         </section>
 
         {/* 全球分布地图 */}
@@ -617,27 +661,6 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* 统计数据 */}
-          <div className="mt-6 grid grid-cols-3 gap-4">
-            <div className="rounded-lg border border-fpso-border bg-fpso-card p-4">
-              <div className="text-xs font-medium uppercase tracking-wider text-fpso-muted">Total</div>
-              <div className="mt-2 min-w-[100px] flex-shrink-0 text-right font-mono text-3xl font-semibold text-fpso-fg">
-                {filteredStats.total}
-              </div>
-            </div>
-            <div className="rounded-lg border border-fpso-border bg-fpso-card p-4">
-              <div className="text-xs font-medium uppercase tracking-wider text-fpso-muted">Active</div>
-              <div className="mt-2 min-w-[100px] flex-shrink-0 text-right font-mono text-3xl font-semibold text-fpso-blue">
-                {filteredStats.active}
-              </div>
-            </div>
-            <div className="rounded-lg border border-fpso-border bg-fpso-card p-4">
-              <div className="text-xs font-medium uppercase tracking-wider text-fpso-muted">Planned</div>
-              <div className="mt-2 min-w-[100px] flex-shrink-0 text-right font-mono text-3xl font-semibold text-fpso-orange">
-                {filteredStats.planned}
-              </div>
-            </div>
-          </div>
         </section>
 
         {/* 图表区域 */}
@@ -767,62 +790,113 @@ export default function DashboardPage() {
                 <div
                   key={project.name}
                   onClick={() => setSelectedProject(project)}
-                  className="project-row cursor-pointer border-b border-fpso-border px-5 py-4 last:border-b-0 transition-colors hover:bg-fpso-blue/5"
+                  className="project-row group cursor-pointer border-b border-fpso-border/60 px-5 py-4 last:border-b-0 transition-all hover:bg-fpso-blue/[0.04] hover:border-fpso-border"
                 >
-                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-sm font-semibold text-fpso-fg">{project.name}</h3>
-                        <span className="inline-flex items-center gap-1 rounded bg-fpso-bg px-2 py-0.5 text-xs text-fpso-muted">
-                          {project.flag && <span>{project.flag}</span>}
-                          <span>{project.country}</span>
-                        </span>
-                      </div>
-
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <span
-                          className={`rounded bg-fpso-blue/10 px-1.5 py-0.5 text-xs font-medium text-fpso-blue ${project.stainlessSteel ? "" : "hidden"}`}
-                        >
-                          {project.stainlessSteel}
-                        </span>
-                        <span
-                          className={`rounded bg-fpso-orange/10 px-1.5 py-0.5 text-xs font-medium text-fpso-orange ${project.application ? "" : "hidden"}`}
-                        >
-                          {project.application}
-                        </span>
-                        {project.procurementChain && (
-                          <span className="rounded bg-fpso-green/10 px-1.5 py-0.5 text-xs font-medium text-fpso-green">
-                            采购链: {project.procurementChain}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="mt-2 flex min-w-0 items-center gap-2">
-                        <span className={`h-2 w-2 flex-shrink-0 rounded-full ${statusDotClass(project.status)}`} />
-                        <span className={`text-xs ${statusColorClass(project.status)}`}>{project.status}</span>
-                        {project.confidence && (
-                          <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${confidenceBadgeClass(project.confidence)}`}>
-                            {project.confidence}
-                          </span>
-                        )}
-                      </div>
-
-                      <p className="mt-2 truncate text-xs text-fpso-muted">{project.summary}</p>
+                  {/* Row 1: status dot + name + country + source */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                      <span
+                        className={`mt-0.5 h-2 w-2 flex-shrink-0 rounded-full ${statusDotClass(project.status)}`}
+                        style={{ boxShadow: `0 0 6px currentColor` }}
+                      />
+                      <h3 className="truncate text-sm font-semibold text-fpso-fg group-hover:text-white transition-colors">
+                        {project.name}
+                      </h3>
+                      <span className="inline-flex flex-shrink-0 items-center gap-1 rounded bg-fpso-bg/80 px-1.5 py-0.5 text-[11px] text-fpso-muted ring-1 ring-fpso-border/50">
+                        {project.flag && <span className="text-xs leading-none">{project.flag}</span>}
+                        <span className="max-w-[100px] truncate">{project.country}</span>
+                      </span>
                     </div>
 
-                    <div className="flex flex-col items-start gap-1 md:items-end md:pl-4">
-                      <a
-                        href={project.source.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="external-link inline-flex items-center gap-1 text-xs text-fpso-blue hover:text-fpso-blue/80"
-                      >
-                        <span>{project.source.name}</span>
-                        <span className="text-[0.8em] leading-none">↗</span>
-                      </a>
-                      <span className="text-[10px] text-fpso-dim">{project.source.date}</span>
+                    <div className="flex flex-shrink-0 items-center gap-2">
+                      {project.source.url ? (
+                        <a
+                          href={project.source.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="external-link inline-flex items-center gap-1 text-[11px] text-fpso-blue/70 hover:text-fpso-blue transition-colors"
+                        >
+                          <span className="max-w-[120px] truncate">{project.source.name}</span>
+                          <span className="text-[0.8em] leading-none">↗</span>
+                        </a>
+                      ) : (
+                        <span className="text-[11px] text-fpso-dim">{project.source.name || "—"}</span>
+                      )}
+                      <span className="text-[10px] text-fpso-dim font-mono tabular-nums">{project.source.date}</span>
                     </div>
                   </div>
+
+                  {/* Row 2: badges + tech specs */}
+                  <div className="mt-2.5 ml-4 flex flex-wrap items-center gap-1.5">
+                    {/* Industry badge */}
+                    {(project.industry ?? "FPSO") && (
+                      <span className="inline-flex items-center rounded bg-fpso-blue/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-fpso-blue ring-1 ring-fpso-blue/15">
+                        {project.industry}
+                      </span>
+                    )}
+                    {/* Confidence badge */}
+                    {project.confidence && (
+                      <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${confidenceBadgeClass(project.confidence)}`}>
+                        {project.confidence}
+                      </span>
+                    )}
+                    {/* Status text */}
+                    <span className={`text-[11px] font-medium ${statusColorClass(project.status)}`}>
+                      {project.status}
+                    </span>
+                    {/* Separator */}
+                    {(project.waterDepthM != null || project.oilCapacityBpd != null || project.gasCapacityMmcmd != null) && (
+                      <span className="mx-0.5 h-3 w-px bg-fpso-border/50 flex-shrink-0" />
+                    )}
+                    {/* Tech specs */}
+                    {project.waterDepthM != null && (
+                      <span className="inline-flex items-center gap-1 text-[10px] text-fpso-dim font-mono" title="Water Depth">
+                        <Anchor className="h-3 w-3 text-fpso-dim/60 flex-shrink-0" />
+                        {project.waterDepthM.toLocaleString()}m
+                      </span>
+                    )}
+                    {project.oilCapacityBpd != null && (
+                      <span className="inline-flex items-center gap-1 text-[10px] text-fpso-dim font-mono" title="Oil Capacity">
+                        <Gauge className="h-3 w-3 text-fpso-dim/60 flex-shrink-0" />
+                        {project.oilCapacityBpd.toLocaleString()} bpd
+                      </span>
+                    )}
+                    {project.gasCapacityMmcmd != null && (
+                      <span className="inline-flex items-center gap-1 text-[10px] text-fpso-dim font-mono" title="Gas Capacity">
+                        <Waves className="h-3 w-3 text-fpso-dim/60 flex-shrink-0" />
+                        {project.gasCapacityMmcmd.toLocaleString()} MMcmd
+                      </span>
+                    )}
+                    {/* Hull type */}
+                    {project.hullType && (
+                      <span className="inline-flex items-center gap-1 text-[10px] text-fpso-dim font-mono">
+                        <span className="text-fpso-dim/60">{project.hullType}</span>
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Row 3: summary */}
+                  {project.summary && (
+                    <p className="mt-2 ml-4 line-clamp-1 text-[11px] leading-relaxed text-fpso-muted/80">
+                      {project.summary}
+                    </p>
+                  )}
+
+                  {/* Row 4: procurement chain tags */}
+                  {project.procurementChain && (
+                    <div className="mt-2 ml-4 flex flex-wrap items-center gap-1">
+                      <span className="text-[9px] font-semibold uppercase tracking-wider text-fpso-dim/60 mr-0.5">Procurement</span>
+                      {project.procurementChain.split(/,\s*/).filter(Boolean).map((entity) => (
+                        <span
+                          key={entity}
+                          className="inline-flex items-center rounded bg-fpso-green/[0.07] px-1.5 py-0.5 text-[10px] font-medium text-fpso-green/80 ring-1 ring-fpso-green/10 procurement-tag"
+                        >
+                          {entity}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))
             )}
@@ -867,10 +941,10 @@ export default function DashboardPage() {
           {/* 模态框本体 */}
           <div
             onClick={(e) => e.stopPropagation()}
-            className="relative z-10 w-full max-w-lg rounded-xl border border-fpso-border bg-fpso-card shadow-2xl animate-fade-in"
+            className="relative z-10 w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl border border-fpso-border bg-fpso-card shadow-2xl animate-fade-in"
           >
             {/* 顶部栏 */}
-            <div className="flex items-center justify-between border-b border-fpso-border px-6 py-4">
+            <div className="flex-shrink-0 flex items-center justify-between border-b border-fpso-border px-6 py-4">
               <h2 className="text-base font-semibold text-fpso-fg">Project Detail</h2>
               <button
                 onClick={() => { setSelectedProject(null); setModalTab("overview"); }}
@@ -885,7 +959,7 @@ export default function DashboardPage() {
 
             {/* Tab 导航 —— 仅 FPSO 行业显示 Timeline 标签 */}
             {isFpso && (
-              <div className="flex border-b border-fpso-border px-6">
+              <div className="flex-shrink-0 flex border-b border-fpso-border px-6">
                 <button
                   type="button"
                   onClick={() => setModalTab("overview")}
@@ -919,7 +993,7 @@ export default function DashboardPage() {
 
             {/* ---- Overview 内容 ---- */}
             {modalTab === "overview" && (
-            <div className="space-y-5 px-6 py-5">
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-5">
               {/* 项目名称 */}
               <h3 className="text-xl font-bold text-fpso-fg">{selectedProject.name}</h3>
 
@@ -1106,7 +1180,7 @@ export default function DashboardPage() {
 
             {/* ---- Timeline 内容 ---- */}
             {modalTab === "timeline" && (
-            <div className="px-6 py-5 max-h-96 overflow-y-auto">
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">
               {timelineLoading ? (
                 <div className="flex items-center justify-center py-10">
                   <span className="text-sm text-fpso-muted">Loading timeline…</span>
