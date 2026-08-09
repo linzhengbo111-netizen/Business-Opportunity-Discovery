@@ -48,6 +48,8 @@ from adapters.media_common import (  # noqa: E402
     country_to_flag,
 )
 
+from enricher import enrich_project, compute_enrichment_diff  # noqa: E402
+
 # Tier 1 — 线索发现 (media)
 from adapters.offshore_energy import run_adapter as run_offshore_energy  # noqa: E402
 from adapters.oe_digital import run_adapter as run_oe_digital  # noqa: E402
@@ -827,13 +829,15 @@ def _summary_hits_reject_keywords(summary, project_name_raw):
     return any(kw in text for kw in MEDIA_REJECT_KEYWORDS)
 
 
-def auto_ingest_to_projects(supabase):
+def auto_ingest_to_projects(supabase, skip_enrich=False):
     """After auto_classify, upsert all accepted/auto_accepted candidates
     directly into projects table with AI confidence labels.
 
     - Maps confidence from source priority + event_type.
     - Skips media (tier=1) candidates that match REJECT_KEYWORDS.
     - Normalizes project names and merges duplicates.
+    - Enriches projects by searching public web sources for missing tech specs
+      (set skip_enrich=True to disable).
     """
     log.info("=" * 54)
     log.info("AUTO-INGEST: moving accepted candidates → projects")
@@ -1022,6 +1026,36 @@ def auto_ingest_to_projects(supabase):
                          effective_name[:60], merged_source_date)
                 continue
 
+            # ---- Enrich: search public sources for missing technical specs ----
+            # Only runs when project has searchable keywords (name, operator, field, etc.)
+            # and is missing at least one tech-spec field. Best-effort: errors are logged
+            # but never block the ingest.
+            if not skip_enrich and (not existing.data or existing_status != "Delivered"):
+                try:
+                    has_keywords = any([
+                        project_data.get("operator_name"),
+                        project_data.get("field_name"),
+                        project_data.get("basin"),
+                    ])
+                    missing_fields = any(
+                        not project_data.get(f) or project_data.get(f) == ""
+                        for f in ["water_depth_m", "oil_capacity_bpd",
+                                  "gas_capacity_mmcmd", "hull_type",
+                                  "field_name", "operator_name", "basin"]
+                    )
+                    if has_keywords and missing_fields:
+                        log.info("  Enriching: %s", effective_name[:60])
+                        enrichment = enrich_project(project_data, max_search_results=3, max_page_fetch=2)
+                        diff = compute_enrichment_diff(project_data, enrichment.get("enriched", {}))
+                        if diff:
+                            project_data.update(diff)
+                            log.info("  Enriched %d fields: %s", len(diff),
+                                     ", ".join(f"{k}={v}" for k, v in diff.items()))
+                        else:
+                            log.debug("  Enrichment: no new fields found")
+                except Exception:
+                    log.debug("  Enrichment failed for %s", effective_name[:60], exc_info=True)
+
             if existing.data:
                 project_table.update(project_data).eq("name", effective_name).execute()
                 updated_count += 1
@@ -1040,10 +1074,11 @@ def auto_ingest_to_projects(supabase):
 
 
 def run_all_adapters(dry_run=False, local_only=False, skip_classify=False,
-                     skip_ingest=False):
+                     skip_ingest=False, skip_enrich=False):
     """Run all 15 adapters sequentially with polite delays. Continue-on-error.
     After crawl: auto-classify pending, then auto-ingest into projects.
-    Use --skip-ingest to skip the projects ingest step."""
+    Use --skip-ingest to skip the projects ingest step.
+    Use --skip-enrich to skip public web enrichment during ingest."""
     log.info("=" * 54)
     log.info("FPSO Project Crawler — %s", TODAY)
     log.info("=" * 54)
@@ -1111,7 +1146,7 @@ def run_all_adapters(dry_run=False, local_only=False, skip_classify=False,
         # ---- Auto-ingest accepted → projects ----
         if not skip_ingest:
             log.info("")
-            ingest_result = auto_ingest_to_projects(supabase)
+            ingest_result = auto_ingest_to_projects(supabase, skip_enrich=skip_enrich)
             log.info("")
 
 
@@ -1176,6 +1211,11 @@ def main():
         help="Skip auto-ingest into projects after auto-classify (keep candidates for manual review).",
     )
     parser.add_argument(
+        "--skip-enrich",
+        action="store_true",
+        help="Skip project enrichment (public web search for missing tech specs) during auto-ingest.",
+    )
+    parser.add_argument(
         "--auto-ingest",
         action="store_true",
         help="Run auto-ingest on accepted candidates (standalone, no crawl).",
@@ -1192,7 +1232,7 @@ def main():
 
     # Standalone auto-ingest (no crawl)
     if args.auto_ingest:
-        new, updated, skipped = auto_ingest_to_projects(supabase)
+        new, updated, skipped = auto_ingest_to_projects(supabase, skip_enrich=args.skip_enrich)
         log.info("Standalone auto-ingest: %d new, %d updated, %d skipped.",
                  new, updated, skipped)
         return
@@ -1229,7 +1269,8 @@ def main():
 
     # Normal crawl mode (default when no flag specified)
     run_all_adapters(skip_classify=args.skip_classify,
-                     skip_ingest=args.skip_ingest)
+                     skip_ingest=args.skip_ingest,
+                     skip_enrich=args.skip_enrich)
 
 
 if __name__ == "__main__":
