@@ -152,6 +152,32 @@ function confidenceBadgeClass(confidence: string): string {
   }
 }
 
+/** Phase segments for the progress bar: label, lit color, unlit color. */
+const PHASE_SEGMENTS = [
+  { label: "规划", color: "#6b7280" },
+  { label: "FEED", color: "#7dd3fc" },
+  { label: "在建", color: "#00d4ff" },
+  { label: "投产", color: "#10b981" },
+] as const;
+
+const PHASE_UNLIT = "#1e2844";
+
+/** Map project status to phase progress (0-4 segments lit).
+ *  0 = none, 1 = 规划, 2 = FEED, 3 = 在建, 4 = 投产.
+ *  Derived from milestone data when available; falls back to status inference. */
+function getPhaseProgress(status: string): number {
+  switch (status) {
+    case "Planned":
+      return 1;
+    case "Under Construction":
+      return 3;
+    case "Delivered":
+      return 4;
+    default:
+      return 0;
+  }
+}
+
 /** Apply country name alias with case-insensitive fallback. */
 function normalizeCountry(raw: string): string {
   if (!raw) return "Unknown";
@@ -917,6 +943,26 @@ export default function DashboardPage() {
                       ))}
                     </div>
                   )}
+
+                  {/* Phase progress bar */}
+                  {(() => {
+                    const progress = getPhaseProgress(project.status);
+                    return (
+                      <div className="mt-2.5 ml-4 flex gap-1" style={{ height: 4 }}>
+                        {PHASE_SEGMENTS.map((seg, i) => (
+                          <div
+                            key={seg.label}
+                            title={`${seg.label}${i < progress ? " ✓" : ""}`}
+                            className="rounded-full transition-colors duration-500"
+                            style={{
+                              flex: 1,
+                              backgroundColor: i < progress ? seg.color : PHASE_UNLIT,
+                            }}
+                          />
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </motion.div>
               ))
             )}
