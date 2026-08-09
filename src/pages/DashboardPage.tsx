@@ -19,6 +19,7 @@ import { supabase } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
 import { matchMaterials, specsFromRow, hasAnySpecs, parseRecommendation } from "@/lib/material_matcher";
 import { Building2, Hammer, CalendarDays, PlusCircle, Anchor, Waves, Gauge } from "lucide-react";
+import FilterSidebar from "@/components/dashboard/FilterSidebar";
 import { motion } from "motion/react";
 
 /** A single timeline milestone from candidate_events. */
@@ -275,14 +276,6 @@ function mapCandidateToProject(row: Record<string, unknown>): Project {
   };
 }
 
-const INDUSTRY_OPTIONS = [
-  "All Industries",
-  "FPSO",
-  "Desalination",
-  "LNG",
-  "General Stainless",
-] as const;
-
 export default function DashboardPage() {
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -290,6 +283,8 @@ export default function DashboardPage() {
   const [selectedCountry, setSelectedCountry] = useState("All Countries");
   const [selectedIndustry, setSelectedIndustry] = useState("All Industries");
   const [selectedConfidence, setSelectedConfidence] = useState("All");
+  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(new Set());
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [modalTab, setModalTab] = useState<"overview" | "timeline">("overview");
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
@@ -398,8 +393,11 @@ export default function DashboardPage() {
         (p) => (p.confidence ?? "medium") === selectedConfidence.toLowerCase(),
       );
     }
+    if (selectedStatuses.size > 0) {
+      result = result.filter((p) => selectedStatuses.has(p.status || "Unknown"));
+    }
     return result;
-  }, [projects, selectedCountry, selectedIndustry, selectedConfidence]);
+  }, [projects, selectedCountry, selectedIndustry, selectedConfidence, selectedStatuses]);
 
   const filteredStats = useMemo(() => getStats(filteredProjects), [filteredProjects]);
 
@@ -525,6 +523,29 @@ export default function DashboardPage() {
     console.log(`Dot clicked: ${country} (${projects.filter((p) => p.country.trim() === country).length} projects)`);
   };
 
+  function handleIndustryChange(value: string) {
+    setSelectedIndustry(value);
+    if (value !== "All Industries") {
+      navigate(`/database?industry=${encodeURIComponent(value)}`);
+    }
+  }
+
+  function toggleStatus(status: string) {
+    setSelectedStatuses((prev) => {
+      const next = new Set(prev);
+      if (next.has(status)) next.delete(status);
+      else next.add(status);
+      return next;
+    });
+  }
+
+  function clearAllFilters() {
+    setSelectedCountry("All Countries");
+    setSelectedIndustry("All Industries");
+    setSelectedConfidence("All");
+    setSelectedStatuses(new Set());
+  }
+
   const todayStr = new Date().toISOString().slice(0, 10);
 
   return (
@@ -532,56 +553,45 @@ export default function DashboardPage() {
       <PageMeta title="Business Opportunity Discovery" description="全球 FPSO 项目不锈钢商机挖掘系统" />
 
       <Header rightContent={
-        <>
-          <div className="flex flex-shrink-0 items-center gap-2">
-            <label htmlFor="industry-select" className="hidden text-sm text-fpso-muted lg:inline">
-              Industry
-            </label>
-            <select
-              id="industry-select"
-              value={selectedIndustry}
-              onChange={(e) => {
-                const value = e.target.value;
-                setSelectedIndustry(value);
-                if (value !== "All Industries") {
-                  navigate(`/database?industry=${encodeURIComponent(value)}`);
-                }
-              }}
-              className="h-9 w-[180px] appearance-none rounded-md border border-fpso-border bg-fpso-card/85 px-3 py-1.5 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50"
-            >
-              {INDUSTRY_OPTIONS.map((opt) => {
-                const label =
-                  opt === "Desalination" ? `${opt} (海水淡化)` :
-                  opt === "General Stainless" ? `${opt} (其他不锈钢)` :
-                  opt;
-                return <option key={opt} value={opt}>{label}</option>;
-              })}
-            </select>
-          </div>
-
-          <div className="flex flex-shrink-0 items-center gap-2">
-            <span className="relative inline-flex h-2.5 w-2.5">
-              {connectionStatus === "connected" && (
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fpso-green opacity-75" />
-              )}
-              <span
-                className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
-                  connectionStatus === "connected" ? "bg-fpso-green live-breath" : "bg-fpso-dim"
-                }`}
-              />
-            </span>
+        <div className="flex flex-shrink-0 items-center gap-2">
+          <span className="relative inline-flex h-2.5 w-2.5">
+            {connectionStatus === "connected" && (
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fpso-green opacity-75" />
+            )}
             <span
-              className={`text-xs font-medium tracking-wider ${
-                connectionStatus === "connected" ? "text-fpso-green" : "text-fpso-dim"
+              className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
+                connectionStatus === "connected" ? "bg-fpso-green live-breath" : "bg-fpso-dim"
               }`}
-            >
-              {connectionStatus === "connected" ? "LIVE" : "STALE"}
-            </span>
-          </div>
-        </>
+            />
+          </span>
+          <span
+            className={`text-xs font-medium tracking-wider ${
+              connectionStatus === "connected" ? "text-fpso-green" : "text-fpso-dim"
+            }`}
+          >
+            {connectionStatus === "connected" ? "LIVE" : "STALE"}
+          </span>
+        </div>
       } />
 
-      <main className="mx-auto w-full max-w-7xl px-6 py-10">
+      <div className="flex max-w-7xl mx-auto">
+        <FilterSidebar
+          collapsed={sidebarCollapsed}
+          onToggle={() => setSidebarCollapsed((v) => !v)}
+          countries={countries}
+          projects={projects}
+          selectedCountry={selectedCountry}
+          selectedIndustry={selectedIndustry}
+          selectedConfidence={selectedConfidence}
+          selectedStatuses={selectedStatuses}
+          onCountryChange={setSelectedCountry}
+          onIndustryChange={handleIndustryChange}
+          onConfidenceChange={setSelectedConfidence}
+          onStatusToggle={toggleStatus}
+          onClear={clearAllFilters}
+        />
+
+        <main className="flex-1 min-w-0 px-6 py-10">
         {/* 页面标题 */}
         <section className="mb-8">
           <h1 className="text-2xl font-semibold tracking-tight text-fpso-fg md:text-3xl">
@@ -969,6 +979,7 @@ export default function DashboardPage() {
           </div>
         </section>
       </main>
+      </div>
 
       {/* 页脚 */}
       <footer className="mt-auto border-t border-white/5 bg-fpso-bg">
