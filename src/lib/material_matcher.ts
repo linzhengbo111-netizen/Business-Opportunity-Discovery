@@ -1,0 +1,858 @@
+/**
+ * FPSO Stainless Steel Material Matching Engine
+ * ==============================================
+ *
+ * Rule-based engine that takes FPSO technical specifications
+ * (water depth, capacity, hull type, field conditions) and
+ * recommends stainless steel grades and application areas.
+ *
+ * All recommendations are heuristics based on industry practice.
+ * Confidence levels reflect how many rules fired vs. available data.
+ *
+ * v2.0 — Factory capability integration:
+ *   - Carbon steel grades are filtered out (factory does not produce CS)
+ *   - Each recommended grade tagged with in_factory_scope boolean
+ *   - can_manufacture() for grade-level producibility check
+ *   - infer_product_needs() for equipment → product type inference
+ *   - match_customer_type() for project → buyer profile matching
+ */
+
+import {
+  isGradeProducible,
+  isGradeExcluded,
+  ProductType,
+  TargetCustomerType,
+  TARGET_CUSTOMER_KEYWORDS,
+  EXCLUDED_CUSTOMER_KEYWORDS,
+} from "@/data/factory_capabilities";
+
+// ---- Types ---------------------------------------------------------------
+
+export interface TechnicalSpecs {
+  waterDepthM?: number | null;
+  oilCapacityBpd?: number | null;
+  gasCapacityMmcmd?: number | null;
+  hullType?: string | null;
+  fieldName?: string | null;
+  operatorName?: string | null;
+  basin?: string | null;
+  // Optional: media parameters from article text
+  hasH2S?: boolean;
+  hasCO2?: boolean;
+  hasHighTemp?: boolean;
+  hasHighPressure?: boolean;
+}
+
+/** Per-grade annotation including factory scope. */
+export interface GradeRecommendation {
+  /** Grade name, e.g. "Duplex 2205". */
+  grade: string;
+  /** Whether this grade is within the factory's production capability. */
+  in_factory_scope: boolean;
+}
+
+export interface MaterialMatchResult {
+  /** Recommended stainless steel grades with factory scope annotation. */
+  grades: GradeRecommendation[];
+  /** Recommended application areas (equipment/components). */
+  applications: string[];
+  /** Confidence level: high (3+ rules fired), medium (1-2 rules), low (defaults only). */
+  confidence: "high" | "medium" | "low";
+  /** Human-readable reasoning chain. */
+  reasoning: string;
+  /** Grades that were excluded because factory cannot produce them (e.g., carbon steel). */
+  excluded_grades: string[];
+  /** Whether any recommended grades were filtered out. */
+  factory_filtered: boolean;
+}
+
+/** Inferred product need from equipment description. */
+export interface InferredProductNeed {
+  /** Product type the project likely needs. */
+  productType: ProductType;
+  /** Human-readable Chinese label. */
+  label: string;
+  /** Confidence of the inference. */
+  confidence: "high" | "medium" | "low";
+  /** What triggered this inference (matched keyword/equipment). */
+  trigger: string;
+  /** Source of the inference — always "AI推断" for heuristic matches. */
+  source: "AI推断";
+}
+
+/** Customer type match result. */
+export interface CustomerTypeMatch {
+  /** Whether this project matches a target customer type. */
+  isTarget: boolean;
+  /** Which target customer types were matched. */
+  matchedTypes: TargetCustomerType[];
+  /** Human-readable labels for matched types. */
+  matchedLabels: string[];
+  /** Whether non-target patterns were detected. */
+  hasExclusion: boolean;
+  /** Which exclusion types were matched. */
+  exclusionTypes: string[];
+}
+
+// ---- Grade definitions ---------------------------------------------------
+
+interface GradeInfo {
+  name: string;
+  category: string;
+  description: string;
+  /** Typical applications on FPSO */
+  applications: string[];
+}
+
+const GRADES: Record<string, GradeInfo> = {
+  "316L": {
+    name: "316L",
+    category: "Austenitic",
+    description:
+      "Standard austenitic stainless steel with 2-3% Mo. Good general corrosion resistance. Cost-effective for non-critical service.",
+    applications: [
+      "Process Piping (low-corrosion)",
+      "Fresh Water Systems",
+      "HVAC Ducting",
+      "Handrails & Gratings",
+      "Utility Piping",
+    ],
+  },
+  "Duplex 2205": {
+    name: "Duplex 2205",
+    category: "Duplex",
+    description:
+      "22% Cr duplex stainless steel. High strength (2x 316L yield). Good SCC resistance. Widely used in offshore topsides.",
+    applications: [
+      "Process Piping",
+      "Seawater Lift Pump",
+      "Heat Exchangers",
+      "Produced Water Treatment",
+      "Mooring Components",
+      "Cargo Oil Tanks (lining)",
+    ],
+  },
+  "Super Duplex 2507": {
+    name: "Super Duplex 2507",
+    category: "Super Duplex",
+    description:
+      "25% Cr super duplex. Excellent pitting/crevice corrosion resistance (PREN >40). For deepwater high-pressure service.",
+    applications: [
+      "Subsea Manifolds",
+      "Deepwater Risers",
+      "Seawater Lift Pump (deep)",
+      "High-Pressure Process Piping",
+      "Gas Compression Coolers",
+      "Mooring Systems (deepwater)",
+    ],
+  },
+  "6Mo (UNS S31254)": {
+    name: "6Mo (UNS S31254)",
+    category: "Super Austenitic",
+    description:
+      "6% Mo super austenitic. Superior pitting resistance (PREN >43). For severe chloride environments and produced water.",
+    applications: [
+      "Produced Water Treatment",
+      "Seawater Cooling Systems",
+      "Heat Exchangers (seawater side)",
+      "Chemical Injection Lines",
+      "Flare Systems",
+    ],
+  },
+  "904L": {
+    name: "904L",
+    category: "Austenitic",
+    description:
+      "High-alloy austenitic with Cu additions. Good resistance to reducing acids (H2SO4). For specific chemical service.",
+    applications: [
+      "Chemical Storage Tanks",
+      "Acid Handling Systems",
+      "Scrubbers",
+      "Chemical Injection",
+    ],
+  },
+  "Inconel 625": {
+    name: "Inconel 625",
+    category: "Nickel Alloy",
+    description:
+      "Ni-Cr-Mo alloy. Outstanding corrosion and high-temperature resistance. For the most demanding FPSO applications.",
+    applications: [
+      "Gas Compression (high-temp)",
+      "Sour Service (H2S)",
+      "Wellhead Components",
+      "Subsea Trees",
+      "Flare Tips",
+    ],
+  },
+};
+
+const ALL_GRADE_NAMES = Object.keys(GRADES);
+
+// ---- Rule definitions ----------------------------------------------------
+
+interface Rule {
+  name: string;
+  /** Returns true if the rule's condition is met */
+  test: (specs: TechnicalSpecs) => boolean;
+  /** Grades recommended when this rule fires */
+  grades: string[];
+  /** Applications recommended when this rule fires */
+  applications: string[];
+  /** Human-readable reason */
+  reason: string;
+}
+
+const RULES: Rule[] = [
+  // ===== Water Depth Rules =====
+  {
+    name: "ultra-deepwater",
+    test: (s) => (s.waterDepthM ?? 0) > 2000,
+    grades: ["Super Duplex 2507", "6Mo (UNS S31254)"],
+    applications: [
+      "Deepwater Risers",
+      "Subsea Manifolds",
+      "Seawater Lift Pump (deep)",
+    ],
+    reason:
+      "Water depth >2000m: extreme external pressure requires Super Duplex 2507 or 6Mo for subsea equipment and risers.",
+  },
+  {
+    name: "deepwater",
+    test: (s) => (s.waterDepthM ?? 0) > 1500 && (s.waterDepthM ?? 0) <= 2000,
+    grades: ["Super Duplex 2507"],
+    applications: ["Seawater Lift Pump (deep)", "Subsea Manifolds"],
+    reason:
+      "Water depth >1500m: deepwater conditions recommend Super Duplex 2507 for seawater and subsea service.",
+  },
+  {
+    name: "shallow-water",
+    test: (s) =>
+      s.waterDepthM != null && s.waterDepthM > 0 && s.waterDepthM <= 500,
+    grades: ["Duplex 2205", "316L"],
+    applications: ["Process Piping", "Seawater Lift Pump"],
+    reason:
+      "Water depth ≤500m: Duplex 2205 sufficient for moderate-depth service. 316L for non-critical piping.",
+  },
+
+  // ===== Oil Capacity Rules =====
+  {
+    name: "large-oil-capacity",
+    test: (s) => (s.oilCapacityBpd ?? 0) > 150000,
+    grades: ["Duplex 2205", "Super Duplex 2507"],
+    applications: [
+      "Cargo Oil Tanks",
+      "Process Piping",
+      "Heat Exchangers",
+      "Produced Water Treatment",
+    ],
+    reason:
+      "Oil capacity >150,000 bpd: large-scale topsides processing. Duplex/Super Duplex combo for process piping and cargo systems.",
+  },
+  {
+    name: "medium-oil-capacity",
+    test: (s) =>
+      (s.oilCapacityBpd ?? 0) > 50000 && (s.oilCapacityBpd ?? 0) <= 150000,
+    grades: ["Duplex 2205", "316L"],
+    applications: ["Process Piping", "Cargo Oil Tanks"],
+    reason:
+      "Oil capacity 50k-150k bpd: mid-scale production. Duplex 2205 for critical piping, 316L for general service.",
+  },
+
+  // ===== Gas Capacity Rules =====
+  {
+    name: "high-gas-capacity",
+    test: (s) => (s.gasCapacityMmcmd ?? 0) > 5,
+    grades: ["Super Duplex 2507", "6Mo (UNS S31254)", "Inconel 625"],
+    applications: [
+      "Gas Compression",
+      "Gas Processing Piping",
+      "Heat Exchangers",
+      "Flare Systems",
+    ],
+    reason:
+      "Gas capacity >5 MMcmd: high-volume gas processing. Corrosion-resistant alloys needed for compression and sweetening.",
+  },
+  {
+    name: "moderate-gas-capacity",
+    test: (s) =>
+      (s.gasCapacityMmcmd ?? 0) > 1 && (s.gasCapacityMmcmd ?? 0) <= 5,
+    grades: ["Duplex 2205", "Super Duplex 2507"],
+    applications: ["Gas Compression", "Process Piping"],
+    reason:
+      "Gas capacity 1-5 MMcmd: moderate gas processing. Duplex 2205 or Super Duplex for compression piping.",
+  },
+
+  // ===== Hull Type Rules =====
+  {
+    name: "turret-mooring",
+    test: (s) => {
+      const ht = (s.hullType ?? "").toLowerCase();
+      return ht.includes("turret") || ht.includes("internal turret") || ht.includes("external turret");
+    },
+    grades: ["Super Duplex 2507", "Duplex 2205"],
+    applications: [
+      "Mooring Systems",
+      "Turret Bearing Components",
+      "Swivel Stack",
+    ],
+    reason:
+      "Turret mooring: high-stress rotating components require high-strength Duplex/Super Duplex stainless.",
+  },
+  {
+    name: "spread-moored",
+    test: (s) => {
+      const ht = (s.hullType ?? "").toLowerCase();
+      return ht.includes("spread") || ht.includes("spread moor");
+    },
+    grades: ["Duplex 2205"],
+    applications: ["Mooring Components", "Fairleads", "Chain Stoppers"],
+    reason:
+      "Spread moored: Duplex 2205 sufficient for mooring components in spread-moor configuration.",
+  },
+  {
+    name: "flng-conversion",
+    test: (s) => {
+      const ht = (s.hullType ?? "").toLowerCase();
+      return ht.includes("flng") || ht.includes("lng") || ht.includes("conversion");
+    },
+    grades: ["Super Duplex 2507", "6Mo (UNS S31254)", "Inconel 625"],
+    applications: [
+      "LNG Process Piping",
+      "Cryogenic Heat Exchangers",
+      "Gas Compression",
+      "LNG Storage Tanks (lining)",
+    ],
+    reason:
+      "FLNG/LNG conversion: cryogenic and gas processing requirements demand high-alloy stainless and nickel alloys.",
+  },
+
+  // ===== Media Parameter Rules (H2S, CO2, etc.) =====
+  {
+    name: "sour-service",
+    test: (s) => s.hasH2S === true,
+    grades: ["Super Duplex 2507", "Inconel 625"],
+    applications: [
+      "Gas Compression",
+      "Sour Gas Piping",
+      "Wellhead Components",
+      "Production Separators",
+    ],
+    reason:
+      "H2S present (sour service): NACE MR0175/ISO 15156 compliance required. Super Duplex 2507 and Inconel 625 for sour environments.",
+  },
+  {
+    name: "co2-corrosion",
+    test: (s) => s.hasCO2 === true,
+    grades: ["Duplex 2205", "Super Duplex 2507"],
+    applications: [
+      "Process Piping",
+      "Production Separators",
+      "Heat Exchangers",
+    ],
+    reason:
+      "CO2 present: carbonic acid corrosion risk. Duplex/Super Duplex grades offer superior CO2 corrosion resistance over 316L.",
+  },
+
+  // ===== Basin Rules =====
+  {
+    name: "pre-salt-basin",
+    test: (s) => {
+      const basin = (s.basin ?? "").toLowerCase();
+      return basin.includes("santos") || basin.includes("campos") || basin.includes("espirito");
+    },
+    grades: ["Super Duplex 2507", "6Mo (UNS S31254)", "Inconel 625"],
+    applications: [
+      "Subsea Manifolds",
+      "Deepwater Risers",
+      "Gas Compression",
+      "Production Separators",
+    ],
+    reason:
+      "Brazilian pre-salt basin: high CO2 content, deepwater, high-pressure. Requires premium corrosion-resistant alloys.",
+  },
+  {
+    name: "west-africa-basin",
+    test: (s) => {
+      const basin = (s.basin ?? "").toLowerCase();
+      return (
+        basin.includes("niger delta") ||
+        basin.includes("lower congo") ||
+        basin.includes("kwanza") ||
+        basin.includes("tano")
+      );
+    },
+    grades: ["Duplex 2205", "Super Duplex 2507"],
+    applications: ["Process Piping", "Cargo Oil Tanks", "Produced Water Treatment"],
+    reason:
+      "West Africa basin: moderate to deep water, variable H2S. Duplex/Super Duplex for process and cargo systems.",
+  },
+
+  // ===== Operator Rules (known requirements) =====
+  {
+    name: "petrobras-operator",
+    test: (s) => {
+      const op = (s.operatorName ?? "").toLowerCase();
+      return op.includes("petrobras");
+    },
+    grades: ["Super Duplex 2507", "6Mo (UNS S31254)", "Duplex 2205"],
+    applications: [
+      "Subsea Manifolds",
+      "Deepwater Risers",
+      "Process Piping",
+      "Gas Compression",
+      "Produced Water Treatment",
+    ],
+    reason:
+      "Petrobras operator: known pre-salt requirements. High CO2, deepwater, strict material specs per Petrobras standards.",
+  },
+  {
+    name: "exxonmobil-operator",
+    test: (s) => {
+      const op = (s.operatorName ?? "").toLowerCase();
+      return op.includes("exxon") || op.includes("exxonmobil");
+    },
+    grades: ["Duplex 2205", "Super Duplex 2507", "316L"],
+    applications: [
+      "Process Piping",
+      "Cargo Oil Tanks",
+      "Produced Water Treatment",
+    ],
+    reason:
+      "ExxonMobil operator: GP3/GP(E) material specifications. Duplex 2205 for critical service, 316L for utility.",
+  },
+];
+
+// ---- Default fallback ---------------------------------------------------
+
+const DEFAULT_RESULT: MaterialMatchResult = {
+  grades: [
+    { grade: "316L", in_factory_scope: true },
+    { grade: "Duplex 2205", in_factory_scope: true },
+  ],
+  applications: ["Process Piping", "Cargo Oil Tanks"],
+  confidence: "low",
+  reasoning:
+    "Insufficient technical data for rule-based matching. Defaulting to 316L (general service) and Duplex 2205 (critical piping). Add water depth, capacity, or hull type for targeted recommendations.",
+  excluded_grades: [],
+  factory_filtered: false,
+};
+
+// ---- Engine --------------------------------------------------------------
+
+/**
+ * Match stainless steel grades and applications based on FPSO technical specs.
+ *
+ * Each matching rule that fires contributes grade and application recommendations.
+ * Results are deduplicated and ranked by frequency. Carbon steel and other
+ * excluded grades are filtered out. Each grade is annotated with the factory's
+ * production capability status (in_factory_scope).
+ *
+ * @param specs - Technical specification fields. All nullable — only non-null
+ *                values contribute to matching.
+ * @returns Structured recommendation with grades, applications, confidence, and reasoning.
+ */
+export function matchMaterials(specs: TechnicalSpecs): MaterialMatchResult {
+  const firedRules: Rule[] = [];
+
+  for (const rule of RULES) {
+    try {
+      if (rule.test(specs)) {
+        firedRules.push(rule);
+      }
+    } catch {
+      // Skip rules that throw on unexpected input
+    }
+  }
+
+  if (firedRules.length === 0) {
+    return DEFAULT_RESULT;
+  }
+
+  // Aggregate grades and applications with frequency counting
+  const gradeCounts = new Map<string, number>();
+  const appCounts = new Map<string, number>();
+  const reasons: string[] = [];
+
+  for (const rule of firedRules) {
+    for (const g of rule.grades) {
+      gradeCounts.set(g, (gradeCounts.get(g) ?? 0) + 1);
+    }
+    for (const a of rule.applications) {
+      appCounts.set(a, (appCounts.get(a) ?? 0) + 1);
+    }
+    reasons.push(rule.reason);
+  }
+
+  // Sort by frequency (descending), then alphabetically
+  const sortedGrades = [...gradeCounts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([name]) => name);
+
+  // Filter out carbon steel and other excluded grades
+  const excludedGrades: string[] = [];
+  const keptGrades: string[] = [];
+  for (const g of sortedGrades) {
+    if (isGradeExcluded(g)) {
+      excludedGrades.push(g);
+    } else {
+      keptGrades.push(g);
+    }
+  }
+
+  const factoryFiltered = excludedGrades.length > 0;
+
+  // If all grades were filtered out, fall back to default producible grades
+  const finalGrades =
+    keptGrades.length > 0 ? keptGrades : ["316L", "Duplex 2205"];
+
+  // Build GradeRecommendation array with in_factory_scope annotation
+  const gradeRecommendations: GradeRecommendation[] = finalGrades.map((g) => ({
+    grade: g,
+    in_factory_scope: isGradeProducible(g),
+  }));
+
+  const sortedApps = [...appCounts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([name]) => name);
+
+  // Confidence heuristic
+  const dataPoints = [
+    specs.waterDepthM,
+    specs.oilCapacityBpd,
+    specs.gasCapacityMmcmd,
+    specs.hullType,
+    specs.fieldName,
+    specs.operatorName,
+    specs.basin,
+  ].filter((v) => v != null && v !== "").length;
+
+  let confidence: "high" | "medium" | "low";
+  if (firedRules.length >= 3 && dataPoints >= 3) {
+    confidence = "high";
+  } else if (firedRules.length >= 2) {
+    confidence = "medium";
+  } else {
+    confidence = "low";
+  }
+
+  // Append factory filter note to reasoning
+  let reasoning = reasons.join(" ");
+  if (factoryFiltered) {
+    reasoning +=
+      ` [Factory filter: excluded ${excludedGrades.join(", ")} — not in production capability.]`;
+  } else if (finalGrades.length > 0) {
+    reasoning +=
+      ` [Factory filter: all recommended grades are producible.]`;
+  }
+
+  return {
+    grades: gradeRecommendations,
+    applications: sortedApps,
+    confidence,
+    reasoning,
+    excluded_grades: excludedGrades,
+    factory_filtered: factoryFiltered,
+  };
+}
+
+/**
+ * Convenience: run matching and return only the grade name strings.
+ * For backward compatibility — returns flat string array.
+ */
+export function matchGrades(specs: TechnicalSpecs): string[] {
+  return matchMaterials(specs).grades.map((g) => g.grade);
+}
+
+/**
+ * Check whether the factory can manufacture a specific material grade.
+ *
+ * @param grade - Grade name string, e.g. "316L", "Duplex 2205", "A106 Gr B".
+ * @returns true if the grade is within factory production capability.
+ */
+export function canManufacture(grade: string): boolean {
+  return isGradeProducible(grade) && !isGradeExcluded(grade);
+}
+
+/**
+ * Infer the product types a project likely needs based on its equipment
+ * description or project type text.
+ *
+ * Uses keyword-based heuristics mapped to the factory's product catalog.
+ * Results are tagged "AI推断" with medium confidence by default.
+ *
+ * @param description - Project description, equipment list, or scope text.
+ * @returns Array of inferred product needs, deduplicated by product type.
+ */
+export function inferProductNeeds(description: string): InferredProductNeed[] {
+  if (!description || description.trim().length === 0) return [];
+
+  const lower = description.toLowerCase();
+  const results: InferredProductNeed[] = [];
+
+  // Define keyword → product type mappings
+  const mappings: { keywords: string[]; productType: ProductType; label: string; defaultConfidence: "high" | "medium" | "low" }[] = [
+    // Heat exchanger → tubes and pipes
+    {
+      keywords: ["heat exchanger", "shell and tube", "heater", "cooler", "condenser", "evaporator", "reboiler"],
+      productType: "SEAMLESS_TUBE",
+      label: "无缝管件",
+      defaultConfidence: "high",
+    },
+    {
+      keywords: ["heat exchanger", "heater", "cooler", "condenser"],
+      productType: "SEAMLESS_PIPE",
+      label: "无缝管",
+      defaultConfidence: "medium",
+    },
+    // Pump → flanges and fittings
+    {
+      keywords: ["pump", "compressor", "centrifugal"],
+      productType: "FLANGES",
+      label: "法兰",
+      defaultConfidence: "high",
+    },
+    {
+      keywords: ["pump", "compressor"],
+      productType: "PIPE_FITTINGS",
+      label: "管件",
+      defaultConfidence: "medium",
+    },
+    // Riser / flowline → seamless pipe and coiled tubing
+    {
+      keywords: ["riser", "flowline", "pipeline", "export line", "infield line"],
+      productType: "SEAMLESS_PIPE",
+      label: "无缝管",
+      defaultConfidence: "high",
+    },
+    {
+      keywords: ["riser", "flowline", "coiled tubing", "intervention"],
+      productType: "COILED_TUBING",
+      label: "盘管",
+      defaultConfidence: "medium",
+    },
+    // Water treatment / desalination → various
+    {
+      keywords: ["water treatment", "desalination", "reverse osmosis", "filtration", "produced water", "injection water"],
+      productType: "SEAMLESS_TUBE",
+      label: "无缝管件",
+      defaultConfidence: "medium",
+    },
+    {
+      keywords: ["water treatment", "desalination", "reverse osmosis", "produced water"],
+      productType: "PIPE_FITTINGS",
+      label: "管件",
+      defaultConfidence: "medium",
+    },
+    // Structural / topsides → welded pipe
+    {
+      keywords: ["topsides", "deck", "hull", "structure", "platform", "jacket"],
+      productType: "WELDED_PIPE",
+      label: "焊管",
+      defaultConfidence: "medium",
+    },
+    // Mooring → forged fittings
+    {
+      keywords: ["mooring", "anchor", "fairlead", "chain", "hawser"],
+      productType: "FORGED_FITTINGS",
+      label: "锻制管件",
+      defaultConfidence: "medium",
+    },
+    // Subsea → various high-spec
+    {
+      keywords: ["subsea", "manifold", "tree", "wellhead", "xmas tree"],
+      productType: "FORGED_FITTINGS",
+      label: "锻制管件",
+      defaultConfidence: "high",
+    },
+    {
+      keywords: ["subsea", "manifold", "umbilical"],
+      productType: "SEAMLESS_TUBE",
+      label: "无缝管件",
+      defaultConfidence: "medium",
+    },
+    // General piping references
+    {
+      keywords: ["pipe", "piping", "pipeline", "tubing"],
+      productType: "SEAMLESS_PIPE",
+      label: "无缝管",
+      defaultConfidence: "low",
+    },
+    {
+      keywords: ["pipe", "piping", "pipeline"],
+      productType: "WELDED_PIPE",
+      label: "焊管",
+      defaultConfidence: "low",
+    },
+  ];
+
+  for (const mapping of mappings) {
+    for (const kw of mapping.keywords) {
+      if (lower.includes(kw)) {
+        // Check if this product type is already in results
+        if (!results.some((r) => r.productType === mapping.productType)) {
+          results.push({
+            productType: mapping.productType,
+            label: mapping.label,
+            confidence: mapping.defaultConfidence,
+            trigger: kw,
+            source: "AI推断",
+          });
+        }
+        break;
+      }
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Match a project against the factory's target and excluded customer profiles.
+ *
+ * Analyzes project description, name, and equipment text to determine whether
+ * the end customer is a good fit for the factory's ideal buyer profile.
+ * Also checks for exclusion signals (small traders, stock clearances, etc.).
+ *
+ * @param projectText - Combined text from project name, description,
+ *                      equipment scope, and any other contextual fields.
+ * @returns Match result with boolean verdict and detailed type labels.
+ */
+export function matchCustomerType(projectText: string): CustomerTypeMatch {
+  if (!projectText || projectText.trim().length === 0) {
+    return {
+      isTarget: false,
+      matchedTypes: [],
+      matchedLabels: [],
+      hasExclusion: false,
+      exclusionTypes: [],
+    };
+  }
+
+  const lower = projectText.toLowerCase();
+
+  // Check target customer type keywords
+  const matchedTypes: TargetCustomerType[] = [];
+  const matchedLabels: string[] = [];
+
+  for (const [typeKey, keywords] of Object.entries(TARGET_CUSTOMER_KEYWORDS)) {
+    const matched = keywords.some((kw) => lower.includes(kw.toLowerCase()));
+    if (matched) {
+      matchedTypes.push(typeKey as TargetCustomerType);
+      const labelMap: Record<string, string> = {
+        HEAT_EXCHANGER_MANUFACTURER: "换热器制造商",
+        SS_PIPE_DISTRIBUTOR: "不锈钢管分销商",
+        WATER_TREATMENT_EPC: "水处理方案商",
+        OFFSHORE_PLATFORM_EPC: "海上钻井平台方案商",
+      };
+      matchedLabels.push(labelMap[typeKey] ?? typeKey);
+    }
+  }
+
+  // Check exclusion keywords
+  const exclusionTypes: string[] = [];
+  for (const [exclKey, keywords] of Object.entries(EXCLUDED_CUSTOMER_KEYWORDS)) {
+    const matched = keywords.some((kw) => lower.includes(kw.toLowerCase()));
+    if (matched) {
+      exclusionTypes.push(exclKey);
+    }
+  }
+
+  const isTarget = matchedTypes.length > 0 && exclusionTypes.length === 0;
+  const hasExclusion = exclusionTypes.length > 0;
+
+  return {
+    isTarget,
+    matchedTypes,
+    matchedLabels,
+    hasExclusion,
+    exclusionTypes,
+  };
+}
+
+/**
+ * Parse a raw recommendation_json value back into a MaterialMatchResult.
+ * Handles both legacy format (grades: string[]) and v2 format (grades: GradeRecommendation[]).
+ * Returns null if the JSON is missing or malformed.
+ */
+export function parseRecommendation(
+  json: string | null | undefined,
+): MaterialMatchResult | null {
+  if (!json) return null;
+  try {
+    const parsed = JSON.parse(json);
+    if (
+      Array.isArray(parsed.grades) &&
+      Array.isArray(parsed.applications) &&
+      typeof parsed.confidence === "string" &&
+      typeof parsed.reasoning === "string"
+    ) {
+      // Normalize grades: legacy string[] → GradeRecommendation[]
+      const normalizedGrades: GradeRecommendation[] = parsed.grades.map(
+        (g: string | GradeRecommendation) => {
+          if (typeof g === "string") {
+            return {
+              grade: g,
+              in_factory_scope: isGradeProducible(g),
+            };
+          }
+          return {
+            grade: g.grade,
+            in_factory_scope: g.in_factory_scope ?? isGradeProducible(g.grade),
+          };
+        },
+      );
+
+      return {
+        grades: normalizedGrades,
+        applications: parsed.applications,
+        confidence: parsed.confidence,
+        reasoning: parsed.reasoning,
+        excluded_grades: parsed.excluded_grades ?? [],
+        factory_filtered: parsed.factory_filtered ?? false,
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Build TechnicalSpecs from a raw Supabase row (snake_case columns).
+ */
+export function specsFromRow(row: Record<string, unknown>): TechnicalSpecs {
+  const toNum = (v: unknown): number | null => {
+    if (v == null || v === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  const toStr = (v: unknown): string | null => {
+    if (v == null || v === "") return null;
+    return String(v).trim() || null;
+  };
+
+  return {
+    waterDepthM: toNum(row.water_depth_m),
+    oilCapacityBpd: toNum(row.oil_capacity_bpd),
+    gasCapacityMmcmd: toNum(row.gas_capacity_mmcmd),
+    hullType: toStr(row.hull_type),
+    fieldName: toStr(row.field_name),
+    operatorName: toStr(row.operator_name),
+    basin: toStr(row.basin),
+  };
+}
+
+/**
+ * Check if a TechnicalSpecs has any meaningful data.
+ */
+export function hasAnySpecs(specs: TechnicalSpecs): boolean {
+  return (
+    specs.waterDepthM != null ||
+    specs.oilCapacityBpd != null ||
+    specs.gasCapacityMmcmd != null ||
+    (specs.hullType != null && specs.hullType !== "") ||
+    (specs.fieldName != null && specs.fieldName !== "") ||
+    (specs.operatorName != null && specs.operatorName !== "") ||
+    (specs.basin != null && specs.basin !== "")
+  );
+}

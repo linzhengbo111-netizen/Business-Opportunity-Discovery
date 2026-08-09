@@ -17,10 +17,12 @@ import { countryCoordinates, sampleProjects, countryToFlagEmoji, COUNTRY_ALIASES
 import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
 import { supabase } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
+import { useSubscription } from "@/hooks/useSubscription";
 import { matchMaterials, specsFromRow, hasAnySpecs, parseRecommendation } from "@/lib/material_matcher";
 import { Building2, Hammer, CalendarDays, PlusCircle, Anchor, Waves, Gauge } from "lucide-react";
 import FilterSidebar from "@/components/dashboard/FilterSidebar";
 import { motion } from "motion/react";
+import { Button } from "@/components/ui/button";
 
 /** A single timeline milestone from candidate_events. */
 interface TimelineEvent {
@@ -322,6 +324,7 @@ export default function DashboardPage() {
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(false);
   const { version, status: connectionStatus } = useProjectRealtime();
+  const { isFollowing, toggleFollowProject, isAuthenticated } = useSubscription();
 
   // ---- 从 Supabase 获取项目数据 ----
   useEffect(() => {
@@ -549,21 +552,38 @@ export default function DashboardPage() {
       setTimelineEvents([]);
       return;
     }
-    const canonicalId = normalizeProjectName(selectedProject.name);
-    if (!canonicalId) {
-      setTimelineEvents([]);
-      return;
-    }
+
+    const projectName = selectedProject.name;
+    const canonicalId = normalizeProjectName(projectName);
 
     let cancelled = false;
     setTimelineLoading(true);
 
     async function fetchTimeline() {
-      const { data, error } = await supabase
-        .from("candidate_events")
-        .select("id, event_type, publication_date, source_name, source_url, evidence_quote, summary")
-        .eq("canonical_project_id", canonicalId)
-        .order("publication_date", { ascending: true });
+      let data: Record<string, unknown>[] | null = null;
+      let error: { message: string } | null = null;
+
+      if (canonicalId) {
+        // Primary path: query by canonical_project_id
+        const result = await supabase
+          .from("candidate_events")
+          .select("id, event_type, publication_date, source_name, source_url, evidence_quote, summary")
+          .eq("canonical_project_id", canonicalId)
+          .order("publication_date", { ascending: true });
+        data = result.data;
+        error = result.error;
+      } else {
+        // Fallback: query by project_name_raw (fuzzy match) when no canonical ID
+        // Handles projects promoted from NSTA fields, news headlines, etc.
+        // that are not in the PROJECT_ALIASES registry.
+        const result = await supabase
+          .from("candidate_events")
+          .select("id, event_type, publication_date, source_name, source_url, evidence_quote, summary")
+          .ilike("project_name_raw", `%${projectName.slice(0, 40)}%`)
+          .order("publication_date", { ascending: true });
+        data = result.data;
+        error = result.error;
+      }
 
       if (cancelled) return;
 
@@ -1189,6 +1209,24 @@ export default function DashboardPage() {
                 )}
               </div>
 
+              {/* follow / unfollow button */}
+              {isAuthenticated && (
+                <div>
+                  <Button
+                    variant={isFollowing(selectedProject.name) ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => toggleFollowProject(selectedProject.name)}
+                    className={
+                      isFollowing(selectedProject.name)
+                        ? 'bg-fpso-blue hover:bg-fpso-blue/80 text-white text-xs'
+                        : 'border-fpso-blue/30 text-fpso-blue hover:bg-fpso-blue/10 text-xs'
+                    }
+                  >
+                    {isFollowing(selectedProject.name) ? '★ Following' : '☆ Follow'}
+                  </Button>
+                </div>
+              )}
+
               {/* 完整摘要 */}
               <div>
                 <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">Summary</h4>
@@ -1296,8 +1334,16 @@ export default function DashboardPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs text-fpso-muted">Grades:</span>
                         {rec.grades.map((g) => (
-                          <span key={g} className="rounded bg-fpso-blue/10 px-2 py-0.5 text-xs font-medium text-fpso-blue">
-                            {g}
+                          <span
+                            key={g.grade}
+                            className={`rounded px-2 py-0.5 text-xs font-medium ${
+                              g.in_factory_scope
+                                ? "bg-fpso-blue/10 text-fpso-blue"
+                                : "bg-red-500/10 text-red-400 line-through"
+                            }`}
+                          >
+                            {g.grade}
+                            {g.in_factory_scope ? "" : " (not producible)"}
                           </span>
                         ))}
                       </div>
@@ -1367,7 +1413,7 @@ export default function DashboardPage() {
                   </svg>
                   <p className="text-sm text-fpso-muted">No milestone events found for this project.</p>
                   <p className="text-xs text-fpso-dim mt-1">
-                    Timeline data is sourced from candidate_events with a matching canonical project ID.
+                    No matching events in candidate_events for this project. Data may appear after the next crawl.
                   </p>
                 </div>
               ) : (
@@ -1428,11 +1474,16 @@ export default function DashboardPage() {
                     type="button"
                     onClick={() => {
                       const canonicalId = normalizeProjectName(selectedProject.name);
+                      const params = new URLSearchParams();
                       if (canonicalId) {
-                        setSelectedProject(null);
-                        setModalTab("overview");
-                        navigate(`/project-timeline?project=${encodeURIComponent(canonicalId)}`);
+                        params.set("project", canonicalId);
+                      } else {
+                        // Fallback: pass raw project name for unmatched projects
+                        params.set("projectName", selectedProject.name);
                       }
+                      setSelectedProject(null);
+                      setModalTab("overview");
+                      navigate(`/project-timeline?${params.toString()}`);
                     }}
                     className="text-xs text-fpso-blue/70 hover:text-fpso-blue transition-colors inline-flex items-center gap-1"
                   >
