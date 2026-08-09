@@ -575,8 +575,8 @@ export default function DashboardPage() {
                   <Building2 className="h-4 w-4 text-fpso-blue" />
                 </span>
                 <div className="min-w-0">
-                  <div className="truncate text-[10px] font-semibold uppercase tracking-widest text-fpso-muted">Total Projects</div>
-                  <div className="font-mono text-2xl font-bold text-fpso-fg tabular-nums leading-tight">{filteredStats.total}</div>
+                  <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Total Projects</div>
+                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300" style={{ textShadow: "0 0 8px rgba(0,212,255,0.5)" }}>{filteredStats.total}</div>
                 </div>
               </div>
             </div>
@@ -591,9 +591,9 @@ export default function DashboardPage() {
                   <Hammer className="h-4 w-4 text-fpso-blue" />
                 </span>
                 <div className="min-w-0">
-                  <div className="truncate text-[10px] font-semibold uppercase tracking-widest text-fpso-muted">Active</div>
-                  <div className="font-mono text-2xl font-bold text-fpso-blue tabular-nums leading-tight">{filteredStats.active}</div>
-                  <div className="truncate text-[10px] text-fpso-dim">Under Construction</div>
+                  <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Active</div>
+                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300" style={{ textShadow: "0 0 8px rgba(0,212,255,0.5)" }}>{filteredStats.active}</div>
+                  <div className="truncate text-xs text-fpso-dim">Under Construction</div>
                 </div>
               </div>
             </div>
@@ -608,9 +608,9 @@ export default function DashboardPage() {
                   <CalendarDays className="h-4 w-4 text-fpso-orange" />
                 </span>
                 <div className="min-w-0">
-                  <div className="truncate text-[10px] font-semibold uppercase tracking-widest text-fpso-muted">Planned</div>
-                  <div className="font-mono text-2xl font-bold text-fpso-orange tabular-nums leading-tight">{filteredStats.planned}</div>
-                  <div className="truncate text-[10px] text-fpso-dim">Future Projects</div>
+                  <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Planned</div>
+                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300" style={{ textShadow: "0 0 8px rgba(0,212,255,0.5)" }}>{filteredStats.planned}</div>
+                  <div className="truncate text-xs text-fpso-dim">Future Projects</div>
                 </div>
               </div>
             </div>
@@ -625,9 +625,9 @@ export default function DashboardPage() {
                   <PlusCircle className="h-4 w-4 text-fpso-green" />
                 </span>
                 <div className="min-w-0">
-                  <div className="truncate text-[10px] font-semibold uppercase tracking-widest text-fpso-muted">Added This Week</div>
-                  <div className="font-mono text-2xl font-bold text-fpso-green tabular-nums leading-tight">{filteredStats.addedThisWeek}</div>
-                  <div className="truncate text-[10px] text-fpso-dim">New Discoveries</div>
+                  <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Added This Week</div>
+                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300" style={{ textShadow: "0 0 8px rgba(0,212,255,0.5)" }}>{filteredStats.addedThisWeek}</div>
+                  <div className="truncate text-xs text-fpso-dim">New Discoveries</div>
                 </div>
               </div>
             </div>
