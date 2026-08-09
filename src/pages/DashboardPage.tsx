@@ -1418,6 +1418,26 @@ export default function DashboardPage() {
                   </div>
                 </div>
               )}
+
+              {/* Link to full timeline page */}
+              {isFpso && (
+                <div className="mt-5 pt-3 border-t border-white/5 text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const canonicalId = normalizeProjectName(selectedProject.name);
+                      if (canonicalId) {
+                        setSelectedProject(null);
+                        setModalTab("overview");
+                        navigate(`/project-timeline?project=${encodeURIComponent(canonicalId)}`);
+                      }
+                    }}
+                    className="text-xs text-fpso-blue/70 hover:text-fpso-blue transition-colors inline-flex items-center gap-1"
+                  >
+                    查看完整时间线 <span className="text-[0.8em]">→</span>
+                  </button>
+                </div>
+              )}
             </div>
             )}
           </div>
