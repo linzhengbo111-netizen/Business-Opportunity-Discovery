@@ -63,7 +63,7 @@ except ImportError:
     PDFPLUMBER_AVAILABLE = False
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from media_common import _safe_decode_response
+from media_common import _safe_decode_response, extract_corrosive_media
 
 # ---- Paths ---------------------------------------------------------------
 
@@ -1252,6 +1252,9 @@ def build_candidate_event(doc: dict, raw_html_path: str = "") -> dict:
     gas_cap = extract_gas_capacity_from_text(combined_text)
     hull_type = extract_hull_type_from_text(combined_text)
 
+    # 腐蚀性介质提取 (H2S, CO2, sour service, chloride)
+    corrosive_media = extract_corrosive_media(combined_text)
+
     # PDF-extracted technical specs (from parse_technical_specs)
     pdf_specs = doc.get("_pdf_specs", {}) or {}
     pdf_stainless = pdf_specs.get("stainless_steel", "")
@@ -1293,6 +1296,7 @@ def build_candidate_event(doc: dict, raw_html_path: str = "") -> dict:
         # PDF 文本提取字段
         "stainless_steel": pdf_stainless if pdf_stainless else None,
         "application": pdf_application if pdf_application else None,
+        "corrosive_media": json.dumps(corrosive_media) if any([corrosive_media.get("h2s"), corrosive_media.get("co2"), corrosive_media.get("sour_service"), corrosive_media.get("chloride")]) else None,
     }
 
 
