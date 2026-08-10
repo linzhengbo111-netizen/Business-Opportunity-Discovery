@@ -508,14 +508,14 @@ export default function DashboardPage() {
       .concat(count["Unknown"] ? [{ name: "Unknown", value: count["Unknown"] }] : []);
   }, [filteredProjects]);
 
-  // 地图光点 — 只显示筛选后项目所在国家
-  const filteredCountries = useMemo(
-    () => getUniqueCountries(filteredProjects),
-    [filteredProjects],
+  // 地图光点 — 始终基于全部项目（不受筛选影响），点击光点仍会联动下拉框筛选
+  const allCountries = useMemo(
+    () => getUniqueCountries(projects),
+    [projects],
   );
 
   const mapDots = useMemo(() => {
-    const mapped = filteredCountries.filter((c) => countryCoordinates[c]);
+    const mapped = allCountries.filter((c) => countryCoordinates[c]);
     mapped.sort((a, b) => countryCoordinates[b].x - countryCoordinates[a].x);
     return mapped.map((country, index) => ({
       country,
@@ -523,13 +523,13 @@ export default function DashboardPage() {
       y: countryCoordinates[country].y,
       delay: `${index * 0.2}s`,
     }));
-  }, [filteredCountries]);
+  }, [allCountries]);
 
   // 诊断日志: 打印有光点 / 缺失坐标的国家
   useEffect(() => {
     if (loading) return;
-    const withDots = filteredCountries.filter((c) => countryCoordinates[c]);
-    const withoutDots = filteredCountries.filter((c) => !countryCoordinates[c]);
+    const withDots = allCountries.filter((c) => countryCoordinates[c]);
+    const withoutDots = allCountries.filter((c) => !countryCoordinates[c]);
     console.log(
       `[Map] %c${withDots.length} countries with dots:%c`,
       "color:#00d4ff;font-weight:bold",
@@ -546,7 +546,7 @@ export default function DashboardPage() {
     } else {
       console.log("[Map] ✅ All countries have coordinates.");
     }
-  }, [filteredCountries, loading]);
+  }, [allCountries, loading]);
 
   // ---- 获取项目时间线事件 ----
   useEffect(() => {
