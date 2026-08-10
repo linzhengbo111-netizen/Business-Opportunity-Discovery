@@ -189,7 +189,7 @@ export default function DatabasePage() {
   });
   const [countryFilter, setCountryFilter] = useState("All Countries");
   const [statusFilter, setStatusFilter] = useState("Active Projects");
-  const [confidenceFilter, setConfidenceFilter] = useState("All");
+  const [confidenceFilter, setConfidenceFilter] = useState("High & Medium");
   const [nameSearch, setNameSearch] = useState("");
 
   // pagination
@@ -259,7 +259,11 @@ export default function DatabasePage() {
     } else if (statusFilter !== "All") {
       list = list.filter((p) => p.status === statusFilter);
     }
-    if (confidenceFilter !== "All") {
+    if (confidenceFilter === "High & Medium") {
+      list = list.filter(
+        (p) => (p.confidence ?? "medium") !== "low",
+      );
+    } else if (confidenceFilter !== "All") {
       list = list.filter(
         (p) => (p.confidence ?? "medium") === confidenceFilter.toLowerCase(),
       );
@@ -389,10 +393,11 @@ export default function DatabasePage() {
               onChange={(e) => setConfidenceFilter(e.target.value)}
               className="h-8 min-w-[120px] rounded-md bg-fpso-bg/70 px-2.5 py-1 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50 border border-fpso-border"
             >
-              <option value="All">All</option>
+              <option value="High & Medium">High &amp; Medium</option>
               <option value="High">High</option>
               <option value="Medium">Medium</option>
               <option value="Low">Low</option>
+              <option value="All">All</option>
             </select>
           </div>
 

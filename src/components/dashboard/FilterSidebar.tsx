@@ -9,7 +9,7 @@ const INDUSTRY_OPTIONS = [
   "General Stainless",
 ] as const;
 
-const CONFIDENCE_OPTIONS = ["All", "High", "Medium", "Low"] as const;
+const CONFIDENCE_OPTIONS = ["High & Medium", "High", "Medium", "Low", "All"] as const;
 
 const STATUS_OPTIONS = [
   { label: "Under Construction", color: "#00d4ff" },

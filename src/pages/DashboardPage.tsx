@@ -316,7 +316,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [selectedCountry, setSelectedCountry] = useState("All Countries");
   const [selectedIndustry, setSelectedIndustry] = useState("All Industries");
-  const [selectedConfidence, setSelectedConfidence] = useState("All");
+  const [selectedConfidence, setSelectedConfidence] = useState("High & Medium");
   const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(
     new Set(["Under Construction", "Planned"]),
   );
@@ -466,7 +466,11 @@ export default function DashboardPage() {
     if (selectedIndustry !== "All Industries") {
       result = result.filter((p) => (p.industry ?? "FPSO") === selectedIndustry);
     }
-    if (selectedConfidence !== "All") {
+    if (selectedConfidence === "High & Medium") {
+      result = result.filter(
+        (p) => (p.confidence ?? "medium") !== "low",
+      );
+    } else if (selectedConfidence !== "All") {
       result = result.filter(
         (p) => (p.confidence ?? "medium") === selectedConfidence.toLowerCase(),
       );
@@ -637,7 +641,7 @@ export default function DashboardPage() {
   function clearAllFilters() {
     setSelectedCountry("All Countries");
     setSelectedIndustry("All Industries");
-    setSelectedConfidence("All");
+    setSelectedConfidence("High & Medium");
     setSelectedStatuses(new Set(["Under Construction", "Planned"]));
   }
 
