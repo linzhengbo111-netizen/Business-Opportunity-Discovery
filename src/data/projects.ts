@@ -156,12 +156,25 @@ export const countryCoordinates: Record<string, CountryCoordinate> = {
   Ghana:              { x: 50, y: 46 },  //  ~8°N  2°W (slightly right to avoid overlap)
 
   // ---- 欧洲 ----
-  UK: { x: 49, y: 19 },  // ~55°N 3°W
+  UK:     { x: 49, y: 19 },  // ~55°N 3°W
+  Norway: { x: 53, y: 16 },  // ~62°N 10°E — estimated
 
   // ---- 亚洲 ----
   Indonesia: { x: 83, y: 51 },  //  ~2°S 118°E
   Singapore: { x: 79, y: 49 },  //  ~1°N 104°E
   Vietnam:   { x: 80, y: 42 },  // ~14°N 108°E
+  China:     { x: 79, y: 31 },  // ~35°N 105°E — estimated
+  Malaysia:  { x: 80, y: 48 },  //  ~4°N 109°E — estimated (incl. East Malaysia)
+  India:     { x: 72, y: 38 },  // ~21°N 78°E — estimated
+
+  // ---- 中东 ----
+  Israel: { x: 60, y: 33 },  // ~31°N 35°E — estimated
+
+  // ---- 北美洲 ----
+  USA: { x: 25, y: 34 },  // ~28°N 90°W — estimated (Gulf of Mexico)
+
+  // ---- 大洋洲 ----
+  Australia: { x: 87, y: 64 },  // ~25°S 133°E — estimated
 };
 
 /**
