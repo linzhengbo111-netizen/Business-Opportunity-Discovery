@@ -22,6 +22,7 @@ import { matchMaterials, specsFromRow, hasAnySpecs, parseRecommendation, parseCo
 import { exportOpportunityList } from "@/lib/export_opportunities";
 import { scoreOpportunity, scoreBadgeClass } from "@/lib/opportunity_scorer";
 import BattleCardWrapper from "@/components/dashboard/BattleCard";
+import FollowUpStatus from "@/components/dashboard/FollowUpStatus";
 import { Building2, Hammer, CalendarDays, PlusCircle, Anchor, Waves, Gauge } from "lucide-react";
 import FilterSidebar from "@/components/dashboard/FilterSidebar";
 import { motion } from "motion/react";
@@ -1270,6 +1271,14 @@ export default function DashboardPage() {
                   </Button>
                 </div>
               )}
+
+              {/* Follow-up Status (S7) */}
+              <div className="mb-5">
+                <FollowUpStatus
+                  projectId={selectedProject.name}
+                  projectName={selectedProject.name}
+                />
+              </div>
 
               {/* 完整摘要 */}
               <div>

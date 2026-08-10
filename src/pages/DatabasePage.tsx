@@ -15,6 +15,7 @@ import { useProjectRealtime } from "@/hooks/useProjectRealtime";
 import { hasAnySpecs, parseRecommendation, parseCorrosiveMedia, getCorrosiveMediaTags, getCorrosiveMediaDetails } from "@/lib/material_matcher";
 import { scoreOpportunity, scoreBadgeClass } from "@/lib/opportunity_scorer";
 import BattleCardWrapper from "@/components/dashboard/BattleCard";
+import FollowUpStatus from "@/components/dashboard/FollowUpStatus";
 import { useSubscription } from "@/hooks/useSubscription";
 import { Button } from "@/components/ui/button";
 
@@ -667,6 +668,14 @@ export default function DatabasePage() {
                 </Button>
               </div>
             )}
+
+            {/* Follow-up Status (S7) */}
+            <section className="mb-6">
+              <FollowUpStatus
+                projectId={selected.name}
+                projectName={selected.name}
+              />
+            </section>
 
             {/* summary */}
             <section className="mb-6">

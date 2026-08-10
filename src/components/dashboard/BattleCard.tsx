@@ -6,9 +6,10 @@
  * and quick sales prep. Dark terminal theme matching the app.
  */
 
-import { useRef, useCallback, useState } from "react";
+import { useRef, useCallback, useState, useEffect } from "react";
 import { generateBattleCard, type BattleCard } from "@/lib/battle_card";
 import type { Project } from "@/data/projects";
+import { useFollowUp, FOLLOW_UP_STATUS_LABELS, type FollowUp } from "@/hooks/useFollowUp";
 
 // ---------------------------------------------------------------------------
 // Grade colour helpers
@@ -132,15 +133,30 @@ function EmptyState() {
 interface BattleCardViewProps {
   card: BattleCard;
   innerRef: React.Ref<HTMLDivElement>;
+  followUp?: FollowUp | null;
 }
 
-function BattleCardView({ card, innerRef }: BattleCardViewProps) {
+function BattleCardView({ card, innerRef, followUp }: BattleCardViewProps) {
+  const showBanner = followUp && (followUp.status === "invalid" || followUp.status === "closed");
   return (
     <div
       ref={innerRef}
       className="battle-card w-full max-w-2xl mx-auto rounded-xl border border-white/5 bg-fpso-card/60 backdrop-blur-md shadow-2xl overflow-hidden"
       style={{ minWidth: 600 }}
     >
+      {/* ---- invalid / closed banner ---- */}
+      {showBanner && (
+        <div className={`px-4 py-2 text-center text-xs font-semibold ${
+          followUp!.status === "invalid"
+            ? "bg-fpso-muted/20 text-fpso-muted"
+            : "bg-fpso-green/10 text-fpso-green"
+        }`}>
+          {followUp!.status === "invalid"
+            ? "This project has been marked as Invalid — 已标记为无效商机"
+            : "This project has been Closed — 已成交"}
+        </div>
+      )}
+
       {/* ---- top bar ---- */}
       <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-white/5 bg-fpso-bg/40">
         <div className="min-w-0 flex-1">
@@ -271,7 +287,20 @@ function BattleCardView({ card, innerRef }: BattleCardViewProps) {
 
       {/* ---- footer ---- */}
       <div className="flex items-center justify-between px-5 py-3 border-t border-white/5 bg-fpso-bg/30 text-[10px] text-fpso-dim">
-        <span>{card.evidenceSummary}</span>
+        <div className="flex items-center gap-3">
+          <span>{card.evidenceSummary}</span>
+          {followUp && (
+            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border ${
+              followUp.status === "contacted" ? "bg-fpso-blue/15 text-fpso-blue border-fpso-blue/30" :
+              followUp.status === "valid" ? "bg-fpso-green/15 text-fpso-green border-fpso-green/30" :
+              followUp.status === "inquiry" ? "bg-fpso-orange/15 text-fpso-orange border-fpso-orange/30" :
+              followUp.status === "invalid" ? "bg-fpso-muted/15 text-fpso-muted border-fpso-muted/30" :
+              "bg-fpso-green/15 text-fpso-green border-fpso-green/30"
+            }`}>
+              {FOLLOW_UP_STATUS_LABELS[followUp.status]}
+            </span>
+          )}
+        </div>
         <span className="font-mono">
           {new Date(card.generatedAt).toLocaleString("zh-CN", {
             year: "numeric",
@@ -298,8 +327,16 @@ interface BattleCardWrapperProps {
 export default function BattleCardWrapper({ project, baseUrl }: BattleCardWrapperProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
+  const [followUp, setFollowUp] = useState<FollowUp | null>(null);
+
+  const { getFollowUp } = useFollowUp();
 
   const card = generateBattleCard(project, baseUrl);
+
+  // Fetch follow-up status on mount
+  useEffect(() => {
+    getFollowUp(project.name).then(setFollowUp);
+  }, [project.name, getFollowUp]);
 
   const filename = `BattleCard_${project.name.replace(/[^a-zA-Z0-9一-鿿]/g, "_")}_${card.generatedAt.slice(0, 10)}.png`;
 
@@ -322,7 +359,7 @@ export default function BattleCardWrapper({ project, baseUrl }: BattleCardWrappe
   return (
     <div className="space-y-3">
       {/* Battle card display */}
-      <BattleCardView card={card} innerRef={cardRef} />
+      <BattleCardView card={card} innerRef={cardRef} followUp={followUp} />
 
       {/* Action buttons */}
       <div className="flex items-center justify-center gap-3 pb-2 no-print">

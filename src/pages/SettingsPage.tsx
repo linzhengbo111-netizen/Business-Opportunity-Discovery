@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Header from '@/components/common/Header';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription, INDUSTRY_OPTIONS } from '@/hooks/useSubscription';
+import { useFollowUp, FOLLOW_UP_STATUS_LABELS, FOLLOW_UP_STATUS_COLORS, type FollowUp, type FollowUpStatus } from '@/hooks/useFollowUp';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,6 +14,7 @@ import { toast } from 'sonner';
 
 export default function SettingsPage() {
   const { user, isAuthenticated, login } = useAuth();
+  const navigate = useNavigate();
   const {
     subscription,
     loading,
@@ -21,10 +24,37 @@ export default function SettingsPage() {
     isFollowing,
   } = useSubscription();
 
+  const { getUserFollowUps } = useFollowUp();
+  const [followUps, setFollowUps] = useState<FollowUp[]>([]);
+  const [followUpFilter, setFollowUpFilter] = useState<FollowUpStatus | 'all'>('all');
+  const [followUpsLoading, setFollowUpsLoading] = useState(false);
+
   const [selectedIndustries, setSelectedIndustries] = useState<string[]>([]);
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
   const [webhookUrl, setWebhookUrl] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Fetch follow-ups
+  const refreshFollowUps = useCallback(async () => {
+    setFollowUpsLoading(true);
+    const data = await getUserFollowUps();
+    setFollowUps(data);
+    setFollowUpsLoading(false);
+  }, [getUserFollowUps]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      refreshFollowUps();
+    }
+  }, [isAuthenticated, refreshFollowUps]);
+
+  const filteredFollowUps = followUpFilter === 'all'
+    ? followUps
+    : followUps.filter((fu) => fu.status === followUpFilter);
+
+  const goToProject = (projectId: string) => {
+    navigate(`/database?project=${encodeURIComponent(projectId)}`);
+  };
 
   // Sync local state from subscription once loaded
   const [synced, setSynced] = useState(false);
@@ -217,6 +247,109 @@ export default function SettingsPage() {
                 No followed projects yet. Visit the Database and click the follow
                 button on any project to start tracking updates.
               </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* My Follow-ups (S7) */}
+        <Card className="border-white/10 bg-fpso-bg/50">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-fpso-fg">My Follow-ups</CardTitle>
+                <CardDescription>
+                  Sales follow-up records with status, notes, and corrections.
+                  Click a project to view details.
+                </CardDescription>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={refreshFollowUps}
+                disabled={followUpsLoading}
+                className="border-white/10 text-fpso-muted hover:text-fpso-fg text-xs h-7"
+              >
+                {followUpsLoading ? "Loading..." : "Refresh"}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Status filter */}
+            <div className="flex flex-wrap gap-1.5">
+              <Badge
+                variant={followUpFilter === 'all' ? 'default' : 'outline'}
+                className={`cursor-pointer transition-all text-xs ${
+                  followUpFilter === 'all'
+                    ? 'bg-fpso-blue hover:bg-fpso-blue/80'
+                    : 'border-white/10 text-fpso-muted hover:border-fpso-blue/30 hover:text-fpso-fg'
+                }`}
+                onClick={() => setFollowUpFilter('all')}
+              >
+                All ({followUps.length})
+              </Badge>
+              {(['contacted', 'valid', 'inquiry', 'invalid', 'closed'] as FollowUpStatus[]).map((s) => {
+                const count = followUps.filter((fu) => fu.status === s).length;
+                return (
+                  <Badge
+                    key={s}
+                    variant={followUpFilter === s ? 'default' : 'outline'}
+                    className={`cursor-pointer transition-all text-xs ${
+                      followUpFilter === s
+                        ? 'bg-fpso-blue hover:bg-fpso-blue/80'
+                        : 'border-white/10 text-fpso-muted hover:border-fpso-blue/30 hover:text-fpso-fg'
+                    }`}
+                    onClick={() => setFollowUpFilter(s)}
+                  >
+                    {FOLLOW_UP_STATUS_LABELS[s]} ({count})
+                  </Badge>
+                );
+              })}
+            </div>
+
+            <Separator className="bg-white/5" />
+
+            {/* Follow-up list */}
+            {followUpsLoading ? (
+              <p className="text-sm text-fpso-muted">Loading...</p>
+            ) : filteredFollowUps.length === 0 ? (
+              <p className="text-sm text-fpso-muted">
+                {followUps.length === 0
+                  ? "No follow-up records yet. Visit a project and set a follow-up status to get started."
+                  : "No records match the selected filter."}
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {filteredFollowUps.map((fu) => (
+                  <div
+                    key={fu.id ?? fu.project_id}
+                    onClick={() => goToProject(fu.project_id)}
+                    className="flex items-start justify-between gap-3 rounded-lg border border-white/5 bg-fpso-bg/30 px-4 py-3 cursor-pointer hover:border-fpso-blue/20 hover:bg-fpso-blue/5 transition-all group"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-fpso-fg truncate group-hover:text-fpso-blue transition-colors">
+                        {fu.project_id}
+                      </p>
+                      {fu.notes && (
+                        <p className="text-xs text-fpso-dim mt-0.5 truncate">{fu.notes}</p>
+                      )}
+                      {fu.updated_at && (
+                        <p className="text-[10px] text-fpso-muted/60 mt-1">
+                          {new Date(fu.updated_at).toLocaleString("zh-CN", {
+                            year: "numeric",
+                            month: "2-digit",
+                            day: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      )}
+                    </div>
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border flex-shrink-0 ${FOLLOW_UP_STATUS_COLORS[fu.status]}`}>
+                      {FOLLOW_UP_STATUS_LABELS[fu.status]}
+                    </span>
+                  </div>
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>
