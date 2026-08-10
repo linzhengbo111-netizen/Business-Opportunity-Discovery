@@ -12,7 +12,9 @@ import { sampleProjects, COUNTRY_ALIASES } from "@/data/projects";
 import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
 import { supabase } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
-import { hasAnySpecs, parseRecommendation } from "@/lib/material_matcher";
+import { hasAnySpecs, parseRecommendation, parseCorrosiveMedia, getCorrosiveMediaTags, getCorrosiveMediaDetails } from "@/lib/material_matcher";
+import { useSubscription } from "@/hooks/useSubscription";
+import { Button } from "@/components/ui/button";
 
 /* ------------------------------------------------------------------ */
 /*  shared helpers (same semantics as DashboardPage)                   */
@@ -114,6 +116,7 @@ function mapRowToProject(row: Record<string, unknown>): Project {
     operatorName: toStr(row.operator_name),
     basin: toStr(row.basin),
     recommendationJson: toStr(row.recommendation_json),
+    corrosiveMedia: parseCorrosiveMedia(row.corrosive_media),
   };
 }
 
@@ -194,6 +197,9 @@ export default function DatabasePage() {
 
   // detail panel
   const [selected, setSelected] = useState<Project | null>(null);
+
+  // subscription (follow/unfollow)
+  const { isFollowing, toggleFollowProject, isAuthenticated } = useSubscription();
   const { version, status: connectionStatus } = useProjectRealtime();
 
   /* ---- fetch ---- */
@@ -415,6 +421,7 @@ export default function DatabasePage() {
                     <th className="px-4 py-3">Project</th>
                     <th className="px-4 py-3">Country</th>
                     <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Corrosive</th>
                     <th className="px-4 py-3">Confidence</th>
                     <th className="px-4 py-3">Procurement</th>
                     <th className="px-4 py-3">Summary</th>
@@ -425,7 +432,7 @@ export default function DatabasePage() {
                 <tbody>
                   {paged.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-4 py-16 text-center text-fpso-muted">
+                      <td colSpan={9} className="px-4 py-16 text-center text-fpso-muted">
                         No projects match the current filters.
                       </td>
                     </tr>
@@ -446,6 +453,24 @@ export default function DatabasePage() {
                           <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${statusBgClass(p.status)}`}>
                             {p.status || "Unknown"}
                           </span>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          {(() => {
+                            const cmTags = getCorrosiveMediaTags(p.corrosiveMedia);
+                            if (cmTags.length === 0) return <span className="text-fpso-dim">—</span>;
+                            return (
+                              <div className="flex flex-wrap items-center gap-0.5">
+                                {cmTags.map((tag) => (
+                                  <span
+                                    key={tag.key}
+                                    className={`inline-flex items-center text-[10px] px-1.5 py-0.5 rounded border ${tag.className}`}
+                                  >
+                                    {tag.label}
+                                  </span>
+                                ))}
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td className="px-4 py-2.5">
                           <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${confidenceBgClass(p.confidence ?? "medium")}`}>
@@ -580,6 +605,24 @@ export default function DatabasePage() {
               )}
             </div>
 
+            {/* follow / unfollow button */}
+            {isAuthenticated && (
+              <div className="mb-4">
+                <Button
+                  variant={isFollowing(selected.name) ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => toggleFollowProject(selected.name)}
+                  className={
+                    isFollowing(selected.name)
+                      ? 'bg-fpso-blue hover:bg-fpso-blue/80 text-white text-xs'
+                      : 'border-fpso-blue/30 text-fpso-blue hover:bg-fpso-blue/10 text-xs'
+                  }
+                >
+                  {isFollowing(selected.name) ? '★ Following' : '☆ Follow'}
+                </Button>
+              </div>
+            )}
+
             {/* summary */}
             <section className="mb-6">
               <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">Summary</h4>
@@ -685,6 +728,34 @@ export default function DatabasePage() {
                               <td className="px-3 py-1.5 text-fpso-fg">{specs.basin}</td>
                             </tr>
                           )}
+                          {/* Corrosive Media */}
+                          <tr>
+                            <td className="px-3 py-1.5 text-fpso-muted font-medium align-top">Corrosive Media</td>
+                            <td className="px-3 py-1.5">
+                              {(() => {
+                                const cmTags = getCorrosiveMediaTags(selected.corrosiveMedia);
+                                const cmDetails = getCorrosiveMediaDetails(selected.corrosiveMedia);
+                                if (cmTags.length === 0) {
+                                  return <span className="text-fpso-dim text-[11px] italic">No corrosive media data available</span>;
+                                }
+                                return (
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    {cmTags.map((tag) => (
+                                      <span
+                                        key={tag.key}
+                                        className={`inline-flex items-center text-[10px] px-1.5 py-0.5 rounded border ${tag.className}`}
+                                      >
+                                        {tag.label}
+                                      </span>
+                                    ))}
+                                    {cmDetails && (
+                                      <span className="text-[11px] text-fpso-muted ml-1">{cmDetails}</span>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                            </td>
+                          </tr>
                         </tbody>
                       </table>
                     </div>
@@ -718,7 +789,19 @@ export default function DatabasePage() {
                           {rec.confidence}
                         </span>
                       </div>
-                      <p className="text-xs leading-relaxed text-fpso-dim italic">{rec.reasoning}</p>
+                      {(() => {
+                        const hasCorrosiveReasoning = /H₂S|CO₂|sour|NACE|corrosive|H2S|chloride|Cl⁻/i.test(rec.reasoning);
+                        if (hasCorrosiveReasoning) {
+                          return (
+                            <blockquote className="border-l-2 border-fpso-orange/40 pl-3 text-xs leading-relaxed text-fpso-orange/80 italic mt-2">
+                              {rec.reasoning}
+                            </blockquote>
+                          );
+                        }
+                        return (
+                          <p className="text-xs leading-relaxed text-fpso-dim italic">{rec.reasoning}</p>
+                        );
+                      })()}
                     </div>
                   )}
                 </section>

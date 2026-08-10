@@ -34,6 +34,8 @@ export interface Project {
   recommendationJson?: string | null;
   /** Row creation timestamp (Supabase created_at). Used for "last updated" display. */
   createdAt?: string | null;
+  /** Corrosive media data (JSONB from Supabase). Parsed to { h2s, co2, sour_service, chloride, details }. */
+  corrosiveMedia?: Record<string, unknown> | null;
 }
 
 /** Parsed material matching result */

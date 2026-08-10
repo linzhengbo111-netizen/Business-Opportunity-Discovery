@@ -18,7 +18,7 @@ import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
 import { supabase } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
 import { useSubscription } from "@/hooks/useSubscription";
-import { matchMaterials, specsFromRow, hasAnySpecs, parseRecommendation } from "@/lib/material_matcher";
+import { matchMaterials, specsFromRow, hasAnySpecs, parseRecommendation, parseCorrosiveMedia, getCorrosiveMediaTags, getCorrosiveMediaDetails } from "@/lib/material_matcher";
 import { exportOpportunityList } from "@/lib/export_opportunities";
 import { Building2, Hammer, CalendarDays, PlusCircle, Anchor, Waves, Gauge } from "lucide-react";
 import FilterSidebar from "@/components/dashboard/FilterSidebar";
@@ -265,6 +265,7 @@ function mapRowToProject(row: Record<string, unknown>): Project {
     basin: toStr(row.basin),
     recommendationJson: toStr(row.recommendation_json),
     createdAt: toStr(row.created_at),
+    corrosiveMedia: parseCorrosiveMedia(row.corrosive_media),
   };
 }
 
@@ -305,6 +306,7 @@ function mapCandidateToProject(row: Record<string, unknown>): Project {
     basin: toStr(row.basin),
     recommendationJson: null,
     createdAt: toStr(row.created_at),
+    corrosiveMedia: parseCorrosiveMedia(row.corrosive_media),
   };
 }
 
@@ -1084,19 +1086,34 @@ export default function DashboardPage() {
                     );
                   })()}
 
-                  {/* Next milestone preview */}
+                  {/* Next milestone + corrosive media tags */}
                   {(() => {
                     const canonicalId = normalizeProjectName(project.name);
                     const ms = canonicalId ? milestoneMap.get(canonicalId) : undefined;
-                    if (!ms) {
+                    const cmTags = getCorrosiveMediaTags(project.corrosiveMedia);
+                    if (!ms && cmTags.length === 0) {
                       return (
                         <p className="mt-1 ml-4 text-[10px] text-fpso-muted/50">暂无里程碑</p>
                       );
                     }
                     return (
-                      <p className="mt-1 ml-4 text-[10px] text-fpso-blue/70">
-                        Next: {ms.label}{ms.year ? ` ${ms.year}` : ""}
-                      </p>
+                      <div className="mt-1 ml-4 flex items-center gap-2 flex-wrap">
+                        {ms ? (
+                          <p className="text-[10px] text-fpso-blue/70">
+                            Next: {ms.label}{ms.year ? ` ${ms.year}` : ""}
+                          </p>
+                        ) : (
+                          <p className="text-[10px] text-fpso-muted/50">暂无里程碑</p>
+                        )}
+                        {cmTags.map((tag) => (
+                          <span
+                            key={tag.key}
+                            className={`inline-flex items-center text-[10px] px-1.5 py-0.5 rounded border ${tag.className}`}
+                          >
+                            {tag.label}
+                          </span>
+                        ))}
+                      </div>
                     );
                   })()}
                 </motion.div>
@@ -1333,6 +1350,34 @@ export default function DashboardPage() {
                               <td className="px-3 py-1.5 text-fpso-fg">{specs.basin}</td>
                             </tr>
                           )}
+                          {/* Corrosive Media */}
+                          <tr>
+                            <td className="px-3 py-1.5 text-fpso-muted font-medium align-top">Corrosive Media</td>
+                            <td className="px-3 py-1.5">
+                              {(() => {
+                                const cmTags = getCorrosiveMediaTags(selectedProject.corrosiveMedia);
+                                const cmDetails = getCorrosiveMediaDetails(selectedProject.corrosiveMedia);
+                                if (cmTags.length === 0) {
+                                  return <span className="text-fpso-dim text-[11px] italic">No corrosive media data available</span>;
+                                }
+                                return (
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    {cmTags.map((tag) => (
+                                      <span
+                                        key={tag.key}
+                                        className={`inline-flex items-center text-[10px] px-1.5 py-0.5 rounded border ${tag.className}`}
+                                      >
+                                        {tag.label}
+                                      </span>
+                                    ))}
+                                    {cmDetails && (
+                                      <span className="text-[11px] text-fpso-muted ml-1">{cmDetails}</span>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                            </td>
+                          </tr>
                         </tbody>
                       </table>
                     </div>
@@ -1373,7 +1418,19 @@ export default function DashboardPage() {
                           {rec.confidence}
                         </span>
                       </div>
-                      <p className="text-xs leading-relaxed text-fpso-dim italic">{rec.reasoning}</p>
+                      {(() => {
+                        const hasCorrosiveReasoning = /H₂S|CO₂|sour|NACE|corrosive|H2S|chloride|Cl⁻/i.test(rec.reasoning);
+                        if (hasCorrosiveReasoning) {
+                          return (
+                            <blockquote className="border-l-2 border-fpso-orange/40 pl-3 text-xs leading-relaxed text-fpso-orange/80 italic mt-2">
+                              {rec.reasoning}
+                            </blockquote>
+                          );
+                        }
+                        return (
+                          <p className="text-xs leading-relaxed text-fpso-dim italic">{rec.reasoning}</p>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>

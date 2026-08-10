@@ -903,6 +903,74 @@ export function specsFromRow(row: Record<string, unknown>): TechnicalSpecs {
   };
 }
 
+// ---- Corrosive Media Display Helpers ---------------------------------------
+
+/** A single corrosive media tag for UI display. */
+export interface CorrosiveMediaTag {
+  label: string;
+  className: string;
+  key: string;
+}
+
+/**
+ * Parse raw corrosive_media column value (JSONB object or JSON string).
+ * Returns parsed object or null on failure.
+ */
+export function parseCorrosiveMedia(raw: unknown): Record<string, unknown> | null {
+  if (!raw) return null;
+  if (typeof raw === "object" && !Array.isArray(raw)) {
+    return raw as Record<string, unknown>;
+  }
+  if (typeof raw === "string" && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed;
+      }
+    } catch {
+      // ignore malformed JSON
+    }
+  }
+  return null;
+}
+
+/**
+ * Extract display tags from parsed corrosive_media data.
+ * Returns empty array if no media flags are set.
+ */
+export function getCorrosiveMediaTags(
+  cm: Record<string, unknown> | null | undefined,
+): CorrosiveMediaTag[] {
+  if (!cm) return [];
+  const tags: CorrosiveMediaTag[] = [];
+  if (cm.h2s === true) {
+    tags.push({ label: "H₂S", className: "border-red-500/50 text-red-400", key: "h2s" });
+  }
+  if (cm.co2 === true) {
+    tags.push({ label: "CO₂", className: "border-yellow-500/50 text-yellow-400", key: "co2" });
+  }
+  if (cm.sour_service === true) {
+    tags.push({ label: "Sour Service", className: "border-rose-500/50 text-rose-400", key: "sour" });
+  }
+  if (cm.chloride === true) {
+    tags.push({ label: "Cl⁻", className: "border-blue-500/50 text-blue-400", key: "chloride" });
+  }
+  return tags;
+}
+
+/**
+ * Extract human-readable details string from corrosive_media data.
+ * Returns null if no details field present.
+ */
+export function getCorrosiveMediaDetails(
+  cm: Record<string, unknown> | null | undefined,
+): string | null {
+  if (!cm) return null;
+  const d = cm.details;
+  if (typeof d === "string" && d.trim()) return d.trim();
+  return null;
+}
+
 /**
  * Check if a TechnicalSpecs has any meaningful data.
  */
