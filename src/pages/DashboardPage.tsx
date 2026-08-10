@@ -320,7 +320,7 @@ export default function DashboardPage() {
   const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(
     new Set(["Under Construction", "Planned"]),
   );
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [milestoneMap, setMilestoneMap] = useState<Map<string, { label: string; year: string }>>(new Map());
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [modalTab, setModalTab] = useState<"overview" | "timeline">("overview");
@@ -678,7 +678,7 @@ export default function DashboardPage() {
         </div>
       } />
 
-      <div className="flex max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <FilterSidebar
           collapsed={sidebarCollapsed}
           onToggle={() => setSidebarCollapsed((v) => !v)}
@@ -697,7 +697,10 @@ export default function DashboardPage() {
           filteredCount={filteredProjects.length}
         />
 
-        <main className="flex-1 min-w-0 px-6 py-10">
+        <main
+          className="flex-1 min-w-0 px-6 py-10 transition-all duration-300 ease-in-out max-md:!ml-0"
+          style={{ marginLeft: sidebarCollapsed ? 48 : 260 }}
+        >
         {/* 页面标题 */}
         <section className="mb-8">
           <h1 className="text-2xl font-semibold tracking-tight text-fpso-fg md:text-3xl">
