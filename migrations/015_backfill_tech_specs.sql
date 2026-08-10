@@ -89,7 +89,7 @@ candidate_matches AS (
          CASE WHEN ce.procurement_chain  IS NOT NULL AND ce.procurement_chain != '' THEN 1 ELSE 0 END
         ) AS richness,
         -- 最近日期优先
-        COALESCE(ce.source_date, ce.fetched_at::text) AS best_date
+        COALESCE(ce.publication_date, ce.fetched_at::text) AS best_date
     FROM anp_projects ap
     JOIN public.candidate_events ce
       ON ce.source_name LIKE 'ANP%'

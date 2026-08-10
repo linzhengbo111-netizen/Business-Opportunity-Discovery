@@ -20,6 +20,8 @@ import { useProjectRealtime } from "@/hooks/useProjectRealtime";
 import { useSubscription } from "@/hooks/useSubscription";
 import { matchMaterials, specsFromRow, hasAnySpecs, parseRecommendation, parseCorrosiveMedia, getCorrosiveMediaTags, getCorrosiveMediaDetails } from "@/lib/material_matcher";
 import { exportOpportunityList } from "@/lib/export_opportunities";
+import { scoreOpportunity, scoreBadgeClass } from "@/lib/opportunity_scorer";
+import BattleCardWrapper from "@/components/dashboard/BattleCard";
 import { Building2, Hammer, CalendarDays, PlusCircle, Anchor, Waves, Gauge } from "lucide-react";
 import FilterSidebar from "@/components/dashboard/FilterSidebar";
 import { motion } from "motion/react";
@@ -324,6 +326,7 @@ export default function DashboardPage() {
   const [milestoneMap, setMilestoneMap] = useState<Map<string, { label: string; year: string }>>(new Map());
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [modalTab, setModalTab] = useState<"overview" | "timeline">("overview");
+  const [battleCardProject, setBattleCardProject] = useState<Project | null>(null);
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(false);
   const { version, status: connectionStatus } = useProjectRealtime();
@@ -1016,6 +1019,15 @@ export default function DashboardPage() {
                         {project.confidence}
                       </span>
                     )}
+                    {/* Opportunity Score badge */}
+                    {(() => {
+                      const scoreResult = scoreOpportunity(project);
+                      return (
+                        <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${scoreBadgeClass(scoreResult.grade)}`}>
+                          {scoreResult.grade}{scoreResult.totalScore}
+                        </span>
+                      );
+                    })()}
                     {/* Status text */}
                     <span className={`text-[11px] font-medium ${statusColorClass(project.status)}`}>
                       {project.status}
@@ -1443,6 +1455,88 @@ export default function DashboardPage() {
                 </div>
               )}
 
+              {/* Opportunity Score (S5) */}
+              {(() => {
+                const scoreResult = scoreOpportunity(selectedProject);
+                return (
+                  <div>
+                    <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-fpso-dim">
+                      Opportunity Score
+                    </h4>
+                    {/* Progress bar */}
+                    <div className="mb-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-bold text-fpso-fg">
+                          {scoreResult.totalScore}<span className="text-fpso-dim font-normal">/100</span>
+                        </span>
+                        <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-bold uppercase ${scoreBadgeClass(scoreResult.grade)}`}>
+                          Grade {scoreResult.grade}
+                        </span>
+                      </div>
+                      <div className="h-3 w-full rounded-full bg-fpso-bg overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            scoreResult.grade === "A" ? "bg-fpso-green" :
+                            scoreResult.grade === "B" ? "bg-fpso-blue" :
+                            scoreResult.grade === "C" ? "bg-fpso-orange" : "bg-fpso-muted"
+                          }`}
+                          style={{ width: `${scoreResult.totalScore}%` }}
+                        />
+                      </div>
+                    </div>
+                    {/* Summary */}
+                    <p className="text-xs text-fpso-muted mb-2">{scoreResult.summary}</p>
+                    <p className="text-xs text-fpso-fg mb-3">
+                      <span className="font-semibold text-fpso-blue">Action: </span>
+                      {scoreResult.recommendedAction}
+                    </p>
+                    {/* Battle Card button */}
+                    <button
+                      type="button"
+                      onClick={() => setBattleCardProject(selectedProject)}
+                      className="mb-3 inline-flex items-center gap-1.5 rounded-md border border-fpso-green/20 bg-fpso-green/5 px-3 py-1.5 text-xs font-medium text-fpso-green hover:bg-fpso-green/10 hover:border-fpso-green/30 transition-colors"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      生成作战卡
+                    </button>
+                    {/* Expandable dimensions via native <details> */}
+                    <details className="group">
+                      <summary className="text-xs font-medium text-fpso-blue hover:text-fpso-blue/80 transition-colors cursor-pointer select-none mb-2">
+                        Show dimension details
+                      </summary>
+                      <div className="space-y-2 pl-2 border-l-2 border-fpso-blue/20">
+                        {[
+                          { key: "procurement", label: "Procurement Probability" },
+                          { key: "factoryMatch", label: "Factory Match" },
+                          { key: "reachability", label: "Reachability" },
+                          { key: "value", label: "Project Value" },
+                          { key: "confidence", label: "Information Confidence" },
+                        ].map(({ key, label }) => {
+                          const dim = scoreResult.dimensions[key as keyof typeof scoreResult.dimensions];
+                          return (
+                            <div key={key}>
+                              <div className="flex items-center justify-between mb-0.5">
+                                <span className="text-xs text-fpso-muted">{label}</span>
+                                <span className="text-xs font-mono font-bold text-fpso-fg">{dim.score}/20</span>
+                              </div>
+                              <div className="h-1.5 w-full rounded-full bg-fpso-bg overflow-hidden mb-0.5">
+                                <div
+                                  className="h-full rounded-full bg-fpso-blue/60"
+                                  style={{ width: `${(dim.score / 20) * 100}%` }}
+                                />
+                              </div>
+                              <p className="text-[11px] text-fpso-dim leading-relaxed">{dim.reasoning}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </details>
+                  </div>
+                );
+              })()}
+
               {/* 来源链接 */}
               <div>
                 <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">Source</h4>
@@ -1569,6 +1663,41 @@ export default function DashboardPage() {
         </div>
         );
       })()}
+
+      {/* 作战卡弹窗 */}
+      {battleCardProject && (
+        <div
+          className="fixed inset-0 z-[60] flex items-start justify-center p-4 pt-[5vh]"
+          onClick={() => setBattleCardProject(null)}
+        >
+          {/* 遮罩层 */}
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
+
+          {/* 作战卡容器 */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-fade-in"
+          >
+            {/* 关闭按钮 */}
+            <div className="flex justify-end mb-2">
+              <button
+                onClick={() => setBattleCardProject(null)}
+                className="rounded-md p-1.5 text-fpso-muted transition-colors hover:bg-fpso-bg/50 hover:text-fpso-fg"
+                aria-label="Close battle card"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <BattleCardWrapper
+              project={battleCardProject}
+              baseUrl={window.location.origin}
+            />
+          </div>
+        </div>
+      )}
     </>
   );
 }

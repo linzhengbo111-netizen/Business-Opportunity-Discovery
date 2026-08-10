@@ -141,6 +141,9 @@ export default function ProjectTimelinePage() {
   // Project info
   const [projectInfo, setProjectInfo] = useState<Project | null>(null);
 
+  // Non-canonical project name (fallback for unmatched projects)
+  const [rawProjectName, setRawProjectName] = useState<string>("");
+
   // Build project option list from alias registry
   useEffect(() => {
     const ids = getAllCanonicalIds();
@@ -154,36 +157,68 @@ export default function ProjectTimelinePage() {
 
     // Determine initial selection
     const urlProject = searchParams.get("project");
+    const urlProjectName = searchParams.get("projectName");
+
     if (urlProject && ids.includes(urlProject)) {
       setSelectedId(urlProject);
+    } else if (urlProjectName) {
+      // Fallback: project not in alias registry — use raw name
+      setRawProjectName(urlProjectName);
+      setSelectedId(""); // will trigger fallback query
     } else if (list.length > 0) {
       setSelectedId(list[0].canonicalId);
       setSearchParams({ project: list[0].canonicalId }, { replace: true });
     }
   }, []);
 
+  // Determine the effective query target
+  const queryTarget = selectedId || rawProjectName;
+  const isCanonical = Boolean(selectedId);
+
   // Fetch timeline events when project changes
   useEffect(() => {
-    if (!selectedId) return;
+    if (!queryTarget) return;
 
     let cancelled = false;
     setLoading(true);
     setExpandedIds(new Set());
 
     async function fetchTimeline() {
-      const { data, error } = await supabase
-        .from("candidate_events")
-        .select("id, event_type, publication_date, source_name, source_url, evidence_quote, summary")
-        .eq("canonical_project_id", selectedId)
-        .order("publication_date", { ascending: true });
+      let result;
+
+      if (isCanonical) {
+        // Primary: query by canonical_project_id
+        result = await supabase
+          .from("candidate_events")
+          .select("id, event_type, publication_date, source_name, source_url, evidence_quote, summary")
+          .eq("canonical_project_id", queryTarget)
+          .order("publication_date", { ascending: true });
+
+        // Fallback: if no canonical match, query by display name
+        if ((!result.data || result.data.length === 0) && selectedId) {
+          const displayName = getDisplayName(selectedId);
+          result = await supabase
+            .from("candidate_events")
+            .select("id, event_type, publication_date, source_name, source_url, evidence_quote, summary")
+            .ilike("project_name_raw", `%${displayName.slice(0, 40)}%`)
+            .order("publication_date", { ascending: true });
+        }
+      } else {
+        // Non-canonical project: query by raw project name
+        result = await supabase
+          .from("candidate_events")
+          .select("id, event_type, publication_date, source_name, source_url, evidence_quote, summary")
+          .ilike("project_name_raw", `%${queryTarget.slice(0, 60)}%`)
+          .order("publication_date", { ascending: true });
+      }
 
       if (cancelled) return;
 
-      if (error) {
-        console.error("[TimelinePage] Fetch failed:", error.message);
+      if (result.error) {
+        console.error("[TimelinePage] Fetch failed:", result.error.message);
         setEvents([]);
       } else {
-        const evts: TimelineEventFull[] = (data ?? []).map((row: Record<string, unknown>) => ({
+        const evts: TimelineEventFull[] = (result.data ?? []).map((row: Record<string, unknown>) => ({
           id: Number(row.id),
           eventType: String(row.event_type ?? ""),
           publicationDate: String(row.publication_date ?? ""),
@@ -200,20 +235,21 @@ export default function ProjectTimelinePage() {
     fetchTimeline();
 
     return () => { cancelled = true; };
-  }, [selectedId]);
+  }, [queryTarget, isCanonical]);
 
   // Fetch project info from projects table
   useEffect(() => {
-    if (!selectedId) return;
+    if (!queryTarget) return;
 
     let cancelled = false;
 
     async function fetchProjectInfo() {
-      const displayName = getDisplayName(selectedId);
+      const searchName = isCanonical ? getDisplayName(queryTarget) : queryTarget;
       const { data, error } = await supabase
         .from("projects")
         .select("*")
-        .or(`name.ilike.%${displayName.slice(0, 20)}%,name.ilike.%${selectedId.split("-").slice(1).join(" ")}%`);
+        .ilike("name", `%${searchName.slice(0, 30)}%`)
+        .limit(1);
 
       if (cancelled || error || !data || data.length === 0) {
         if (!cancelled) setProjectInfo(null);
@@ -258,7 +294,7 @@ export default function ProjectTimelinePage() {
     fetchProjectInfo();
 
     return () => { cancelled = true; };
-  }, [selectedId]);
+  }, [queryTarget, isCanonical]);
 
   // Filter events by active categories
   const filteredEvents = useMemo(() => {
@@ -307,7 +343,9 @@ export default function ProjectTimelinePage() {
     setProjectInfo(null);
   };
 
-  const selectedDisplayName = selectedId ? getDisplayName(selectedId) : "";
+  const selectedDisplayName = selectedId
+    ? getDisplayName(selectedId)
+    : rawProjectName || "";
   const selectedCountry = selectedId ? getProjectCountry(selectedId) : "";
 
   return (
@@ -446,7 +484,9 @@ export default function ProjectTimelinePage() {
                   : "No events match the selected filters."}
               </p>
               <p className="text-xs text-fpso-dim mt-1">
-                Timeline data is sourced from candidate_events.
+                {events.length === 0
+                  ? "No matching events found in candidate_events. Data may appear after the next crawl."
+                  : "Timeline data is sourced from candidate_events."}
               </p>
             </div>
           ) : (

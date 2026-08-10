@@ -7,7 +7,7 @@
  *   3. 右侧面板：管道材质色卡 + 主要设备表
  *   4. 所有颜色 / 透明度 / 过渡时间集中为可配置常量
  *
- * 图片路径：将原图放入 public/images/desalination-process.png
+ * 图片路径：将原图放入 public/images/desalination-process.jpg
  *           或拖拽任意图片到 Canvas 区域临时替换。
  *
  * 坐标数据修改：编辑 REGION_MASKS 对象中的 polys 数组。
@@ -23,19 +23,19 @@ import PageMeta from "@/components/common/PageMeta";
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /** 原图路径 (Vite public 目录)。设为空字符串 "" 则仅显示暗色背景+遮罩预览。 */
-const IMAGE_PATH = "/images/desalination-process.png";
+const IMAGE_PATH = "/images/desalination-process.jpg";
 
 /** hover 过渡动画时长 (ms)。影响 Canvas 交叉淡入淡出和缩略图 CSS transition。 */
 const TRANSITION_MS = 300;
 
 /** 非高亮区域暗色遮罩最大不透明度 (0-1)。hover 时非目标区域变暗程度。 */
-const DIM_OPACITY = 0.68;
+const DIM_OPACITY = 0.28;
 
 /** 高亮区域材质色叠加最大不透明度 (0-1)。目标区域染色强度。 */
-const HIGHLIGHT_OPACITY = 0.45;
+const HIGHLIGHT_OPACITY = 0.15;
 
 /** 默认(idle)状态下所有区域材质色叠加不透明度 (0-1)。 */
-const IDLE_REGION_OPACITY = 0.18;
+const IDLE_REGION_OPACITY = 0.06;
 
 /** 无图片时的暗色背景色 */
 const PLACEHOLDER_BG = "#0d1117";
@@ -91,6 +91,12 @@ const REGION_MASKS: Record<string, RegionMask> = {
     label: "预处理系统(316L)",
     polys: [
       [{ x: 155, y: 692 }, { x: 307, y: 694 }, { x: 312, y: 1010 }, { x: 161, y: 1008 }],
+    ],
+  },
+  intake: {
+    color: "#2B5C8F",
+    label: "取水系统(2205)",
+    polys: [
       [{ x: 5, y: 695 }, { x: 141, y: 693 }, { x: 145, y: 1010 }, { x: 6, y: 1010 }, { x: 10, y: 691 }],
     ],
   },
@@ -135,7 +141,7 @@ interface ThumbItem {
 }
 
 const THUMB_ITEMS: ThumbItem[] = [
-  { key: "intake",       label: "取水系统",        material: "2205",      color: "#2B5C8F", placeholder: true },
+  { key: "intake",       label: "取水系统",        material: "2205",      color: "#2B5C8F" },
   { key: "pretreatment", label: "预处理系统",      material: "316L",      color: "#6CB4D9" },
   { key: "hpp",          label: "高压泵系统",      material: "2205/2507", color: "#7B4FA0" },
   { key: "roPipe",       label: "RO高压管道",      material: "2507",      color: "#7B4FA0" },
@@ -287,24 +293,28 @@ export default function IndustryBreakdownPage() {
     const hasRegion = activeKey ? (REGION_MASKS[activeKey] != null) : false;
 
     if (alpha > 0.005) {
-      // (A) 暗色遮罩覆盖全图 (alpha 越高越暗)
-      if (alpha > 0.005) {
-        ctx.fillStyle = `rgba(0,0,0,${DIM_OPACITY * alpha})`;
-        ctx.fillRect(0, 0, iw, ih);
-      }
-
-      // (B) 如果目标区域有效 → 挖空 + 材质色高亮
       if (hasRegion) {
+        // 反转路径: 覆盖非高亮区域，保留高亮区原图可见
         const region = REGION_MASKS[activeKey!];
         ctx.save();
-        ctx.globalCompositeOperation = "destination-out";
+        ctx.beginPath();
+        // 外框: 整张画布
+        ctx.rect(0, 0, iw, ih);
+        // 内孔: 逆时针画高亮区域多边形 (与外框反向 = 挖洞)
         for (const poly of region.polys) {
-          buildPolyPath(ctx, poly);
-          ctx.fillStyle = "rgba(0,0,0,1)";
-          ctx.fill();
+          if (poly.length < 3) continue;
+          const last = poly[poly.length - 1];
+          ctx.moveTo(last.x, last.y);
+          for (let i = poly.length - 2; i >= 0; i--) {
+            ctx.lineTo(poly[i].x, poly[i].y);
+          }
+          ctx.closePath();
         }
+        ctx.fillStyle = `rgba(0,0,0,${DIM_OPACITY * alpha})`;
+        ctx.fill("evenodd");
         ctx.restore();
 
+        // 高亮区: 材质色半透明叠加在原图上
         for (const poly of region.polys) {
           buildPolyPath(ctx, poly);
           ctx.fillStyle = hexToRgba(region.color, HIGHLIGHT_OPACITY * alpha);
@@ -313,6 +323,10 @@ export default function IndustryBreakdownPage() {
           ctx.lineWidth = 2 / scale;
           ctx.stroke();
         }
+      } else {
+        // 无坐标数据的模块: 全图均匀变暗
+        ctx.fillStyle = `rgba(0,0,0,${DIM_OPACITY * alpha})`;
+        ctx.fillRect(0, 0, iw, ih);
       }
     }
 

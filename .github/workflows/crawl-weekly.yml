@@ -14,6 +14,8 @@ jobs:
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      LARK_APP_ID: ${{ secrets.LARK_APP_ID }}
+      LARK_APP_SECRET: ${{ secrets.LARK_APP_SECRET }}
 
     steps:
       - name: Checkout
@@ -74,3 +76,11 @@ jobs:
       - name: Run Petrofac Supplier adapter
         run: python crawler/adapters/petrofac_supplier.py
         continue-on-error: true
+
+      - name: Auto-classify pending events
+        continue-on-error: true
+        run: python crawler/crawl.py --auto-classify
+
+      - name: Auto-ingest + notify subscribers
+        continue-on-error: true
+        run: python crawler/crawl.py --auto-ingest

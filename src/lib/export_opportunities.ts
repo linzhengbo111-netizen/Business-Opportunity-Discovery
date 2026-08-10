@@ -20,6 +20,8 @@ import {
   estimateProcurementWindow,
   parseRecommendation,
 } from "@/lib/material_matcher";
+import { scoreOpportunity } from "@/lib/opportunity_scorer";
+import { generateBattleCard } from "@/lib/battle_card";
 
 /** Check whether a project has at least one factory-producible grade. */
 function hasProducibleGrade(project: Project): boolean {
@@ -122,12 +124,26 @@ export function exportOpportunityList(projects: Project[], baseUrl?: string): vo
     "推荐产品类型（AI推断）",
     "目标客户类型",
     "推理说明",
+    "机会评分",
+    "等级",
     "项目来源",
+    "为什么值得追",
+    "推荐产品",
+    "联系谁",
+    "何时联系",
+    "下一步行动",
   ];
+
+  // Score all qualified projects and sort by score descending
+  const scored = qualified.map((project) => ({
+    project,
+    score: scoreOpportunity(project),
+  }));
+  scored.sort((a, b) => b.score.totalScore - a.score.totalScore);
 
   const rows: string[][] = [];
 
-  for (const project of qualified) {
+  for (const { project, score: scoreResult } of scored) {
     const producibleGrades = getProducibleGrades(project);
 
     // Build description text for product inference and customer matching
@@ -155,6 +171,10 @@ export function exportOpportunityList(projects: Project[], baseUrl?: string): vo
     const sourceUrl = project.source?.url || "";
     const sourceName = project.source?.name || "";
 
+    // Generate battle card for enriched CSV export
+    const battleCard = generateBattleCard(project);
+    const contactInfo = battleCard.whoToContact.recommendedRole;
+
     rows.push([
       project.name,
       project.country,
@@ -167,7 +187,14 @@ export function exportOpportunityList(projects: Project[], baseUrl?: string): vo
       productLabels,
       customerLabel,
       procurementWindow.reasoning,
+      String(scoreResult.totalScore),
+      scoreResult.grade,
       sourceUrl || sourceName || "",
+      battleCard.whyPursue,
+      battleCard.whatToPush.join(", "),
+      contactInfo,
+      battleCard.whenToContact,
+      battleCard.nextAction,
     ]);
   }
 

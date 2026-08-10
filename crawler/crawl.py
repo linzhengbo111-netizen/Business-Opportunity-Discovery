@@ -28,6 +28,9 @@ import re
 import sys
 import time
 import random
+
+# S5 Opportunity Scoring Engine
+from crawler.opportunity_scorer import score_opportunity
 import logging
 from datetime import datetime, timezone
 
@@ -1200,6 +1203,16 @@ def auto_ingest_to_projects(supabase, skip_enrich=False):
                             log.debug("  Enrichment: no new fields found")
                 except Exception:
                     log.debug("  Enrichment failed for %s", effective_name[:60], exc_info=True)
+
+            # ---- S5 Opportunity Scoring ----
+            try:
+                opportunity_score = score_opportunity(project_data)
+                project_data["opportunity_score"] = opportunity_score
+                log.info("  Scored: total=%d grade=%s",
+                         opportunity_score["totalScore"],
+                         opportunity_score["grade"])
+            except Exception:
+                log.debug("  Scoring failed for %s", effective_name[:60], exc_info=True)
 
             if existing.data:
                 project_table.update(project_data).eq("name", effective_name).execute()

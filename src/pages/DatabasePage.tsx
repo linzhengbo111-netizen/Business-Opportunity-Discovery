@@ -13,6 +13,8 @@ import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
 import { supabase } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
 import { hasAnySpecs, parseRecommendation, parseCorrosiveMedia, getCorrosiveMediaTags, getCorrosiveMediaDetails } from "@/lib/material_matcher";
+import { scoreOpportunity, scoreBadgeClass } from "@/lib/opportunity_scorer";
+import BattleCardWrapper from "@/components/dashboard/BattleCard";
 import { useSubscription } from "@/hooks/useSubscription";
 import { Button } from "@/components/ui/button";
 
@@ -195,8 +197,13 @@ export default function DatabasePage() {
   // pagination
   const [page, setPage] = useState(1);
 
+  // sort
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
   // detail panel
   const [selected, setSelected] = useState<Project | null>(null);
+  const [battleCardProject, setBattleCardProject] = useState<Project | null>(null);
 
   // subscription (follow/unfollow)
   const { isFollowing, toggleFollowProject, isAuthenticated } = useSubscription();
@@ -273,8 +280,17 @@ export default function DatabasePage() {
       list = list.filter((p) => p.name.toLowerCase().includes(q));
     }
 
+    // Apply sort
+    if (sortField === "score") {
+      list = [...list].sort((a, b) => {
+        const sa = scoreOpportunity(a).totalScore;
+        const sb = scoreOpportunity(b).totalScore;
+        return sortDir === "desc" ? sb - sa : sa - sb;
+      });
+    }
+
     return list;
-  }, [projects, industryFilter, countryFilter, statusFilter, confidenceFilter, nameSearch]);
+  }, [projects, industryFilter, countryFilter, statusFilter, confidenceFilter, nameSearch, sortField, sortDir]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -428,6 +444,20 @@ export default function DatabasePage() {
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Corrosive</th>
                     <th className="px-4 py-3">Confidence</th>
+                    <th
+                      className="px-4 py-3 cursor-pointer hover:text-fpso-blue transition-colors select-none"
+                      onClick={() => {
+                        if (sortField === "score") {
+                          setSortDir((d) => (d === "desc" ? "asc" : "desc"));
+                        } else {
+                          setSortField("score");
+                          setSortDir("desc");
+                        }
+                        setPage(1);
+                      }}
+                    >
+                      Score{sortField === "score" ? (sortDir === "desc" ? " ↓" : " ↑") : ""}
+                    </th>
                     <th className="px-4 py-3">Procurement</th>
                     <th className="px-4 py-3">Summary</th>
                     <th className="px-4 py-3">Source</th>
@@ -437,7 +467,7 @@ export default function DatabasePage() {
                 <tbody>
                   {paged.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-4 py-16 text-center text-fpso-muted">
+                      <td colSpan={10} className="px-4 py-16 text-center text-fpso-muted">
                         No projects match the current filters.
                       </td>
                     </tr>
@@ -481,6 +511,16 @@ export default function DatabasePage() {
                           <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${confidenceBgClass(p.confidence ?? "medium")}`}>
                             {p.confidence ?? "medium"}
                           </span>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          {(() => {
+                            const sr = scoreOpportunity(p);
+                            return (
+                              <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-bold ${scoreBadgeClass(sr.grade)}`}>
+                                {sr.grade} {sr.totalScore}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="px-4 py-2.5">
                           {p.procurementChain ? (
@@ -813,6 +853,85 @@ export default function DatabasePage() {
               );
             })()}
 
+            {/* Opportunity Score (S5) */}
+            {(() => {
+              const scoreResult = scoreOpportunity(selected);
+              return (
+                <section>
+                  <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">
+                    Opportunity Score
+                  </h4>
+                  <div className="mb-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-bold text-fpso-fg">
+                        {scoreResult.totalScore}<span className="text-fpso-dim font-normal">/100</span>
+                      </span>
+                      <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-bold uppercase ${scoreBadgeClass(scoreResult.grade)}`}>
+                        Grade {scoreResult.grade}
+                      </span>
+                    </div>
+                    <div className="h-3 w-full rounded-full bg-fpso-bg overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          scoreResult.grade === "A" ? "bg-fpso-green" :
+                          scoreResult.grade === "B" ? "bg-fpso-blue" :
+                          scoreResult.grade === "C" ? "bg-fpso-orange" : "bg-fpso-muted"
+                        }`}
+                        style={{ width: `${scoreResult.totalScore}%` }}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-fpso-muted mb-2">{scoreResult.summary}</p>
+                  <p className="text-xs text-fpso-fg mb-3">
+                    <span className="font-semibold text-fpso-blue">Action: </span>
+                    {scoreResult.recommendedAction}
+                  </p>
+                  {/* Battle Card button */}
+                  <button
+                    type="button"
+                    onClick={() => setBattleCardProject(selected)}
+                    className="mb-3 inline-flex items-center gap-1.5 rounded-md border border-fpso-green/20 bg-fpso-green/5 px-3 py-1.5 text-xs font-medium text-fpso-green hover:bg-fpso-green/10 hover:border-fpso-green/30 transition-colors"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    生成作战卡
+                  </button>
+                  <details className="group mb-2">
+                    <summary className="text-xs font-medium text-fpso-blue hover:text-fpso-blue/80 transition-colors cursor-pointer select-none">
+                      Show dimension details
+                    </summary>
+                    <div className="mt-2 space-y-2 pl-2 border-l-2 border-fpso-blue/20">
+                      {[
+                        { key: "procurement", label: "Procurement Probability" },
+                        { key: "factoryMatch", label: "Factory Match" },
+                        { key: "reachability", label: "Reachability" },
+                        { key: "value", label: "Project Value" },
+                        { key: "confidence", label: "Information Confidence" },
+                      ].map(({ key, label }) => {
+                        const dim = scoreResult.dimensions[key as keyof typeof scoreResult.dimensions];
+                        return (
+                          <div key={key}>
+                            <div className="flex items-center justify-between mb-0.5">
+                              <span className="text-xs text-fpso-muted">{label}</span>
+                              <span className="text-xs font-mono font-bold text-fpso-fg">{dim.score}/20</span>
+                            </div>
+                            <div className="h-1.5 w-full rounded-full bg-fpso-bg overflow-hidden mb-0.5">
+                              <div
+                                className="h-full rounded-full bg-fpso-blue/60"
+                                style={{ width: `${(dim.score / 20) * 100}%` }}
+                              />
+                            </div>
+                            <p className="text-[11px] text-fpso-dim leading-relaxed">{dim.reasoning}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </details>
+                </section>
+              );
+            })()}
+
             {/* source */}
             <section>
               <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">Source</h4>
@@ -838,6 +957,36 @@ export default function DatabasePage() {
           </div>
         )}
       </aside>
+
+      {/* 作战卡弹窗 */}
+      {battleCardProject && (
+        <div
+          className="fixed inset-0 z-[60] flex items-start justify-center p-4 pt-[5vh]"
+          onClick={() => setBattleCardProject(null)}
+        >
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-fade-in"
+          >
+            <div className="flex justify-end mb-2">
+              <button
+                onClick={() => setBattleCardProject(null)}
+                className="rounded-md p-1.5 text-fpso-muted transition-colors hover:bg-fpso-bg/50 hover:text-fpso-fg"
+                aria-label="Close battle card"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <BattleCardWrapper
+              project={battleCardProject}
+              baseUrl={window.location.origin}
+            />
+          </div>
+        </div>
+      )}
     </>
   );
 }

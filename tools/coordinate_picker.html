@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>坐标拾取工具 - 海水淡化3D工艺图区域标注</title>
+<style>
+  :root {
+    --bg: #1e1e2e;
+    --panel-bg: #252536;
+    --border: #3a3a50;
+    --text: #cdd6f4;
+    --text-dim: #6c7086;
+    --accent: #89b4fa;
+    --danger: #f38ba8;
+    --success: #a6e3a1;
+    --warning: #fab387;
+    --input-bg: #313244;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── 顶部工具栏 ── */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    background: var(--panel-bg);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .toolbar .title {
+    font-size: 15px;
+    font-weight: 700;
+    margin-right: auto;
+    white-space: nowrap;
+  }
+  .toolbar button, .toolbar .btn-file {
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--input-bg);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 13px;
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+  .toolbar button:hover, .toolbar .btn-file:hover {
+    background: #45475a;
+  }
+  .toolbar .zoom-info {
+    font-size: 12px;
+    color: var(--text-dim);
+    min-width: 60px;
+    text-align: center;
+  }
+
+  /* ── 主体 ── */
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── 画布容器 ── */
+  .canvas-wrap {
+    flex: 1;
+    position: relative;
+    background: #11111b;
+    cursor: crosshair;
+    overflow: hidden;
+  }
+  .canvas-wrap.panning { cursor: grabbing; }
+  .canvas-wrap canvas {
+    display: block;
+    position: absolute;
+    top: 0; left: 0;
+  }
+  /* 拖拽提示 */
+  .drop-hint {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    font-size: 16px;
+    color: var(--text-dim);
+    flex-direction: column;
+    gap: 8px;
+    transition: opacity 0.3s;
+  }
+  .drop-hint .icon { font-size: 48px; }
+  .has-image .drop-hint { opacity: 0; }
+
+  /* 鼠标位置指示器 */
+  .cursor-info {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    font-size: 11px;
+    color: var(--text-dim);
+    background: rgba(0,0,0,0.6);
+    padding: 2px 8px;
+    border-radius: 4px;
+    pointer-events: none;
+  }
+
+  /* ── 右侧面板 ── */
+  .sidebar {
+    width: 340px;
+    background: var(--panel-bg);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .sidebar .section {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar .section-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  /* 区域列表 */
+  .region-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .region-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.15s;
+    background: var(--input-bg);
+  }
+  .region-item.active {
+    border-color: var(--accent);
+    background: #363650;
+  }
+  .region-item .swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+  .region-item .name {
+    flex: 1;
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .region-item .count {
+    font-size: 11px;
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+
+  /* 表单 */
+  .form-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .form-row label {
+    font-size: 12px;
+    color: var(--text-dim);
+    width: 40px;
+    flex-shrink: 0;
+  }
+  .form-row input {
+    flex: 1;
+    padding: 5px 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--input-bg);
+    color: var(--text);
+    font-size: 12px;
+  }
+  .form-row input[type="color"] {
+    width: 36px;
+    height: 28px;
+    padding: 2px;
+    cursor: pointer;
+    flex: 0;
+  }
+
+  /* 按钮行 */
+  .btn-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .btn-row button {
+    padding: 5px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--input-bg);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.15s;
+  }
+  .btn-row button:hover { background: #45475a; }
+  .btn-row button.danger { color: var(--danger); border-color: var(--danger); }
+  .btn-row button.primary { background: var(--accent); color: #1e1e2e; border-color: var(--accent); font-weight: 600; }
+  .btn-row button.success { background: var(--success); color: #1e1e2e; border-color: var(--success); font-weight: 600; }
+
+  /* 坐标文本区 */
+  .coord-text {
+    width: 100%;
+    height: 120px;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--input-bg);
+    color: var(--text);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 11px;
+    resize: vertical;
+    overflow-y: auto;
+    white-space: pre;
+  }
+
+  /* 材质色卡参考 */
+  .material-ref {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3px 8px;
+    font-size: 11px;
+  }
+  .material-ref .ref-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .material-ref .ref-swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  /* ── 底部操作提示 ── */
+  .footer-bar {
+    padding: 6px 16px;
+    background: var(--panel-bg);
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-dim);
+    display: flex;
+    gap: 20px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .footer-bar span { white-space: nowrap; }
+  .footer-bar kbd {
+    background: var(--input-bg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    font-size: 10px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ 顶部工具栏 ═══════════════ -->
+<div class="toolbar">
+  <span class="title">🎯 坐标拾取工具</span>
+  <label class="btn-file">
+    📂 加载图片
+    <input type="file" accept="image/*" id="fileInput" style="display:none">
+  </label>
+  <button id="btnFit" title="适应窗口">🔍 适应窗口</button>
+  <button id="btnZoomIn">＋</button>
+  <button id="btnZoomOut">－</button>
+  <span class="zoom-info" id="zoomInfo">100%</span>
+  <button id="btnExport" class="primary" style="margin-left:auto">📋 导出JSON</button>
+</div>
+
+<!-- ═══════════════ 主体区域 ═══════════════ -->
+<div class="main">
+  <!-- 画布 -->
+  <div class="canvas-wrap" id="canvasWrap">
+    <div class="drop-hint" id="dropHint">
+      <span class="icon">🖼️</span>
+      <span>拖拽图片到此处，或点击顶部「加载图片」</span>
+    </div>
+    <div class="cursor-info" id="cursorInfo">图片坐标: — , —</div>
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <!-- 右侧面板 -->
+  <div class="sidebar" id="sidebar">
+    <!-- 区域列表 -->
+    <div class="section">
+      <div class="section-title">📁 标注区域</div>
+      <div class="region-list" id="regionList"></div>
+      <div class="btn-row" style="margin-top:8px">
+        <button id="btnAddRegion">＋ 新建区域</button>
+      </div>
+    </div>
+
+    <!-- 当前区域编辑 -->
+    <div class="section">
+      <div class="section-title">✏️ 当前区域设置</div>
+      <div class="form-row">
+        <label>名称</label>
+        <input type="text" id="regionName" placeholder="区域名称">
+      </div>
+      <div class="form-row">
+        <label>Key</label>
+        <input type="text" id="regionKey" placeholder="英文标识 (如 intake)">
+      </div>
+      <div class="form-row">
+        <label>颜色</label>
+        <input type="color" id="regionColor" value="#89b4fa">
+        <input type="text" id="regionColorHex" value="#89b4fa" style="width:70px">
+      </div>
+      <div class="btn-row">
+        <button id="btnNewPoly">🆕 新建多边形</button>
+        <button id="btnUndo">↩ 撤销最后点</button>
+        <button id="btnClosePoly">🔒 闭合多边形</button>
+      </div>
+      <div class="btn-row">
+        <button id="btnDeleteRegion" class="danger">🗑 删除此区域</button>
+        <button id="btnClearAll" class="danger">💣 清空全部</button>
+      </div>
+    </div>
+
+    <!-- 当前多边形坐标 -->
+    <div class="section">
+      <div class="section-title">📐 当前多边形顶点 (<span id="vertCount">0</span> 点)</div>
+      <textarea class="coord-text" id="coordText" readonly placeholder="在画布上点击添加顶点..."></textarea>
+    </div>
+
+    <!-- 材质色卡参考 -->
+    <div class="section">
+      <div class="section-title">🎨 管道材质色卡参考</div>
+      <div class="material-ref">
+        <div class="ref-item"><span class="ref-swatch" style="background:#A0A0A0"></span> 304L 灰色</div>
+        <div class="ref-item"><span class="ref-swatch" style="background:#6CB4D9"></span> 316L 浅蓝</div>
+        <div class="ref-item"><span class="ref-swatch" style="background:#2B5C8F"></span> 2205 深蓝</div>
+        <div class="ref-item"><span class="ref-swatch" style="background:#7B4FA0"></span> 2507 紫色</div>
+        <div class="ref-item"><span class="ref-swatch" style="background:#F4A340"></span> 904L 橙色</div>
+        <div class="ref-item"><span class="ref-swatch" style="background:#8DD3C7"></span> 钛材 浅青</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ 底部操作提示 ═══════════════ -->
+<div class="footer-bar">
+  <span><kbd>左键点击</kbd> 添加顶点</span>
+  <span><kbd>右键</kbd> 闭合当前多边形</span>
+  <span><kbd>滚轮</kbd> 缩放</span>
+  <span><kbd>按住拖拽</kbd> 平移图片</span>
+  <span><kbd>Ctrl+Z</kbd> 撤销</span>
+  <span>拖动图片文件到页面加载</span>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// 坐标拾取工具 - 用于标注海水淡化3D工艺图
+// 输出JSON供主页面联动高亮使用
+// ═══════════════════════════════════════════════════
+
+(function() {
+  // ─────────────── DOM引用 ───────────────
+  const canvasWrap = document.getElementById('canvasWrap');
+  const canvas     = document.getElementById('canvas');
+  const ctx        = canvas.getContext('2d');
+  const dropHint   = document.getElementById('dropHint');
+  const cursorInfo = document.getElementById('cursorInfo');
+  const zoomInfo   = document.getElementById('zoomInfo');
+  const coordText  = document.getElementById('coordText');
+  const vertCount  = document.getElementById('vertCount');
+  const regionList = document.getElementById('regionList');
+
+  // ─────────────── 材质颜色预设 ───────────────
+  // ★★★ 修改这里来调整后续主页面的高亮颜色 ★★★
+  const MATERIAL_COLORS = {
+    '304L': '#A0A0A0',
+    '316L': '#6CB4D9',
+    '2205': '#2B5C8F',
+    '2507': '#7B4FA0',
+    '904L': '#F4A340',
+    'TITANIUM': '#8DD3C7',
+  };
+
+  // ─────────────── 应用状态 ───────────────
+  let image    = null;   // 已加载的Image对象
+  let imgW     = 0;      // 原图宽度
+  let imgH     = 0;      // 原图高度
+
+  // 视图变换 (offset为CSS像素, scale为缩放倍率)
+  let scale    = 1;
+  let offsetX  = 0;
+  let offsetY  = 0;
+
+  // 区域数据: Map<regionKey, {key, label, color, polys: Array<Array<{x,y}>>}>
+  let regions  = new Map();
+  let currentRegionKey = null;  // 当前选中的区域key
+
+  // 当前正在绘制的多边形顶点(未闭合)
+  let currentVertices = [];
+
+  // 鼠标交互状态
+  let mouseScreenX = 0, mouseScreenY = 0;  // 鼠标在canvas元素上的CSS坐标
+  let isDragging   = false;
+  let dragStartX   = 0, dragStartY   = 0;
+  let dragStartOx  = 0, dragStartOy  = 0;
+  let hasMoved     = false;  // 判断是点击还是拖拽
+
+  // ─────────────── 预置区域 ───────────────
+  // 基于海水淡化项目底部8个模块预置, 对应右上角色卡材质
+  const PRESET_REGIONS = [
+    { key: 'intake',        label: '取水系统(2205)',      color: '#2B5C8F' },
+    { key: 'pretreatment',  label: '预处理系统(316L)',     color: '#6CB4D9' },
+    { key: 'hpp',           label: '高压泵系统(2205/2507)',color: '#7B4FA0' },
+    { key: 'roPipe',        label: 'RO高压管道(2507)',     color: '#7B4FA0' },
+    { key: 'roMembrane',    label: 'RO膜壳(2507)',         color: '#7B4FA0' },
+    { key: 'cip',           label: 'CIP系统(904L)',        color: '#F4A340' },
+    { key: 'brine',         label: '浓水排放管道(2205/2507)',color: '#2B5C8F' },
+  ];
+
+  function initPresetRegions() {
+    PRESET_REGIONS.forEach(r => {
+      regions.set(r.key, { key: r.key, label: r.label, color: r.color, polys: [] });
+    });
+    currentRegionKey = PRESET_REGIONS[0].key;
+  }
+
+  // ─────────────── Canvas尺寸适配 ───────────────
+  function resizeCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvasWrap.clientWidth;
+    const h = canvasWrap.clientHeight;
+    canvas.width  = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width  = w + 'px';
+    canvas.style.height = h + 'px';
+    render();
+  }
+
+  // ─────────────── 渲染 ───────────────
+  function render() {
+    const dpr = window.devicePixelRatio || 1;
+    const cw = canvas.width;
+    const ch = canvas.height;
+
+    ctx.clearRect(0, 0, cw, ch);
+    if (!image) return;
+
+    ctx.save();
+    // 应用 DPR + 视图变换
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.translate(offsetX, offsetY);
+    ctx.scale(scale, scale);
+
+    // 1. 绘制原图
+    ctx.drawImage(image, 0, 0, imgW, imgH);
+
+    // 2. 绘制所有已完成的区域多边形
+    regions.forEach((region) => {
+      if (region.polys.length === 0) return;
+      region.polys.forEach(vertices => {
+        if (vertices.length < 2) return;
+        drawPolygon(vertices, region.color, 1);
+      });
+    });
+
+    // 3. 绘制当前正在添加的多边形
+    if (currentVertices.length >= 2) {
+      drawPolygon(currentVertices, getCurrentRegion()?.color || '#fff', 1.5);
+    }
+    if (currentVertices.length >= 1) {
+      // 顶点圆点
+      currentVertices.forEach((v, i) => {
+        ctx.beginPath();
+        ctx.arc(v.x, v.y, 4 / scale, 0, Math.PI * 2);
+        ctx.fillStyle = i === 0 ? '#a6e3a1' : '#f9e2af';
+        ctx.fill();
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 1.5 / scale;
+        ctx.stroke();
+      });
+
+      // 虚线跟随: 最后顶点 → 鼠标位置(图片坐标)
+      const lastV = currentVertices[currentVertices.length - 1];
+      const mouseImgX = (mouseScreenX - offsetX) / scale;
+      const mouseImgY = (mouseScreenY - offsetY) / scale;
+      ctx.beginPath();
+      ctx.moveTo(lastV.x, lastV.y);
+      ctx.lineTo(mouseImgX, mouseImgY);
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1.5 / scale;
+      ctx.setLineDash([6 / scale, 4 / scale]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    ctx.restore();
+  }
+
+  function drawPolygon(vertices, color, lineWidthMultiplier) {
+    if (vertices.length < 2) return;
+    ctx.beginPath();
+    ctx.moveTo(vertices[0].x, vertices[0].y);
+    for (let i = 1; i < vertices.length; i++) {
+      ctx.lineTo(vertices[i].x, vertices[i].y);
+    }
+    ctx.closePath();
+
+    // 半透明填充
+    ctx.fillStyle = hexToRgba(color, 0.3);
+    ctx.fill();
+
+    // 边框
+    ctx.strokeStyle = hexToRgba(color, 0.9);
+    ctx.lineWidth = (2 * lineWidthMultiplier) / scale;
+    ctx.stroke();
+  }
+
+  function hexToRgba(hex, alpha) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r},${g},${b},${alpha})`;
+  }
+
+  // ─────────────── 坐标转换 ───────────────
+  /** Canvas CSS坐标 → 图片像素坐标 */
+  function screenToImage(sx, sy) {
+    return {
+      x: Math.round((sx - offsetX) / scale),
+      y: Math.round((sy - offsetY) / scale),
+    };
+  }
+
+  // ─────────────── 区域操作 ───────────────
+  function getCurrentRegion() {
+    return regions.get(currentRegionKey) || null;
+  }
+
+  function switchRegion(key) {
+    // 保存当前正在画的多边形到旧区域
+    if (currentVertices.length >= 2 && currentRegionKey) {
+      const region = regions.get(currentRegionKey);
+      if (region) {
+        region.polys.push([...currentVertices]);
+      }
+    }
+    currentVertices = [];
+    currentRegionKey = key;
+    refreshSidebar();
+    render();
+  }
+
+  function addVertex(imgX, imgY) {
+    // 检查是否点击到了第一个顶点附近(闭合多边形)
+    if (currentVertices.length >= 3) {
+      const first = currentVertices[0];
+      const dist = Math.sqrt((imgX - first.x) ** 2 + (imgY - first.y) ** 2);
+      if (dist < 8 / scale) {
+        // 闭合
+        closePolygon();
+        return;
+      }
+    }
+    currentVertices.push({ x: imgX, y: imgY });
+    refreshSidebar();
+    render();
+  }
+
+  function closePolygon() {
+    if (currentVertices.length < 3) return;
+    const region = getCurrentRegion();
+    if (!region) return;
+    region.polys.push([...currentVertices]);
+    currentVertices = [];
+    refreshSidebar();
+    render();
+    autoSave();
+  }
+
+  function undoVertex() {
+    if (currentVertices.length > 0) {
+      currentVertices.pop();
+      refreshSidebar();
+      render();
+    }
+  }
+
+  function deleteRegion(key) {
+    if (!regions.has(key)) return;
+    if (!confirm(`确定删除区域 "${regions.get(key).label}" 及其所有多边形?`)) return;
+    regions.delete(key);
+    if (currentRegionKey === key) {
+      currentVertices = [];
+      currentRegionKey = regions.keys().next().value || null;
+    }
+    refreshSidebar();
+    render();
+    autoSave();
+  }
+
+  function clearAll() {
+    if (!confirm('确定清空所有区域和多边形? 此操作不可撤销!')) return;
+    regions.forEach(r => r.polys = []);
+    currentVertices = [];
+    refreshSidebar();
+    render();
+    autoSave();
+  }
+
+  function addRegion() {
+    const name = prompt('请输入新区域名称 (中文):');
+    if (!name) return;
+    const key = prompt('请输入英文标识key (如 chemicalDosing):',
+      'region' + (regions.size + 1));
+    if (!key) return;
+    regions.set(key, { key, label: name, color: '#89b4fa', polys: [] });
+    currentRegionKey = key;
+    currentVertices = [];
+    refreshSidebar();
+    render();
+  }
+
+  // ─────────────── 导出 ───────────────
+  function exportJSON() {
+    // 先把当前多边形保存到区域
+    if (currentVertices.length >= 2 && currentRegionKey) {
+      const region = regions.get(currentRegionKey);
+      if (region) region.polys.push([...currentVertices]);
+      currentVertices = [];
+    }
+
+    const output = {};
+    regions.forEach((region, key) => {
+      if (region.polys.length === 0) return; // 跳过空区域
+      output[key] = {
+        color: region.color,
+        label: region.label,
+        polys: region.polys,
+      };
+    });
+
+    const json = JSON.stringify(output, null, 2);
+
+    // 弹窗预览+复制
+    const preview =
+`/* ══════════════════════════════════════════════
+ * 海水淡化工艺图 - 区域遮罩坐标数据
+ * 生成时间: ${new Date().toISOString()}
+ * 区域数: ${Object.keys(output).length}
+ * 直接复制到主页面JS的 REGION_MASKS 配置中
+ * ══════════════════════════════════════════════ */
+${json}`;
+
+    // 尝试复制到剪贴板
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(preview).then(() => {
+        alert('✅ JSON已复制到剪贴板!\n\n区域数: ' + Object.keys(output).length + '\n\n也可在下方文本区查看完整JSON。');
+      }).catch(() => showExportDialog(preview));
+    } else {
+      showExportDialog(preview);
+    }
+
+    // 在坐标文本区也显示JSON
+    coordText.value = preview;
+    vertCount.textContent = '已导出';
+
+    refreshSidebar();
+    render();
+  }
+
+  function showExportDialog(json) {
+    // 备选: 下载为文件
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'region_masks.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    alert('📥 JSON文件已下载!');
+  }
+
+  // ─────────────── 自动保存(localStorage) ───────────────
+  function autoSave() {
+    // 先保存当前多边形
+    if (currentVertices.length >= 2 && currentRegionKey) {
+      const region = regions.get(currentRegionKey);
+      if (region) region.polys.push([...currentVertices]);
+      currentVertices = [];
+    }
+    const data = {
+      imgSrc: image ? image.src : null,
+      regions: Array.from(regions.entries()).map(([k, v]) => ({
+        key: k, label: v.label, color: v.color, polys: v.polys,
+      })),
+      currentRegionKey,
+    };
+    try {
+      localStorage.setItem('coord_picker_data', JSON.stringify(data));
+    } catch(e) { /* quota exceeded, ignore */ }
+  }
+
+  function autoLoad() {
+    try {
+      const raw = localStorage.getItem('coord_picker_data');
+      if (!raw) return false;
+      const data = JSON.parse(raw);
+      if (!data.regions) return false;
+      regions.clear();
+      data.regions.forEach(r => {
+        regions.set(r.key, { key: r.key, label: r.label, color: r.color, polys: r.polys || [] });
+      });
+      currentRegionKey = data.currentRegionKey || regions.keys().next().value;
+      currentVertices = [];
+      return true;
+    } catch(e) { return false; }
+  }
+
+  // ─────────────── 侧边栏刷新 ───────────────
+  function refreshSidebar() {
+    const region = getCurrentRegion();
+
+    // 区域列表
+    regionList.innerHTML = '';
+    regions.forEach((r, key) => {
+      const totalVerts = r.polys.reduce((sum, p) => sum + p.length, 0);
+      const div = document.createElement('div');
+      div.className = 'region-item' + (key === currentRegionKey ? ' active' : '');
+      div.innerHTML = `
+        <span class="swatch" style="background:${r.color}"></span>
+        <span class="name">${r.label}</span>
+        <span class="count">${r.polys.length}面·${totalVerts}点</span>
+      `;
+      div.addEventListener('click', () => switchRegion(key));
+      regionList.appendChild(div);
+    });
+
+    // 表单
+    document.getElementById('regionName').value = region ? region.label : '';
+    document.getElementById('regionKey').value  = region ? region.key  : '';
+    document.getElementById('regionColor').value     = region ? region.color : '#89b4fa';
+    document.getElementById('regionColorHex').value  = region ? region.color : '#89b4fa';
+
+    // 当前多边形坐标
+    if (currentVertices.length > 0) {
+      coordText.value = currentVertices.map((v, i) =>
+        `  [${i}] { x: ${v.x}, y: ${v.y} }`
+      ).join('\n');
+    } else {
+      coordText.value = '';
+    }
+    vertCount.textContent = currentVertices.length;
+  }
+
+  // ─────────────── 图片加载 ───────────────
+  function loadImageFromFile(file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const img = new Image();
+      img.onload = function() {
+        image = img;
+        imgW = img.naturalWidth;
+        imgH = img.naturalHeight;
+        // 恢复localStorage数据或使用预设
+        const restored = autoLoad();
+        if (!restored) {
+          initPresetRegions();
+        }
+        currentVertices = [];
+        fitToScreen();
+        canvasWrap.classList.add('has-image');
+        refreshSidebar();
+        render();
+        autoSave();
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function fitToScreen() {
+    if (!image) return;
+    const w = canvasWrap.clientWidth;
+    const h = canvasWrap.clientHeight;
+    const pad = 40;
+    const scaleX = (w - pad * 2) / imgW;
+    const scaleY = (h - pad * 2) / imgH;
+    scale = Math.min(scaleX, scaleY, 1); // 不超过100%
+    offsetX = (w - imgW * scale) / 2;
+    offsetY = (h - imgH * scale) / 2;
+    render();
+    updateZoomInfo();
+  }
+
+  function zoomAt(factor, cx, cy) {
+    const oldScale = scale;
+    scale = Math.max(0.1, Math.min(10, scale * factor));
+    // 以鼠标位置为中心缩放
+    offsetX = cx - (cx - offsetX) * (scale / oldScale);
+    offsetY = cy - (cy - offsetY) * (scale / oldScale);
+    render();
+    updateZoomInfo();
+  }
+
+  function updateZoomInfo() {
+    zoomInfo.textContent = Math.round(scale * 100) + '%';
+  }
+
+  // ─────────────── 鼠标事件 ───────────────
+  canvasWrap.addEventListener('mousemove', function(e) {
+    const rect = canvasWrap.getBoundingClientRect();
+    mouseScreenX = e.clientX - rect.left;
+    mouseScreenY = e.clientY - rect.top;
+
+    if (isDragging) {
+      const dx = e.clientX - dragStartX;
+      const dy = e.clientY - dragStartY;
+      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) hasMoved = true;
+      offsetX = dragStartOx + dx;
+      offsetY = dragStartOy + dy;
+      render();
+    }
+
+    // 更新鼠标位置显示
+    const imgPt = screenToImage(mouseScreenX, mouseScreenY);
+    if (image && imgPt.x >= 0 && imgPt.x < imgW && imgPt.y >= 0 && imgPt.y < imgH) {
+      cursorInfo.textContent = `图片坐标: ${imgPt.x}, ${imgPt.y}`;
+    } else {
+      cursorInfo.textContent = `图片坐标: — , —`;
+    }
+
+    // 持续渲染(因为虚线跟随需要)
+    if (currentVertices.length >= 1) render();
+  });
+
+  canvasWrap.addEventListener('mousedown', function(e) {
+    if (e.button === 2) {
+      // 右键 = 闭合多边形
+      e.preventDefault();
+      closePolygon();
+      return;
+    }
+    if (e.button !== 0) return;
+    if (!image) return;
+
+    const rect = canvasWrap.getBoundingClientRect();
+    mouseScreenX = e.clientX - rect.left;
+    mouseScreenY = e.clientY - rect.top;
+
+    // 开始拖拽(可能是平移或点击)
+    isDragging = true;
+    hasMoved   = false;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    dragStartOx = offsetX;
+    dragStartOy = offsetY;
+  });
+
+  window.addEventListener('mouseup', function(e) {
+    if (!isDragging) return;
+    isDragging = false;
+
+    if (!hasMoved && image && e.button === 0) {
+      // 短距离 = 点击, 添加顶点
+      const imgPt = screenToImage(mouseScreenX, mouseScreenY);
+      if (imgPt.x >= 0 && imgPt.x < imgW && imgPt.y >= 0 && imgPt.y < imgH) {
+        if (!currentRegionKey) {
+          alert('请先在右侧面板选择一个区域或新建区域');
+          return;
+        }
+        addVertex(imgPt.x, imgPt.y);
+        autoSave();
+      }
+    }
+  });
+
+  canvasWrap.addEventListener('wheel', function(e) {
+    if (!image) return;
+    e.preventDefault();
+    const rect = canvasWrap.getBoundingClientRect();
+    const cx = e.clientX - rect.left;
+    const cy = e.clientY - rect.top;
+    const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+    zoomAt(factor, cx, cy);
+  }, { passive: false });
+
+  canvasWrap.addEventListener('contextmenu', function(e) {
+    e.preventDefault(); // 禁止右键菜单
+  });
+
+  // ─────────────── 拖拽图片加载 ───────────────
+  canvasWrap.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  canvasWrap.addEventListener('drop', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+      loadImageFromFile(file);
+    }
+  });
+
+  // 全局拖拽
+  document.addEventListener('dragover', function(e) { e.preventDefault(); });
+  document.addEventListener('drop', function(e) {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+      loadImageFromFile(file);
+    }
+  });
+
+  // ─────────────── 键盘快捷键 ───────────────
+  window.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'z') {
+      e.preventDefault();
+      undoVertex();
+    }
+    if (e.key === 'Enter' && currentVertices.length >= 3) {
+      e.preventDefault();
+      closePolygon();
+    }
+    if (e.key === 'Escape') {
+      currentVertices = [];
+      refreshSidebar();
+      render();
+    }
+  });
+
+  // ─────────────── 按钮绑定 ───────────────
+  document.getElementById('fileInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file) loadImageFromFile(file);
+  });
+
+  // "加载图片" label点击 → 触发隐藏的file input
+  document.querySelector('.btn-file').addEventListener('click', function() {
+    document.getElementById('fileInput').click();
+  });
+
+  document.getElementById('btnFit').addEventListener('click', fitToScreen);
+  document.getElementById('btnZoomIn').addEventListener('click', function() {
+    if (!image) return;
+    zoomAt(1.3, canvasWrap.clientWidth / 2, canvasWrap.clientHeight / 2);
+  });
+  document.getElementById('btnZoomOut').addEventListener('click', function() {
+    if (!image) return;
+    zoomAt(1 / 1.3, canvasWrap.clientWidth / 2, canvasWrap.clientHeight / 2);
+  });
+  document.getElementById('btnExport').addEventListener('click', exportJSON);
+
+  document.getElementById('btnAddRegion').addEventListener('click', addRegion);
+  document.getElementById('btnNewPoly').addEventListener('click', function() {
+    // 保存当前多边形, 开始新的
+    if (currentVertices.length >= 2) closePolygon();
+    currentVertices = [];
+    refreshSidebar();
+    render();
+  });
+  document.getElementById('btnUndo').addEventListener('click', undoVertex);
+  document.getElementById('btnClosePoly').addEventListener('click', closePolygon);
+  document.getElementById('btnDeleteRegion').addEventListener('click', function() {
+    if (currentRegionKey) deleteRegion(currentRegionKey);
+  });
+  document.getElementById('btnClearAll').addEventListener('click', clearAll);
+
+  // 表单双向绑定
+  document.getElementById('regionName').addEventListener('input', function() {
+    const region = getCurrentRegion();
+    if (region) { region.label = this.value; refreshSidebar(); autoSave(); }
+  });
+  document.getElementById('regionKey').addEventListener('input', function() {
+    const region = getCurrentRegion();
+    if (region && this.value.trim()) {
+      const oldKey = region.key;
+      const newKey = this.value.trim();
+      if (oldKey !== newKey && !regions.has(newKey)) {
+        regions.delete(oldKey);
+        region.key = newKey;
+        regions.set(newKey, region);
+        currentRegionKey = newKey;
+        refreshSidebar();
+        autoSave();
+      }
+    }
+  });
+  document.getElementById('regionColor').addEventListener('input', function() {
+    const region = getCurrentRegion();
+    if (region) {
+      region.color = this.value;
+      document.getElementById('regionColorHex').value = this.value;
+      render();
+      autoSave();
+    }
+  });
+  document.getElementById('regionColorHex').addEventListener('input', function() {
+    const hex = this.value;
+    if (/^#[0-9a-fA-F]{6}$/.test(hex)) {
+      const region = getCurrentRegion();
+      if (region) {
+        region.color = hex;
+        document.getElementById('regionColor').value = hex;
+        render();
+        autoSave();
+      }
+    }
+  });
+
+  // ─────────────── 窗口大小变化 ───────────────
+  window.addEventListener('resize', function() {
+    resizeCanvas();
+  });
+
+  // ─────────────── 初始化 ───────────────
+  function init() {
+    resizeCanvas();
+    initPresetRegions();
+    refreshSidebar();
+    render();
+  }
+
+  init();
+
+  console.log('🎯 坐标拾取工具已就绪');
+  console.log('  - 拖拽图片或点击"加载图片"开始');
+  console.log('  - 左侧点击添加顶点');
+  console.log('  - 右键闭合多边形');
+  console.log('  - Ctrl+Z 撤销');
+  console.log('  - 点击"导出JSON"获取坐标数据');
+})();
+</script>
+</body>
+</html>

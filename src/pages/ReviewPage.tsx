@@ -82,6 +82,18 @@ function normalizeCountry(raw: string): string {
   return COUNTRY_ALIASES[trimmed] ?? COUNTRY_ALIASES[trimmed.toLowerCase()] ?? trimmed;
 }
 
+function toNum(v: unknown): number | null {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function toStr(v: unknown): string | null {
+  if (v == null || v === "") return null;
+  const s = String(v).trim();
+  return s || null;
+}
+
 function mapRowToProject(row: Record<string, unknown>): Project {
   const rawCountry = String(row.country ?? "").trim();
   const country = normalizeCountry(rawCountry);
@@ -104,6 +116,14 @@ function mapRowToProject(row: Record<string, unknown>): Project {
     application:    String(row.application ?? ""),
     confidence,
     procurementChain: String(row.procurement_chain ?? ""),
+    waterDepthM: toNum(row.water_depth_m),
+    oilCapacityBpd: toNum(row.oil_capacity_bpd),
+    gasCapacityMmcmd: toNum(row.gas_capacity_mmcmd),
+    hullType: toStr(row.hull_type),
+    fieldName: toStr(row.field_name),
+    operatorName: toStr(row.operator_name),
+    basin: toStr(row.basin),
+    recommendationJson: toStr(row.recommendation_json),
   };
 }
 
@@ -294,7 +314,7 @@ export default function ReviewPage() {
         </section>
 
         {/* filters */}
-        <section className="mb-6 flex flex-wrap items-center gap-4 rounded-lg border border-fpso-border bg-fpso-card px-5 py-3">
+        <section className="mb-6 flex flex-wrap items-center gap-4 rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md px-5 py-3 shadow-xl hover:shadow-2xl transition-shadow duration-300">
           {/* country */}
           <div className="flex items-center gap-2">
             <label className="text-xs font-medium text-fpso-muted">Country</label>
@@ -345,11 +365,11 @@ export default function ReviewPage() {
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-fpso-blue/30 border-t-fpso-blue" />
             </div>
           ) : projects.length === 0 ? (
-            <div className="rounded-lg border border-fpso-border bg-fpso-card px-6 py-16 text-center">
+            <div className="rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md px-6 py-16 text-center shadow-xl">
               <p className="text-fpso-muted text-sm">No data in projects table.</p>
             </div>
           ) : filtered.length === 0 ? (
-            <div className="rounded-lg border border-fpso-border bg-fpso-card px-6 py-16 text-center text-fpso-muted">
+            <div className="rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md px-6 py-16 text-center shadow-xl text-fpso-muted">
               No projects match the current filters ({projects.length} total).
             </div>
           ) : (
@@ -358,7 +378,7 @@ export default function ReviewPage() {
               return (
                 <div
                   key={p.name}
-                  className="rounded-lg border border-fpso-border bg-fpso-card p-5 transition-all hover:border-fpso-blue/30"
+                  className="rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md p-5 shadow-xl hover:shadow-2xl transition-shadow duration-300 hover:border-fpso-blue/30"
                 >
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     {/* info */}
