@@ -4,6 +4,7 @@ import ReviewPage from './pages/ReviewPage';
 import SettingsPage from './pages/SettingsPage';
 import IndustryBreakdownPage from './pages/IndustryBreakdownPage';
 import ProjectTimelinePage from './pages/ProjectTimelinePage';
+import AuthCallbackPage from './pages/AuthCallbackPage';
 import type { ReactNode } from 'react';
 
 export interface RouteConfig {
@@ -50,6 +51,12 @@ export const routes: RouteConfig[] = [
     name: 'ProjectTimeline',
     path: '/project-timeline',
     element: <ProjectTimelinePage />,
+    public: true,
+  },
+  {
+    name: 'AuthCallback',
+    path: '/auth/callback',
+    element: <AuthCallbackPage />,
     public: true,
   },
 ];

@@ -60,51 +60,39 @@ function clearUserFromStorage() {
  * Called on the /auth/callback page.
  */
 async function exchangeCodeForUser(code: string): Promise<LarkUser | null> {
-  // Step 1: get user_access_token via OIDC endpoint
-  const tokenResp = await fetch('https://open.feishu.cn/open-apis/authen/v1/oidc/access_token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      grant_type: 'authorization_code',
-      code,
-    }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-  if (!tokenResp.ok) {
-    console.error('Feishu token exchange failed:', await tokenResp.text());
+  try {
+    // Proxy through our Cloudflare Worker — keeps app_secret server-side
+    const resp = await fetch('/api/feishu/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+      signal: controller.signal,
+    });
+
+    if (!resp.ok) {
+      const errData = await resp.json().catch(() => ({}));
+      console.error('Feishu token exchange failed:', resp.status, errData);
+      return null;
+    }
+
+    const data = await resp.json();
+    clearTimeout(timeoutId);
+
+    if (!data.open_id) return null;
+
+    return {
+      open_id: data.open_id,
+      name: data.name || 'Unknown User',
+      avatar_url: data.avatar_url || '',
+    };
+  } catch (err) {
+    clearTimeout(timeoutId);
+    console.error('Feishu token exchange exception:', err);
     return null;
   }
-
-  const tokenData = await tokenResp.json();
-  if (tokenData.code !== 0) {
-    console.error('Feishu token exchange error:', tokenData.msg);
-    return null;
-  }
-
-  const userAccessToken = tokenData.data?.access_token;
-  if (!userAccessToken) return null;
-
-  // Step 2: get user info
-  const userResp = await fetch('https://open.feishu.cn/open-apis/authen/v1/user_info', {
-    headers: { Authorization: `Bearer ${userAccessToken}` },
-  });
-
-  if (!userResp.ok) {
-    console.error('Feishu user info fetch failed:', await userResp.text());
-    return null;
-  }
-
-  const userData = await userResp.json();
-  if (userData.code !== 0) {
-    console.error('Feishu user info error:', userData.msg);
-    return null;
-  }
-
-  return {
-    open_id: userData.data?.open_id || '',
-    name: userData.data?.name || 'Unknown User',
-    avatar_url: userData.data?.avatar_url || '',
-  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -135,6 +123,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           toast.error('Feishu login failed. Please try again.');
         }
         setLoading(false);
+        // Navigate to home page after callback
+        window.location.href = '/';
+      }).catch(() => {
+        toast.error('Feishu login failed. Please try again.');
+        setLoading(false);
+        window.location.href = '/';
       });
     } else {
       setLoading(false);
@@ -151,9 +145,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const state = crypto.randomUUID();
     sessionStorage.setItem('lark_oauth_state', state);
 
+    const redirectUri = LARK_REDIRECT_URI;
     const authUrl = new URL('https://open.feishu.cn/open-apis/authen/v1/authorize');
     authUrl.searchParams.set('app_id', LARK_APP_ID);
-    authUrl.searchParams.set('redirect_uri', LARK_REDIRECT_URI);
+    authUrl.searchParams.set('redirect_uri', redirectUri);
     authUrl.searchParams.set('state', state);
 
     window.location.href = authUrl.toString();

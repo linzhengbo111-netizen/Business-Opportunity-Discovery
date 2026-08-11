@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "business-opportunity-discovery",
+  "main": "api-worker.js",
   "compatibility_date": "2026-07-21",
   "observability": {
     "enabled": true
