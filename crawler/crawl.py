@@ -1243,7 +1243,7 @@ def auto_ingest_to_projects(supabase, skip_enrich=False):
 
 
 def run_all_adapters(dry_run=False, local_only=False, skip_classify=False,
-                     skip_ingest=False, skip_enrich=False):
+                     skip_ingest=False, skip_enrich=False, anp_download=False):
     """Run all 15 adapters sequentially with polite delays. Continue-on-error.
     After crawl: auto-classify pending, then auto-ingest into projects.
     Use --skip-ingest to skip the projects ingest step.
@@ -1264,7 +1264,10 @@ def run_all_adapters(dry_run=False, local_only=False, skip_classify=False,
         log.info("=" * 54)
 
         try:
-            result = runner(dry_run=dry_run, local_only=local_only)
+            if name == "ANP Dev Plan":
+                result = runner(dry_run=dry_run, local_only=local_only, skip_download=not anp_download)
+            else:
+                result = runner(dry_run=dry_run, local_only=local_only)
             all_results.append((name, result))
         except Exception:
             log.error("Adapter %s failed!", name, exc_info=True)
@@ -1385,6 +1388,11 @@ def main():
         help="Skip project enrichment (public web search for missing tech specs) during auto-ingest.",
     )
     parser.add_argument(
+        "--anp-download",
+        action="store_true",
+        help="Enable ANP Dev Plan PDF download (disabled by default for speed).",
+    )
+    parser.add_argument(
         "--auto-ingest",
         action="store_true",
         help="Run auto-ingest on accepted candidates (standalone, no crawl).",
@@ -1450,7 +1458,8 @@ def main():
     # Normal crawl mode (default when no flag specified)
     run_all_adapters(skip_classify=args.skip_classify,
                      skip_ingest=args.skip_ingest,
-                     skip_enrich=args.skip_enrich)
+                     skip_enrich=args.skip_enrich,
+                     anp_download=args.anp_download)
 
 
 if __name__ == "__main__":
