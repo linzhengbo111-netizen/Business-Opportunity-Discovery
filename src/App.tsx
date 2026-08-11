@@ -1,7 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import IntersectObserver from '@/components/common/IntersectObserver';
-import Header from '@/components/common/Header';
 import { Toaster } from '@/components/ui/sonner';
 
 import { routes } from './routes';
@@ -17,7 +16,6 @@ const App: React.FC = () => {
         <RouteGuard>
           <IntersectObserver />
           <div className="flex flex-col min-h-screen">
-            <Header />
             <main className="flex-grow">
               <Routes>
                 {routes.map((route, index) => (
