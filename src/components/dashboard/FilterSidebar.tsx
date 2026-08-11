@@ -138,7 +138,7 @@ export default function FilterSidebar({
 
         {/* Expanded content */}
         <div
-          className="transition-opacity duration-200 overflow-y-auto h-full"
+          className={`transition-opacity duration-200 overflow-y-auto h-full ${collapsed ? 'hidden' : ''}`}
           style={{ opacity: collapsed ? 0 : 1, pointerEvents: collapsed ? "none" : "auto" }}
         >
           <div className="px-4 pt-4 pb-2">
