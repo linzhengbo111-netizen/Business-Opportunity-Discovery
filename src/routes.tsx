@@ -5,6 +5,7 @@ import SettingsPage from './pages/SettingsPage';
 import IndustryBreakdownPage from './pages/IndustryBreakdownPage';
 import ProjectTimelinePage from './pages/ProjectTimelinePage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
+import LoginPage from './pages/LoginPage';
 import type { ReactNode } from 'react';
 
 export interface RouteConfig {
@@ -18,39 +19,9 @@ export interface RouteConfig {
 
 export const routes: RouteConfig[] = [
   {
-    name: 'Dashboard',
-    path: '/',
-    element: <DashboardPage />,
-    public: true,
-  },
-  {
-    name: 'Database',
-    path: '/database',
-    element: <DatabasePage />,
-    public: true,
-  },
-  {
-    name: 'Review',
-    path: '/review',
-    element: <ReviewPage />,
-    public: true,
-  },
-  {
-    name: 'IndustryBreakdown',
-    path: '/industry-breakdown',
-    element: <IndustryBreakdownPage />,
-    public: true,
-  },
-  {
-    name: 'Settings',
-    path: '/settings',
-    element: <SettingsPage />,
-    public: true,
-  },
-  {
-    name: 'ProjectTimeline',
-    path: '/project-timeline',
-    element: <ProjectTimelinePage />,
+    name: 'Login',
+    path: '/login',
+    element: <LoginPage />,
     public: true,
   },
   {
@@ -58,5 +29,35 @@ export const routes: RouteConfig[] = [
     path: '/auth/callback',
     element: <AuthCallbackPage />,
     public: true,
+  },
+  {
+    name: 'Dashboard',
+    path: '/',
+    element: <DashboardPage />,
+  },
+  {
+    name: 'Database',
+    path: '/database',
+    element: <DatabasePage />,
+  },
+  {
+    name: 'Review',
+    path: '/review',
+    element: <ReviewPage />,
+  },
+  {
+    name: 'IndustryBreakdown',
+    path: '/industry-breakdown',
+    element: <IndustryBreakdownPage />,
+  },
+  {
+    name: 'Settings',
+    path: '/settings',
+    element: <SettingsPage />,
+  },
+  {
+    name: 'ProjectTimeline',
+    path: '/project-timeline',
+    element: <ProjectTimelinePage />,
   },
 ];

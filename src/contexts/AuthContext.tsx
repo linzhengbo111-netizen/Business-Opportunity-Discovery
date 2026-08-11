@@ -123,8 +123,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           toast.error('Feishu login failed. Please try again.');
         }
         setLoading(false);
-        // Navigate to home page after callback
-        window.location.href = '/';
+        // Redirect to saved destination (set by LoginPage), fallback to /
+        const redirectTo = sessionStorage.getItem('login_redirect_to') || '/';
+        sessionStorage.removeItem('login_redirect_to');
+        window.location.href = redirectTo;
       }).catch(() => {
         toast.error('Feishu login failed. Please try again.');
         setLoading(false);
