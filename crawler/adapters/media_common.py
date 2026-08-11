@@ -2959,15 +2959,30 @@ def insert_candidate_events(supabase, articles):
       source_name → source_name, source_url → source_url,
       event_type → event_type, evidence_quote → evidence_quote,
       publication_date → publication_date.
-    Every crawl run inserts new records with review_status='pending'.
-    No dedup — each run creates fresh records.
-    Returns count of inserted rows.
+    Before inserting, checks if (project_name_raw, event_type, summary)
+    already exists — skips if duplicate.  Returns count of inserted rows.
     """
     inserted = 0
+    skipped = 0
     table = supabase.table("candidate_events")
 
     for a in articles:
         try:
+            project_name = a.get("name", "")
+            event_type = a.get("event_type", "ARTICLE_MENTION")
+            summary = a.get("summary", "")
+
+            # Dedup: skip if (project_name_raw, event_type, summary) already exists
+            existing = table.select("id") \
+                .eq("project_name_raw", project_name) \
+                .eq("event_type", event_type) \
+                .eq("summary", summary) \
+                .limit(1) \
+                .execute()
+            if existing.data:
+                skipped += 1
+                continue
+
             record = {
                 "project_name_raw": a.get("name", ""),
                 "country": a.get("country", ""),
@@ -2998,4 +3013,6 @@ def insert_candidate_events(supabase, articles):
             log.warning("  candidate_events insert error: %s",
                         a.get("name", "?"), exc_info=True)
 
+    if skipped:
+        log.info("Dedup: skipped %d duplicate(s)", skipped)
     return inserted

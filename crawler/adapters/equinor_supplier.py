@@ -364,13 +364,22 @@ def insert_candidate_events(events: list[dict], supabase=None) -> int:
         supabase = get_supabase()
     table = supabase.table("candidate_events")
     inserted = 0
+    skipped = 0
     for evt in events:
         try:
+            # Dedup: skip if (project_name_raw, event_type, summary) already exists
+            existing = table.select("id")                 .eq("project_name_raw", evt.get("project_name_raw", ""))                 .eq("event_type", evt.get("event_type", ""))                 .eq("summary", evt.get("summary", ""))                 .limit(1)                 .execute()
+            if existing.data:
+                skipped += 1
+                continue
+
             table.insert(evt).execute()
             inserted += 1
         except Exception:
             log.warning("Insert error for %s",
                          evt.get("project_name_raw", "?"), exc_info=True)
+    if skipped:
+        log.info("Dedup: skipped %d duplicate(s)", skipped)
     return inserted
 
 
