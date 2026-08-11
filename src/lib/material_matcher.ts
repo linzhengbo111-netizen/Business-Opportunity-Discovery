@@ -635,9 +635,23 @@ export function inferProductNeeds(description: string): InferredProductNeed[] {
       label: "无缝管",
       defaultConfidence: "medium",
     },
-    // Pump → flanges and fittings
+    // Flanges — direct keywords
     {
-      keywords: ["pump", "compressor", "centrifugal"],
+      keywords: [
+        "flange", "connection", "joint", "spool",
+        "pipeline connection", "tie-in", "subsea connection",
+      ],
+      productType: "FLANGES",
+      label: "法兰",
+      defaultConfidence: "high",
+    },
+    // Flanges — equipment that requires flanged connections
+    {
+      keywords: [
+        "pump", "compressor", "centrifugal",
+        "heat exchanger", "pressure vessel", "separator",
+        "heater", "cooler", "condenser",
+      ],
       productType: "FLANGES",
       label: "法兰",
       defaultConfidence: "high",
@@ -732,6 +746,27 @@ export function inferProductNeeds(description: string): InferredProductNeed[] {
         break;
       }
     }
+  }
+
+  // Post-processing: if PIPE or TUBE is recommended, auto-add FLANGES.
+  // Piping systems inherently require flanged connections.
+  const PIPE_TUBE_TYPES: ProductType[] = [
+    "SEAMLESS_PIPE",
+    "WELDED_PIPE",
+    "SEAMLESS_TUBE",
+    "WELDED_TUBE",
+  ];
+  if (
+    results.some((r) => PIPE_TUBE_TYPES.includes(r.productType)) &&
+    !results.some((r) => r.productType === "FLANGES")
+  ) {
+    results.push({
+      productType: "FLANGES",
+      label: "法兰",
+      confidence: "medium",
+      trigger: "管道系统配套",
+      source: "AI推断",
+    });
   }
 
   return results;
