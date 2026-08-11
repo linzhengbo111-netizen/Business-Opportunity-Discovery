@@ -20,28 +20,33 @@ export default function Header({ rightContent }: { rightContent?: ReactNode }) {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-white/5 bg-fpso-bg/70 backdrop-blur-md">
-      <div className="relative mx-auto flex h-16 max-w-7xl items-center gap-2 overflow-visible px-4 md:px-6 flex-nowrap">
-        {/* left: title — truncated on small screens */}
-        <div className="z-10 flex-shrink min-w-0">
-          <span className="text-sm md:text-lg font-bold tracking-tight neon-glow truncate block max-w-[140px] sm:max-w-[180px] md:max-w-none">
+      {/*
+        Three-column grid: left (title) | center (nav) | right (controls).
+        Columns 1 and 3 get equal fractional space; column 2 is auto-width.
+        This keeps the nav perfectly centered regardless of left/right content width,
+        and guarantees everything stays on one line.
+      */}
+      <div className="mx-auto grid h-16 max-w-7xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-4 md:px-6">
+        {/* left: title — truncates when space is tight */}
+        <div className="min-w-0">
+          <span className="text-sm md:text-lg font-bold tracking-tight neon-glow truncate block">
             Business Opportunity Discovery
           </span>
         </div>
 
-        {/* center: nav — absolutely positioned, always centered */}
-        <nav className="absolute left-1/2 -translate-x-1/2 z-10 hidden items-center gap-3 md:gap-5 md:flex">
+        {/* center: nav links */}
+        <nav className="hidden items-center gap-3 md:gap-5 md:flex">
           <NavLink to="/" end className={linkClass}>Dashboard</NavLink>
           <NavLink to="/database" className={linkClass}>Database</NavLink>
           <NavLink to="/industry-breakdown" className={linkClass}>Illustration</NavLink>
         </nav>
 
-        {/* right: user controls + external rightContent */}
-        <div className="z-10 ml-auto flex flex-shrink-0 items-center gap-2 md:gap-3">
+        {/* right: user controls — pushed to end via flex justify-end */}
+        <div className="flex items-center justify-end gap-2 md:gap-3 min-w-0">
           {!loading && (
             isGuest ? (
-              /* Guest mode: compact badge + login CTA */
               <div className="flex items-center gap-1.5 md:gap-2 flex-nowrap">
-                <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[11px] md:text-xs font-medium text-amber-400 whitespace-nowrap">
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[11px] md:text-xs font-medium text-amber-400 whitespace-nowrap flex-shrink-0">
                   <span className="relative flex h-1.5 w-1.5 flex-shrink-0">
                     <span className="absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
                     <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-amber-400" />
@@ -59,11 +64,10 @@ export default function Header({ rightContent }: { rightContent?: ReactNode }) {
                 </Button>
               </div>
             ) : isAuthenticated && user ? (
-              /* Authenticated user: avatar dropdown */
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="flex items-center gap-1.5 md:gap-2 rounded-full hover:ring-2 hover:ring-fpso-blue/30 transition-all flex-shrink-0 whitespace-nowrap">
-                    <Avatar className="h-7 w-7 md:h-8 md:w-8">
+                    <Avatar className="h-7 w-7 md:h-8 md:w-8 flex-shrink-0">
                       <AvatarImage src={user.avatar_url} alt={user.name} />
                       <AvatarFallback className="bg-fpso-blue/20 text-fpso-blue text-[10px] md:text-xs">
                         {user.name.slice(0, 2).toUpperCase()}
@@ -94,7 +98,6 @@ export default function Header({ rightContent }: { rightContent?: ReactNode }) {
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              /* Unauthenticated: compact login button */
               <Button
                 variant="outline"
                 size="sm"
