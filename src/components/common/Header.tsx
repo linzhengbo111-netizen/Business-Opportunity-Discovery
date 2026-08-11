@@ -15,42 +15,62 @@ function linkClass({ isActive }: { isActive: boolean }) {
   return `text-xs font-medium transition-colors whitespace-nowrap ${isActive ? 'text-fpso-blue' : 'text-fpso-muted hover:text-fpso-blue/70'}`;
 }
 
+const BAR: React.CSSProperties = {
+  display: 'flex',
+  flexWrap: 'nowrap',
+  alignItems: 'center',
+  height: 48,
+  maxHeight: 48,
+  minHeight: 48,
+  overflow: 'hidden',
+  whiteSpace: 'nowrap',
+  gap: 8,
+};
+
+const SHRINK: React.CSSProperties = { flexShrink: 0 };
+
 export default function Header({ rightContent }: { rightContent?: ReactNode }) {
   const { user, isAuthenticated, isGuest, login, logout, loading } = useAuth();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-white/5 bg-fpso-bg/70 backdrop-blur-md">
-      {/* Single-line flex bar: locked height, no wrap, no overflow */}
-      <div className="mx-auto flex h-12 max-w-7xl flex-nowrap items-center gap-2 overflow-hidden whitespace-nowrap px-3 md:px-6">
-        {/* Left: title — fixed small size, truncated */}
-        <span className="flex-shrink-0 text-sm font-bold tracking-tight neon-glow truncate max-w-[160px] sm:max-w-[200px]">
+      <div className="mx-auto max-w-7xl px-3 md:px-6" style={BAR}>
+        {/* Left: title */}
+        <span
+          className="text-sm font-bold tracking-tight neon-glow truncate block"
+          style={{ ...SHRINK, maxWidth: 160 }}
+        >
           Business Opportunity Discovery
         </span>
 
-        {/* Center spacer — pushes right content to the end */}
-        <div className="flex-1 min-w-[8px]" />
+        {/* Spacer */}
+        <div style={{ flex: 1, minWidth: 8 }} />
 
-        {/* Nav links — hidden below lg (1024px) */}
-        <nav className="hidden lg:flex flex-shrink-0 items-center gap-4">
+        {/* Nav links — lg+ only */}
+        <nav className="hidden lg:flex items-center gap-4" style={SHRINK}>
           <NavLink to="/" end className={linkClass}>Dashboard</NavLink>
           <NavLink to="/database" className={linkClass}>Database</NavLink>
           <NavLink to="/industry-breakdown" className={linkClass}>Illustration</NavLink>
         </nav>
 
-        {/* Right: user controls */}
-        <div className="flex flex-shrink-0 items-center gap-2">
+        {/* Right controls */}
+        <div className="flex items-center gap-2" style={SHRINK}>
           {!loading && (
             isGuest ? (
               <>
-                <span className="inline-flex flex-shrink-0 items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[11px] font-medium text-amber-400">
-                  <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400" />
+                <span
+                  className="inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[11px] font-medium text-amber-400"
+                  style={SHRINK}
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400" style={SHRINK} />
                   <span className="hidden sm:inline">Guest</span>
                 </span>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={login}
-                  className="flex-shrink-0 border-fpso-blue/30 text-fpso-blue hover:bg-fpso-blue/10 text-[11px] h-7 px-2"
+                  className="border-fpso-blue/30 text-fpso-blue hover:bg-fpso-blue/10 text-[11px] h-7 px-2"
+                  style={SHRINK}
                 >
                   Login
                 </Button>
@@ -58,8 +78,11 @@ export default function Header({ rightContent }: { rightContent?: ReactNode }) {
             ) : isAuthenticated && user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex flex-shrink-0 items-center gap-1.5 rounded-full hover:ring-2 hover:ring-fpso-blue/30 transition-all">
-                    <Avatar className="h-6 w-6 flex-shrink-0">
+                  <button
+                    className="flex items-center gap-1.5 rounded-full hover:ring-2 hover:ring-fpso-blue/30 transition-all"
+                    style={SHRINK}
+                  >
+                    <Avatar className="h-6 w-6" style={SHRINK}>
                       <AvatarImage src={user.avatar_url} alt={user.name} />
                       <AvatarFallback className="bg-fpso-blue/20 text-fpso-blue text-[10px]">
                         {user.name.slice(0, 2).toUpperCase()}
@@ -94,13 +117,14 @@ export default function Header({ rightContent }: { rightContent?: ReactNode }) {
                 variant="outline"
                 size="sm"
                 onClick={login}
-                className="flex-shrink-0 border-fpso-blue/30 text-fpso-blue hover:bg-fpso-blue/10 text-[11px] h-7 px-2"
+                className="border-fpso-blue/30 text-fpso-blue hover:bg-fpso-blue/10 text-[11px] h-7 px-2"
+                style={SHRINK}
               >
                 Login
               </Button>
             )
           )}
-          {rightContent}
+          <span style={SHRINK}>{rightContent}</span>
         </div>
       </div>
     </header>
