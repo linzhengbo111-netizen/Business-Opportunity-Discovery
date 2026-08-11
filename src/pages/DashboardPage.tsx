@@ -18,6 +18,7 @@ import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
 import { supabase } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useAuth } from "@/contexts/AuthContext";
 import { matchMaterials, specsFromRow, hasAnySpecs, parseRecommendation, parseCorrosiveMedia, getCorrosiveMediaTags, getCorrosiveMediaDetails } from "@/lib/material_matcher";
 import { exportOpportunityList } from "@/lib/export_opportunities";
 import { scoreOpportunity, scoreBadgeClass } from "@/lib/opportunity_scorer";
@@ -332,6 +333,7 @@ export default function DashboardPage() {
   const [timelineLoading, setTimelineLoading] = useState(false);
   const { version, status: connectionStatus } = useProjectRealtime();
   const { isFollowing, toggleFollowProject, isAuthenticated } = useSubscription();
+  const { isGuest } = useAuth();
 
   // ---- 从 Supabase 获取项目数据 ----
   useEffect(() => {
@@ -694,10 +696,10 @@ export default function DashboardPage() {
           selectedStatuses={selectedStatuses}
           onCountryChange={setSelectedCountry}
           onIndustryChange={handleIndustryChange}
-          onConfidenceChange={setSelectedConfidence}
+          onConfidenceChange={isGuest ? () => {} : setSelectedConfidence}
           onStatusToggle={toggleStatus}
           onClear={clearAllFilters}
-          onExport={handleExport}
+          onExport={isGuest ? undefined : handleExport}
           filteredCount={filteredProjects.length}
         />
 
@@ -1255,7 +1257,7 @@ export default function DashboardPage() {
               </div>
 
               {/* follow / unfollow button */}
-              {isAuthenticated && (
+              {isAuthenticated && !isGuest && (
                 <div>
                   <Button
                     variant={isFollowing(selectedProject.name) ? 'default' : 'outline'}
@@ -1272,13 +1274,15 @@ export default function DashboardPage() {
                 </div>
               )}
 
-              {/* Follow-up Status (S7) */}
-              <div className="mb-5">
-                <FollowUpStatus
-                  projectId={selectedProject.name}
-                  projectName={selectedProject.name}
-                />
-              </div>
+              {/* Follow-up Status (S7) — hidden for guests */}
+              {!isGuest && (
+                <div className="mb-5">
+                  <FollowUpStatus
+                    projectId={selectedProject.name}
+                    projectName={selectedProject.name}
+                  />
+                </div>
+              )}
 
               {/* 完整摘要 */}
               <div>
@@ -1499,17 +1503,19 @@ export default function DashboardPage() {
                       <span className="font-semibold text-fpso-blue">Action: </span>
                       {scoreResult.recommendedAction}
                     </p>
-                    {/* Battle Card button */}
-                    <button
-                      type="button"
-                      onClick={() => setBattleCardProject(selectedProject)}
-                      className="mb-3 inline-flex items-center gap-1.5 rounded-md border border-fpso-green/20 bg-fpso-green/5 px-3 py-1.5 text-xs font-medium text-fpso-green hover:bg-fpso-green/10 hover:border-fpso-green/30 transition-colors"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      生成作战卡
-                    </button>
+                    {/* Battle Card button — hidden for guests */}
+                    {!isGuest && (
+                      <button
+                        type="button"
+                        onClick={() => setBattleCardProject(selectedProject)}
+                        className="mb-3 inline-flex items-center gap-1.5 rounded-md border border-fpso-green/20 bg-fpso-green/5 px-3 py-1.5 text-xs font-medium text-fpso-green hover:bg-fpso-green/10 hover:border-fpso-green/30 transition-colors"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        生成作战卡
+                      </button>
+                    )}
                     {/* Expandable dimensions via native <details> */}
                     <details className="group">
                       <summary className="text-xs font-medium text-fpso-blue hover:text-fpso-blue/80 transition-colors cursor-pointer select-none mb-2">

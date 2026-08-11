@@ -16,7 +16,7 @@ function linkClass({ isActive }: { isActive: boolean }) {
 }
 
 export default function Header({ rightContent }: { rightContent?: ReactNode }) {
-  const { user, isAuthenticated, login, logout, loading } = useAuth();
+  const { user, isAuthenticated, isGuest, login, logout, loading } = useAuth();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-white/5 bg-fpso-bg/70 backdrop-blur-md">
@@ -38,7 +38,27 @@ export default function Header({ rightContent }: { rightContent?: ReactNode }) {
         {/* right: user controls + external rightContent */}
         <div className="z-10 ml-auto flex flex-shrink-0 items-center gap-4 overflow-hidden">
           {!loading && (
-            isAuthenticated && user ? (
+            isGuest ? (
+              /* Guest mode: badge + login CTA */
+              <div className="flex items-center gap-3">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-medium text-amber-400">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-amber-400" />
+                  </span>
+                  Guest Mode
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={login}
+                  className="border-fpso-blue/30 text-fpso-blue hover:bg-fpso-blue/10 text-xs"
+                >
+                  Feishu Login
+                </Button>
+              </div>
+            ) : isAuthenticated && user ? (
+              /* Authenticated user: avatar dropdown */
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="flex items-center gap-2 rounded-full hover:ring-2 hover:ring-fpso-blue/30 transition-all">
@@ -73,6 +93,7 @@ export default function Header({ rightContent }: { rightContent?: ReactNode }) {
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
+              /* Unauthenticated: login button */
               <Button
                 variant="outline"
                 size="sm"
