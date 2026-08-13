@@ -450,6 +450,16 @@ export const PROJECT_ALIASES: Record<string, ProjectAliasEntry> = {
       'Cidade de Santos',
     ],
   },
+  'brazil-tartaruga-verde': {
+    displayName: 'Tartaruga Verde (FPSO Tartaruga Verde)',
+    country: 'Brazil',
+    aliases: [
+      'Tartaruga Verde',
+      'FPSO Tartaruga Verde',
+      'Tartaruga Verde FPSO',
+      'Tartaruga Verde Field',
+    ],
+  },
   'brazil-espirito-santo': {
     displayName: 'FPSO Espirito Santo',
     country: 'Brazil',

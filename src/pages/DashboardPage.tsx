@@ -588,6 +588,7 @@ export default function DashboardPage() {
     let cancelled = false;
     setTimelineLoading(true);
 
+
     async function fetchTimeline() {
       let data: Record<string, unknown>[] | null = null;
       let error: { message: string } | null = null;
@@ -601,17 +602,47 @@ export default function DashboardPage() {
           .order("publication_date", { ascending: true });
         data = result.data;
         error = result.error;
+
+        // Fallback: canonical ID known but no events linked to it yet —
+        // events may exist under a raw project name that has not been
+        // backfilled into canonical_project_id. Try name fuzzy match.
+        if (!error && (!data || data.length === 0)) {
+          const candidates = fuzzyCandidates(projectName);
+          for (const name of candidates) {
+            const result2 = await supabase
+              .from("candidate_events")
+              .select("id, event_type, publication_date, source_name, source_url, evidence_quote, summary")
+              .ilike("project_name_raw", `%${name}%`)
+              .order("publication_date", { ascending: true });
+            if (!result2.error && result2.data && result2.data.length > 0) {
+              data = result2.data;
+              error = result2.error;
+              break;
+            }
+            data = result2.data;
+            error = result2.error;
+          }
+        }
       } else {
         // Fallback: query by project_name_raw (fuzzy match) when no canonical ID
         // Handles projects promoted from NSTA fields, news headlines, etc.
         // that are not in the PROJECT_ALIASES registry.
-        const result = await supabase
-          .from("candidate_events")
-          .select("id, event_type, publication_date, source_name, source_url, evidence_quote, summary")
-          .ilike("project_name_raw", `%${projectName.slice(0, 40)}%`)
-          .order("publication_date", { ascending: true });
-        data = result.data;
-        error = result.error;
+        const candidates = fuzzyCandidates(projectName);
+        let result: { data: Record<string, unknown>[] | null; error: { message: string } | null } | null = null;
+        for (const name of candidates) {
+          const r = await supabase
+            .from("candidate_events")
+            .select("id, event_type, publication_date, source_name, source_url, evidence_quote, summary")
+            .ilike("project_name_raw", `%${name}%`)
+            .order("publication_date", { ascending: true });
+          if (!r.error && r.data && r.data.length > 0) {
+            result = r;
+            break;
+          }
+          result = r;
+        }
+        data = result?.data ?? null;
+        error = result?.error ?? null;
       }
 
       if (cancelled) return;
@@ -640,6 +671,17 @@ export default function DashboardPage() {
   }, [selectedProject]);
 
   // ---- AI 分析（LLM 可用时返回 AI 结果，否则 fallback 到规则引擎）----
+  /** Name candidates for fuzzy timeline matching: core name (text before
+   * the first parenthesis) first, then the full name. Raw rows usually
+   * store just the field name ("TERN"), not the display suffix
+   * ("SKUA (Part of MARNOCK-SKUA)"). */
+  function fuzzyCandidates(projectName: string): string[] {
+    const core = projectName.split("(")[0].trim().replace(/\)$/, "");
+    return [core, projectName]
+      .filter((n, i, arr) => n.length >= 3 && arr.indexOf(n) === i)
+      .map((n) => n.slice(0, 60));
+  }
+
   useEffect(() => {
     if (!selectedProject) {
       setAiScenario(null);

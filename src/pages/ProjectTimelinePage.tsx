@@ -194,14 +194,28 @@ export default function ProjectTimelinePage() {
           .eq("canonical_project_id", queryTarget)
           .order("publication_date", { ascending: true });
 
-        // Fallback: if no canonical match, query by display name
+        // Fallback: if no canonical match, query by display name.
+        // Try full display name first, then the core name (text before
+        // the first parenthesis) — slicing at 40 chars could cut a
+        // multi-word name mid-word and miss every row.
         if ((!result.data || result.data.length === 0) && selectedId) {
           const displayName = getDisplayName(selectedId);
-          result = await supabase
-            .from("candidate_events")
-            .select("id, event_type, publication_date, source_name, source_url, evidence_quote, summary")
-            .ilike("project_name_raw", `%${displayName.slice(0, 40)}%`)
-            .order("publication_date", { ascending: true });
+          const coreName = displayName.split("(")[0].trim().replace(/\)$/, "");
+          const candidates = [coreName, displayName].filter(
+            (n, i, arr) => n.length >= 4 && arr.indexOf(n) === i,
+          );
+          for (const name of candidates) {
+            const fb = await supabase
+              .from("candidate_events")
+              .select("id, event_type, publication_date, source_name, source_url, evidence_quote, summary")
+              .ilike("project_name_raw", `%${name}%`)
+              .order("publication_date", { ascending: true });
+            if (!fb.error && fb.data && fb.data.length > 0) {
+              result = fb;
+              break;
+            }
+            result = fb; // keep last (empty) result if nothing matched
+          }
         }
       } else {
         // Non-canonical project: query by raw project name

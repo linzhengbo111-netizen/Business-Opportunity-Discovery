@@ -1692,6 +1692,52 @@ PROJECT_ALIASES = {
         "FPSO Cidade de Santos",
         "FPSO Cidade de Santos", "Cidade de Santos",
     ],
+    "brazil-tartaruga-verde": [
+        "Tartaruga Verde (FPSO Tartaruga Verde)",
+        "Tartaruga Verde", "FPSO Tartaruga Verde",
+        "Tartaruga Verde FPSO", "Tartaruga Verde Field",
+    ],
+    "brazil-buzios": [
+        "Búzios Field FPSOs",
+        "Búzios", "Buzios", "Búzios Field", "Buzios Field",
+        "FPSO Búzios", "FPSO Buzios",
+    ],
+    "brazil-mero": [
+        "Mero Field FPSOs",
+        "Mero", "Mero Field", "FPSO Mero", "Libra Block Mero",
+    ],
+    "brazil-p-78": [
+        "FPSO P-78",
+        "FPSO P-78", "P-78 FPSO", "P-78",
+    ],
+    "brazil-p-79": [
+        "FPSO P-79",
+        "FPSO P-79", "P-79 FPSO", "P-79",
+    ],
+    "brazil-p-80": [
+        "FPSO P-80",
+        "FPSO P-80", "P-80 FPSO", "P-80",
+    ],
+    "brazil-p-81": [
+        "FPSO P-81",
+        "FPSO P-81", "P-81 FPSO", "P-81",
+    ],
+    "brazil-p-82": [
+        "FPSO P-82",
+        "FPSO P-82", "P-82 FPSO", "P-82",
+    ],
+    "brazil-p-83": [
+        "FPSO P-83",
+        "FPSO P-83", "P-83 FPSO", "P-83",
+    ],
+    "brazil-p-84": [
+        "FPSO P-84",
+        "FPSO P-84", "P-84 FPSO", "P-84",
+    ],
+    "brazil-p-85": [
+        "FPSO P-85",
+        "FPSO P-85", "P-85 FPSO", "P-85",
+    ],
 
     # ===== UK — North Sea =====
     "uk-rosebank": [
@@ -1718,6 +1764,18 @@ PROJECT_ALIASES = {
     "uk-captain": [
         "Captain Field (FPSO Captain)",
         "Captain", "FPSO Captain", "Captain Field", "Captain FPSO",
+    ],
+    "uk-buzzard": [
+        "Buzzard Field",
+        "Buzzard", "Buzzard Field", "Buzzard FPSO",
+    ],
+    "uk-clair": [
+        "Clair Field",
+        "Clair", "Clair Field", "Clair Ridge", "Clair Development",
+    ],
+    "uk-mariner": [
+        "Mariner Field",
+        "Mariner", "Mariner Field", "Mariner FPSO", "Equinor Mariner",
     ],
     "uk-victory": [
         "Victory",
@@ -1766,6 +1824,15 @@ PROJECT_ALIASES = {
         "FPSO Ndungu",
         "FPSO Ndungu", "Ndungu FPSO", "Ndungu", "Ndungu Field",
     ],
+    "angola-kaombo": [
+        "Kaombo (FPSO Kaombo Norte / Sul)",
+        "Kaombo", "FPSO Kaombo Norte", "FPSO Kaombo Sul",
+        "Kaombo Norte", "Kaombo Sul", "Kaombo Project",
+    ],
+    "angola-kizomba-a": [
+        "FPSO Kizomba A",
+        "FPSO Kizomba A", "Kizomba A", "Kizomba A FPSO",
+    ],
 
     # ===== Nigeria =====
     "nigeria-zafiro": [
@@ -1811,6 +1878,11 @@ PROJECT_ALIASES = {
         "TEN", "TEN Field", "FPSO John Evans Atta Mills",
         "John Evans Atta Mills", "TEN FPSO",
     ],
+    "ghana-pecan": [
+        "Pecan (FPSO John Agyekum Kufuor)",
+        "Pecan", "Pecan Field", "FPSO John Agyekum Kufuor",
+        "John Agyekum Kufuor", "Pecan FPSO", "JAK FPSO",
+    ],
 
     # ===== Ivory Coast =====
     "ivory-coast-baleine": [
@@ -1846,6 +1918,14 @@ PROJECT_ALIASES = {
         "Stones (FPSO Turritella)",
         "Stones", "FPSO Stones", "FPSO Turritella",
         "Turritella", "Stones Field", "Shell Stones",
+    ],
+    "usa-salamanca": [
+        "Salamanca (FPSO Salamanca)",
+        "Salamanca", "FPSO Salamanca", "Salamanca FPSO",
+    ],
+    "usa-who-dat": [
+        "Who Dat Field",
+        "Who Dat", "Who Dat Field", "Who Dat FPSO",
     ],
 
     # ===== Norway =====

@@ -837,11 +837,13 @@ def backfill_canonical_ids(supabase):
         log.info("Nothing to backfill.")
         return {"total": 0, "filled": 0, "unmatched": 0}
 
-    # Fetch all NULL rows (paginated)
+    # Fetch all NULL rows (paginated). Skip rejected rows: auto_classify
+    # marks noise (old dates, person names, junk ANP pages) as 'rejected',
+    # and those must never show up on a project timeline.
     all_null = []
     offset = 0
     while True:
-        resp = candidate_table.select("id, project_name_raw") \
+        resp = candidate_table.select("id, project_name_raw, review_status") \
             .is_("canonical_project_id", "null") \
             .order("id") \
             .range(offset, offset + 999) \
@@ -849,7 +851,7 @@ def backfill_canonical_ids(supabase):
         batch = resp.data or []
         if not batch:
             break
-        all_null.extend(batch)
+        all_null.extend(b for b in batch if b.get("review_status") != "rejected")
         if len(batch) < 1000:
             break
         offset += 1000
