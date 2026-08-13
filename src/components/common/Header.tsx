@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import type { ReactNode } from 'react';
+import { Radar, FileText, History } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -29,9 +30,26 @@ export default function Header({ rightContent }: { rightContent?: ReactNode }) {
         </div>
 
         {/* center: nav — absolutely positioned, always centered regardless of side content width */}
-        <nav className="absolute left-1/2 -translate-x-1/2 z-10 hidden items-center gap-8 md:flex">
-          <NavLink to="/" end className={linkClass}>Dashboard</NavLink>
-          <NavLink to="/database" className={linkClass}>Database</NavLink>
+        {/* Database link intentionally removed from nav; /database route stays for internal use. */}
+        <nav className="absolute left-1/2 -translate-x-1/2 z-10 hidden items-center gap-6 lg:flex">
+          <NavLink to="/" end className={linkClass}>
+            <span className="inline-flex items-center gap-1.5">
+              <Radar className="h-4 w-4" />
+              商机看板
+            </span>
+          </NavLink>
+          <NavLink to="/battlecards" className={linkClass}>
+            <span className="inline-flex items-center gap-1.5">
+              <FileText className="h-4 w-4" />
+              战报中心
+            </span>
+          </NavLink>
+          <NavLink to="/project-timeline" className={linkClass}>
+            <span className="inline-flex items-center gap-1.5">
+              <History className="h-4 w-4" />
+              项目时间线
+            </span>
+          </NavLink>
         </nav>
 
         {/* right: user controls + external rightContent */}

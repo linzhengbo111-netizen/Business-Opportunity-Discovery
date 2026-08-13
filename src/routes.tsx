@@ -1,5 +1,6 @@
 import DashboardPage from './pages/DashboardPage';
 import DatabasePage from './pages/DatabasePage';
+import BattleCardsPage from './pages/BattleCardsPage';
 import ReviewPage from './pages/ReviewPage';
 import SettingsPage from './pages/SettingsPage';
 // IndustryBreakdownPage intentionally kept on disk — route removed, easy to restore later.
@@ -42,6 +43,12 @@ export const routes: RouteConfig[] = [
     name: 'Database',
     path: '/database',
     element: <DatabasePage />,
+    guestAccessible: true,
+  },
+  {
+    name: 'BattleCards',
+    path: '/battlecards',
+    element: <BattleCardsPage />,
     guestAccessible: true,
   },
   {
