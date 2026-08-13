@@ -386,6 +386,8 @@ export const PROJECT_ALIASES: Record<string, ProjectAliasEntry> = {
       'Mero Field',
       'FPSO Mero',
       'Libra Block Mero',
+      'Alexandre de Gusmão',
+      'FPSO Alexandre de Gusmão',
     ],
   },
   'brazil-marlim': {

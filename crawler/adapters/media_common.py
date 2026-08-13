@@ -1705,6 +1705,7 @@ PROJECT_ALIASES = {
     "brazil-mero": [
         "Mero Field FPSOs",
         "Mero", "Mero Field", "FPSO Mero", "Libra Block Mero",
+        "Alexandre de Gusmão", "FPSO Alexandre de Gusmão",
     ],
     "brazil-p-78": [
         "FPSO P-78",
