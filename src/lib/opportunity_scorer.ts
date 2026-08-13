@@ -111,25 +111,20 @@ function scoreProcurement(
   }
 
   if (statusLower === "under construction") {
-    // Check procurement window from estimateProcurementWindow
-    const dateStr = procWindow.estimated_date;
-    if (dateStr && dateStr !== "Unknown") {
-      // Try to parse the estimated date and compute months from now
-      const match = dateStr.match(/(\d{4})-(\d{2})/);
+    // Check fuzzy procurement window from estimateProcurementWindow
+    const windowStr = procWindow.window;
+    if (windowStr && windowStr !== "时间未定") {
+      // "N-M 个月" range → first number is the optimistic start of the window
+      const match = windowStr.match(/(\d+)\s*-\s*(\d+)\s*个月/);
       if (match) {
-        const estYear = parseInt(match[1], 10);
-        const estMonth = parseInt(match[2], 10);
-        const now = new Date();
-        const nowMonths = now.getFullYear() * 12 + now.getMonth();
-        const estMonths = estYear * 12 + (estMonth - 1);
-        const monthsAhead = estMonths - nowMonths;
+        const monthsAhead = parseInt(match[1], 10);
 
         if (monthsAhead <= 6) {
-          const factor = Math.max(0, 1 - (monthsAhead - 0) / 6); // closer = higher
+          const factor = Math.max(0, 1 - monthsAhead / 6); // closer = higher
           const score = scoreInBracket({ min: 18, max: 20 }, factor);
           return {
             score,
-            reasoning: `在建项目，预计采购时间窗为 ${dateStr}（约${Math.max(0, monthsAhead)}个月内），紧迫度高`,
+            reasoning: `在建项目，预计采购时间窗为 ${windowStr}，紧迫度高`,
           };
         }
         if (monthsAhead <= 12) {
@@ -137,16 +132,24 @@ function scoreProcurement(
           const score = scoreInBracket({ min: 14, max: 17 }, factor);
           return {
             score,
-            reasoning: `在建项目，预计采购时间窗为 ${dateStr}（约${monthsAhead}个月内），有一定准备时间`,
+            reasoning: `在建项目，预计采购时间窗为 ${windowStr}，有一定准备时间`,
           };
         }
         // > 12 months out on Under Construction is unusual but possible
         const score = scoreInBracket({ min: 10, max: 13 }, 0.3);
         return {
           score,
-          reasoning: `在建项目，预计采购时间窗较远（${dateStr}），建议持续监控`,
+          reasoning: `在建项目，预计采购时间窗较远（${windowStr}），建议持续监控`,
         };
       }
+
+      // Non-month range (e.g. "2026 Q3-Q4") → fall back to confidence brackets
+      const factor = procWindow.confidence === "high" ? 1 : 0.4;
+      const score = scoreInBracket({ min: 14, max: 20 }, factor);
+      return {
+        score,
+        reasoning: `在建项目，预计采购时间窗为 ${windowStr}，紧迫度较高`,
+      };
     }
     // Under Construction but no clear window: default mid-high
     return {

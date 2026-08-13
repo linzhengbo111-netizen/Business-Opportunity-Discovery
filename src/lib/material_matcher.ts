@@ -1028,8 +1028,11 @@ export function hasAnySpecs(specs: TechnicalSpecs): boolean {
 
 /** Result of procurement window estimation. */
 export interface ProcurementWindowResult {
-  /** ISO date string of estimated procurement start (YYYY-MM-DD). */
-  estimated_date: string;
+  /**
+   * Fuzzy procurement window range — never a specific date.
+   * Examples: "3-6 个月", "2026 Q3-Q4", "12 个月以上", "时间未定".
+   */
+  window: string;
   /** Confidence of the estimate. */
   confidence: "high" | "medium" | "low";
   /** Human-readable reasoning chain. */
@@ -1059,9 +1062,21 @@ export interface ProcurementTimelineEvent {
 }
 
 /**
+ * Format a date range as fuzzy quarters, e.g. "2026 Q3-Q4".
+ * Single-quarter spans collapse to one quarter label.
+ */
+function quarterRange(start: Date, end: Date): string {
+  const quarter = (d: Date) => `${d.getFullYear()} Q${Math.floor(d.getMonth() / 3) + 1}`;
+  const s = quarter(start);
+  const e = quarter(end);
+  return s === e ? s : `${s}-${e}`;
+}
+
+/**
  * Estimate when a project will enter its stainless steel procurement window.
  *
- * Heuristics based on FPSO industry procurement patterns:
+ * All windows are fuzzy ranges derived from project-stage heuristics,
+ * never exact dates:
  *   - FID + 6 months is typical start for long-lead equipment inquiries
  *   - Construction start → bulk piping procurement follows within 3-6 months
  *   - Earlier phases (EIA/FEED) → window is further out (12-18 months)
@@ -1071,13 +1086,12 @@ export interface ProcurementTimelineEvent {
  *
  * @param project - Project data (status, summary, name, etc.).
  * @param timelineEvents - Optional timeline milestones from candidate_events.
- * @returns Estimated procurement window with date, confidence, and reasoning.
+ * @returns Estimated procurement window with fuzzy range, confidence, and reasoning.
  */
 export function estimateProcurementWindow(
   project: ProcurementProjectInput,
   timelineEvents?: ProcurementTimelineEvent[],
 ): ProcurementWindowResult {
-  const now = new Date();
   const status = (project.status ?? "").trim();
   const summary = (project.summary ?? "").toLowerCase();
   const name = (project.name ?? "").toLowerCase();
@@ -1090,31 +1104,31 @@ export function estimateProcurementWindow(
   if (contractEvent?.publicationDate) {
     const contractDate = new Date(contractEvent.publicationDate);
     if (!isNaN(contractDate.getTime())) {
-      // Procurement starts 2-4 months after contract award (mid-point: 3 months)
-      const estDate = new Date(contractDate);
-      estDate.setMonth(estDate.getMonth() + 3);
+      // Procurement starts 2-4 months after contract award
+      const start = new Date(contractDate);
+      start.setMonth(start.getMonth() + 2);
+      const end = new Date(contractDate);
+      end.setMonth(end.getMonth() + 4);
+      const window = quarterRange(start, end);
       return {
-        estimated_date: estDate.toISOString().slice(0, 10),
+        window,
         confidence: "high",
         reasoning:
-          `FPSO contract awarded on ${contractEvent.publicationDate.slice(0, 10)}. ` +
-          `Long-lead equipment procurement typically begins 2-4 months post-award. ` +
-          `Estimated window opens ${estDate.toISOString().slice(0, 10)}.`,
+          `FPSO 合同于 ${contractEvent.publicationDate.slice(0, 10)} 授标，` +
+          `长周期设备采购通常在授标后 2-4 个月启动，预计采购窗口为 ${window}。` +
+          `基于项目当前阶段推算，非官方公布日期。`,
       };
     }
   }
 
   // ---- Rule 2: Under Construction → imminent procurement (3-6 months) ----
   if (status === "Under Construction") {
-    const estDate = new Date(now);
-    estDate.setMonth(estDate.getMonth() + 4); // mid-point of 3-6 months
     return {
-      estimated_date: estDate.toISOString().slice(0, 10),
+      window: "3-6 个月",
       confidence: "medium",
       reasoning:
-        "Project is Under Construction. Bulk piping and fittings procurement " +
-        "typically occurs during construction phase. Estimated window: 3-6 months. " +
-        "Urgent needs may be sooner — contact EPC contractor to confirm schedule.",
+        "项目处于建设阶段，批量管材管件采购通常发生在施工阶段，预计采购窗口为 3-6 个月。 " +
+        "基于项目当前阶段推算，非官方公布日期。紧急需求可能更早，建议联系 EPC 承包商确认排期。",
     };
   }
 
@@ -1133,74 +1147,60 @@ export function estimateProcurementWindow(
       combined.includes("feasibility");
 
     if (isFeed) {
-      const estDate = new Date(now);
-      estDate.setMonth(estDate.getMonth() + 9); // mid-point of 6-12 months
       return {
-        estimated_date: estDate.toISOString().slice(0, 10),
+        window: "6-12 个月",
         confidence: "medium",
         reasoning:
-          "Project is Planned with FEED/FID phase detected. FID typically triggers " +
-          "long-lead equipment procurement within 6-12 months. Estimated window: " +
-          `${estDate.toISOString().slice(0, 10)}. Monitor for FID announcement.`,
+          "项目处于规划阶段，检测到 FEED/FID 阶段信息。FID 通常触发长周期设备采购（6-12 个月）。" +
+          "建议关注 FID 公告。基于项目当前阶段推算，非官方公布日期。",
       };
     }
 
     if (isEia) {
-      const estDate = new Date(now);
-      estDate.setMonth(estDate.getMonth() + 15); // mid-point of 12-18 months
       return {
-        estimated_date: estDate.toISOString().slice(0, 10),
+        window: "12-18 个月",
         confidence: "low",
         reasoning:
-          "Project is in early planning / EIA phase. Procurement window likely " +
-          "12-18 months out. Re-evaluate when project reaches FEED or FID. " +
-          `Estimated window: ${estDate.toISOString().slice(0, 10)}.`,
+          "项目处于早期规划 / EIA 阶段，采购窗口预计在 12-18 个月后。" +
+          "建议在项目进入 FEED 或 FID 阶段后重新评估。基于项目当前阶段推算，非官方公布日期。",
       };
     }
 
     // Planned but no phase detected → FPSO default
     const isFpso = (project.industry ?? "").toUpperCase() === "FPSO";
-    const estDate = new Date(now);
-    estDate.setMonth(estDate.getMonth() + (isFpso ? 9 : 12));
     return {
-      estimated_date: estDate.toISOString().slice(0, 10),
+      window: isFpso ? "6-12 个月" : "12 个月以上",
       confidence: "low",
       reasoning:
         isFpso
-          ? "Planned FPSO project. Industry norm: long-lead equipment procurement " +
-            "begins ~6 months post-FID. Without confirmed FID date, estimating " +
-            `${estDate.toISOString().slice(0, 10)}. Monitor for FID announcement.`
-          : "Planned project without detailed phase data. Conservative estimate: " +
-            `12 months out (${estDate.toISOString().slice(0, 10)}). ` +
-            "Add timeline data for higher-confidence estimate.",
+          ? "规划中的 FPSO 项目。行业惯例：FID 后约 6 个月启动长周期设备采购。" +
+            "FID 日期未确认，预计采购窗口为 6-12 个月。基于项目当前阶段推算，非官方公布日期。"
+          : "规划中项目，缺少详细阶段数据，保守估计采购窗口在 12 个月以上。" +
+            "建议补充时间线数据以提高置信度。基于项目当前阶段推算，非官方公布日期。",
     };
   }
 
   // ---- Rule 4: Delivered / complete → retrospective, no active window ----
   if (status === "Delivered" || status === "Completed") {
     return {
-      estimated_date: "N/A",
+      window: "时间未定",
       confidence: "high",
       reasoning:
-        "Project is already delivered/completed. Procurement window has passed. " +
-        "Consider targeting MRO (maintenance, repair, operations) spares instead.",
+        "项目已交付/完工，采购窗口已过。建议转向 MRO（维护、检修、运营）备件市场。" +
+        "基于项目当前阶段推算，非官方公布日期。",
     };
   }
 
   // ---- Rule 5: Unknown status → FPSO default heuristic ----
   const isFpso = (project.industry ?? "").toUpperCase() === "FPSO";
-  const estDate = new Date(now);
-  estDate.setMonth(estDate.getMonth() + 6);
   return {
-    estimated_date: estDate.toISOString().slice(0, 10),
+    window: isFpso ? "6-12 个月" : "时间未定",
     confidence: "low",
     reasoning:
       isFpso
-        ? "Insufficient project data for precise estimation. FPSO industry default: " +
-          "long-lead equipment procurement typically starts ~6 months post-FID. " +
-          `Conservative estimate: ${estDate.toISOString().slice(0, 10)}. ` +
-          "Add status and timeline data for higher-confidence estimate."
-        : "Insufficient project data. Conservative estimate: 6 months from today. " +
-          "Add status, phase, and timeline events for higher-confidence estimate.",
+        ? "项目数据不足，无法精确推算。FPSO 行业默认：FID 后约 6 个月启动长周期设备采购，" +
+          "保守估计采购窗口为 6-12 个月。基于项目当前阶段推算，非官方公布日期。"
+        : "项目数据不足，无法推算采购时间窗。建议补充状态、阶段和时间线数据。" +
+          "基于项目当前阶段推算，非官方公布日期。",
   };
 }

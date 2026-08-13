@@ -179,7 +179,7 @@ export function exportOpportunityList(projects: Project[], baseUrl?: string): vo
       project.name,
       project.country,
       project.status || "Unknown",
-      procurementWindow.estimated_date,
+      procurementWindow.window,
       procurementWindow.confidence,
       project.operatorName || sourceName || "",
       epcContractor,

@@ -208,30 +208,20 @@ function buildWhoToContact(project: Project): BattleCardContact {
 function buildWhenToContact(project: Project): string {
   const procWindow = estimateProcurementWindow(project);
 
-  if (procWindow.estimated_date && procWindow.estimated_date !== "Unknown") {
-    const match = procWindow.estimated_date.match(/(\d{4})-(\d{2})/);
-    if (match) {
-      const now = new Date();
-      const nowMonths = now.getFullYear() * 12 + now.getMonth();
-      const estMonths = parseInt(match[1], 10) * 12 + (parseInt(match[2], 10) - 1);
-      const monthsAhead = Math.max(0, estMonths - nowMonths);
-
-      if (monthsAhead <= 3) {
-        return `采购窗口已开启（${procWindow.estimated_date}），约${monthsAhead}个月内，建议本周内完成首次触达`;
-      }
-      if (monthsAhead <= 6) {
-        return `采购窗口临近（${procWindow.estimated_date}），约${monthsAhead}个月内，建议本月内建立联系`;
-      }
-      if (monthsAhead <= 12) {
-        return `采购窗口在 ${procWindow.estimated_date}，约${monthsAhead}个月内，适合提前布局`;
-      }
-      return `采购窗口较远（${procWindow.estimated_date}），建议定期关注项目进展`;
+  // Fuzzy window ranges only — never specific dates
+  if (procWindow.window && procWindow.window !== "时间未定") {
+    if (procWindow.confidence === "high") {
+      return `采购窗口已开启（${procWindow.window}），建议本周内完成首次触达`;
     }
+    if (procWindow.confidence === "medium") {
+      return `采购窗口临近（${procWindow.window}），建议本月内建立联系`;
+    }
+    return `采购窗口预计在 ${procWindow.window}，适合提前布局`;
   }
 
-  // Fallback: use reasoning text
-  if (procWindow.reasoning) {
-    return procWindow.reasoning;
+  // Delivered/completed project: window has passed
+  if (procWindow.confidence === "high") {
+    return "采购窗口已过（项目已交付），建议转为 MRO 备件商机跟进";
   }
 
   return "采购时间窗尚未明确，建议通过项目动态持续监控";
@@ -244,28 +234,16 @@ function buildWhenToContact(project: Project): string {
 function buildNextAction(project: Project): string {
   const procWindow = estimateProcurementWindow(project);
 
-  if (procWindow.estimated_date && procWindow.estimated_date !== "Unknown") {
-    const match = procWindow.estimated_date.match(/(\d{4})-(\d{2})/);
-    if (match) {
-      const now = new Date();
-      const nowMonths = now.getFullYear() * 12 + now.getMonth();
-      const estMonths = parseInt(match[1], 10) * 12 + (parseInt(match[2], 10) - 1);
-      const monthsAhead = Math.max(0, estMonths - nowMonths);
-
-      if (monthsAhead <= 3) {
-        const contact = extractEpcName(project.procurementChain)
-          || project.operatorName
-          || project.source?.name
-          || "项目方";
-        return `立即联系${contact}，发送公司资质和产品目录`;
-      }
-      if (monthsAhead <= 6) {
-        return "准备技术方案和报价模板，针对性跟进";
-      }
-      if (monthsAhead <= 12) {
-        return "关注项目进展，定期跟进，准备前期技术交流";
-      }
-    }
+  // Urgency derived from fuzzy window confidence — no date math
+  if (procWindow.confidence === "high" && procWindow.window !== "时间未定") {
+    const contact = extractEpcName(project.procurementChain)
+      || project.operatorName
+      || project.source?.name
+      || "项目方";
+    return `立即联系${contact}，发送公司资质和产品目录`;
+  }
+  if (procWindow.confidence === "medium") {
+    return "准备技术方案和报价模板，针对性跟进";
   }
 
   // Default by status
