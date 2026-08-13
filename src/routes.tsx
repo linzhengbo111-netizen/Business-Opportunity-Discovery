@@ -63,5 +63,6 @@ export const routes: RouteConfig[] = [
     name: 'ProjectTimeline',
     path: '/project-timeline',
     element: <ProjectTimelinePage />,
+    guestAccessible: true,
   },
 ];
