@@ -1870,6 +1870,14 @@ GENERIC_WORDS_FOR_MATCH = {
     "next", "two", "three", "four", "one", "major", "another",
     "floating", "be", "it", "or", "second", "third", "phase",
     "field", "development", "dev",
+    # Junk-phrase words from title-fallback names like "FPSO from Modec for"
+    # or "FPSO cooperation deal with SBM Offshore". Single-token overlap on
+    # a contractor name (e.g. "modec" in "MODEC Agogo") caused false
+    # canonical matches, so strip these before token scoring.
+    "modec", "sbm", "offshore", "cooperation", "deal", "extension",
+    "award", "contract", "order", "buys", "bags", "taps", "signed",
+    "awarded", "secured", "wins", "hull", "construction", "firm",
+    "newbuild", "singapore",
 }
 
 

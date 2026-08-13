@@ -18,6 +18,8 @@ Usage:
   python crawler/crawl.py --auto-promote   # auto-accept all pending + promote
   python crawler/crawl.py --backfill       # re-extract countries, write to candidate_events
   python crawler/crawl.py --backfill-source-urls  # fix placeholder URLs, write to candidate_events
+  python crawler/crawl.py --ai-extract     # AI event extraction on recent 50 articles
+  python crawler/crawl.py --ai-backfill    # AI event extraction on recent 500 pending rows
 
 Data Flow (数据流向):
   Crawler → candidate_events → Manual Review → --promote → projects
@@ -29,6 +31,15 @@ import sys
 import time
 import random
 
+# ---- Path hack for imports ---------------------------------------------
+# Allow running as: python crawler/crawl.py  (root + crawler/ both on path,
+# so `from crawler.opportunity_scorer` and `from adapters.media_common` work).
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_ROOT_DIR = os.path.dirname(_SCRIPT_DIR)
+for _d in (_SCRIPT_DIR, _ROOT_DIR):
+    if _d not in sys.path:
+        sys.path.insert(0, _d)
+
 # S5 Opportunity Scoring Engine
 from crawler.opportunity_scorer import score_opportunity
 import logging
@@ -36,12 +47,6 @@ from datetime import datetime, timezone
 
 from dotenv import load_dotenv
 from supabase import create_client
-
-# ---- Path hack for adapter imports --------------------------------------
-# Allow running as: python crawler/crawl.py  (crawler/ adapters/ are siblings)
-_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-if _SCRIPT_DIR not in sys.path:
-    sys.path.insert(0, _SCRIPT_DIR)
 
 from adapters.media_common import (  # noqa: E402
     normalize_project_name,
@@ -54,6 +59,11 @@ from adapters.media_common import (  # noqa: E402
 
 from enricher import enrich_project, compute_enrichment_diff  # noqa: E402
 from notifier import notify_subscribers  # noqa: E402
+from ai_event_extractor import (  # noqa: E402
+    run_ai_extraction,
+    fetch_pending_reanalyzable,
+    log_stats,
+)
 
 # Tier 1 — 线索发现 (media)
 from adapters.offshore_energy import run_adapter as run_offshore_energy  # noqa: E402
@@ -1243,11 +1253,14 @@ def auto_ingest_to_projects(supabase, skip_enrich=False):
 
 
 def run_all_adapters(dry_run=False, local_only=False, skip_classify=False,
-                     skip_ingest=False, skip_enrich=False, anp_download=False):
+                     skip_ingest=False, skip_enrich=False, anp_download=False,
+                     skip_ai_extract=False, ai_extract_limit=50):
     """Run all 15 adapters sequentially with polite delays. Continue-on-error.
-    After crawl: auto-classify pending, then auto-ingest into projects.
+    After crawl: auto-classify pending, then auto-ingest into projects,
+    then AI event extraction on newly crawled ARTICLE_MENTION rows.
     Use --skip-ingest to skip the projects ingest step.
-    Use --skip-enrich to skip public web enrichment during ingest."""
+    Use --skip-enrich to skip public web enrichment during ingest.
+    Use --skip-ai-extract to skip the AI event extraction step."""
     log.info("=" * 54)
     log.info("FPSO Project Crawler — %s", TODAY)
     log.info("=" * 54)
@@ -1320,6 +1333,24 @@ def run_all_adapters(dry_run=False, local_only=False, skip_classify=False,
             log.info("")
             ingest_result = auto_ingest_to_projects(supabase, skip_enrich=skip_enrich)
             log.info("")
+
+    # ---- AI event extraction for newly crawled articles ----
+    # Runs after classify/ingest: analyze the most recent pending
+    # ARTICLE_MENTION rows with the LLM and write structured timeline
+    # events (with canonical_project_id) back to candidate_events.
+    # Falls back to the rule engine when the LLM call fails.
+    if not skip_ai_extract:
+        log.info("")
+        log.info("=" * 54)
+        log.info("AI EVENT EXTRACTION: analyzing recent articles")
+        log.info("=" * 54)
+        rows = fetch_pending_reanalyzable(supabase, limit=ai_extract_limit)
+        if rows:
+            stats = run_ai_extraction(supabase, rows)
+            log_stats(stats)
+        else:
+            log.info("No recent ARTICLE_MENTION rows to analyze.")
+        log.info("")
 
 
 # ========================================================================
@@ -1402,6 +1433,29 @@ def main():
         action="store_true",
         help="Backfill NULL canonical_project_id on all candidate_events rows.",
     )
+    parser.add_argument(
+        "--ai-extract",
+        action="store_true",
+        help="Run AI event extraction on the most recent pending "
+             "ARTICLE_MENTION rows (standalone, no crawl).",
+    )
+    parser.add_argument(
+        "--ai-backfill",
+        action="store_true",
+        help="Run AI event extraction over the most recent 500 pending "
+             "ARTICLE_MENTION rows (historical backfill).",
+    )
+    parser.add_argument(
+        "--ai-limit",
+        type=int,
+        default=50,
+        help="Max rows for --ai-extract (default 50). Ignored by --ai-backfill.",
+    )
+    parser.add_argument(
+        "--skip-ai-extract",
+        action="store_true",
+        help="Skip the AI event extraction step after crawl.",
+    )
     args = parser.parse_args()
 
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -1423,6 +1477,22 @@ def main():
     if args.backfill_canonical_ids:
         result = backfill_canonical_ids(supabase)
         log.info("Backfill canonical IDs: %s", result)
+        return
+
+    # AI event extraction — standalone on recent pending ARTICLE_MENTION rows
+    if args.ai_extract:
+        log.info("AI EXTRACT MODE: analyzing %d recent articles", args.ai_limit)
+        rows = fetch_pending_reanalyzable(supabase, limit=args.ai_limit)
+        stats = run_ai_extraction(supabase, rows)
+        log_stats(stats)
+        return
+
+    # AI event extraction — historical backfill (recent 500 pending rows)
+    if args.ai_backfill:
+        log.info("AI BACKFILL MODE: analyzing recent 500 pending rows")
+        rows = fetch_pending_reanalyzable(supabase, limit=500)
+        stats = run_ai_extraction(supabase, rows)
+        log_stats(stats)
         return
 
     # Promote mode
@@ -1459,7 +1529,9 @@ def main():
     run_all_adapters(skip_classify=args.skip_classify,
                      skip_ingest=args.skip_ingest,
                      skip_enrich=args.skip_enrich,
-                     anp_download=args.anp_download)
+                     anp_download=args.anp_download,
+                     skip_ai_extract=args.skip_ai_extract,
+                     ai_extract_limit=args.ai_limit)
 
 
 if __name__ == "__main__":
