@@ -1,5 +1,6 @@
 import { PanelLeftClose, PanelLeftOpen, RotateCcw, Download, X } from "lucide-react";
 import type { Project } from "@/data/projects";
+import { Switch } from "@/components/ui/switch";
 
 const INDUSTRY_OPTIONS = [
   "All Industries",
@@ -40,6 +41,9 @@ interface FilterSidebarProps {
   onExport?: () => void;
   /** Number of projects in the current filtered view. */
   filteredCount?: number;
+  /** Show all projects including 待挖掘 (default: mature only). */
+  showAllProjects: boolean;
+  onShowAllProjectsChange: (value: boolean) => void;
 }
 
 /** Look up a country's flag emoji from the project list. */
@@ -71,6 +75,8 @@ export default function FilterSidebar({
   onClear,
   onExport,
   filteredCount = 0,
+  showAllProjects,
+  onShowAllProjectsChange,
 }: FilterSidebarProps) {
   const hasFilters =
     selectedCountry !== "All Countries" ||
@@ -138,7 +144,7 @@ export default function FilterSidebar({
 
         {/* Expanded content */}
         <div
-          className={`transition-opacity duration-200 overflow-y-auto h-full ${collapsed ? 'hidden' : ''}`}
+          className="transition-opacity duration-200 overflow-y-auto h-full"
           style={{ opacity: collapsed ? 0 : 1, pointerEvents: collapsed ? "none" : "auto" }}
         >
           <div className="px-4 pt-4 pb-2">
@@ -258,6 +264,25 @@ export default function FilterSidebar({
                 )}
               </div>
             )}
+
+            {/* Show-all toggle (bottom of sidebar) */}
+            <div className="pt-3 border-t border-white/5">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-medium text-fpso-fg leading-snug">
+                    显示全部项目（含待挖掘）
+                  </p>
+                  <p className="mt-0.5 text-[10px] leading-relaxed text-fpso-dim">
+                    默认仅展示成熟商机
+                  </p>
+                </div>
+                <Switch
+                  checked={showAllProjects}
+                  onCheckedChange={onShowAllProjectsChange}
+                  aria-label="显示全部项目（含待挖掘）"
+                />
+              </div>
+            </div>
           </div>
         </div>
       </aside>

@@ -1707,13 +1707,35 @@ PROJECT_ALIASES = {
         "Mero", "Mero Field", "FPSO Mero", "Libra Block Mero",
         "Alexandre de Gusmão", "FPSO Alexandre de Gusmão",
     ],
+    "brazil-p-74": [
+        "FPSO P-74",
+        "FPSO P-74", "P-74 FPSO", "P-74",
+        "PETROBRAS 74", "Petrobras 74",
+    ],
+    "brazil-p-75": [
+        "FPSO P-75",
+        "FPSO P-75", "P-75 FPSO", "P-75",
+        "PETROBRAS 75", "Petrobras 75",
+    ],
+    "brazil-p-76": [
+        "FPSO P-76",
+        "FPSO P-76", "P-76 FPSO", "P-76",
+        "PETROBRAS 76", "Petrobras 76",
+    ],
+    "brazil-p-77": [
+        "FPSO P-77",
+        "FPSO P-77", "P-77 FPSO", "P-77",
+        "PETROBRAS 77", "Petrobras 77",
+    ],
     "brazil-p-78": [
         "FPSO P-78",
         "FPSO P-78", "P-78 FPSO", "P-78",
+        "PETROBRAS 78", "Petrobras 78",
     ],
     "brazil-p-79": [
         "FPSO P-79",
         "FPSO P-79", "P-79 FPSO", "P-79",
+        "PETROBRAS 79", "Petrobras 79",
     ],
     "brazil-p-80": [
         "FPSO P-80",

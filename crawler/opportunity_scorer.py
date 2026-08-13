@@ -36,9 +36,31 @@ EPC_KEYWORDS = [
 FEED_FID_KEYWORDS = ["FEED", "FID", "front-end engineering", "final investment decision"]
 EARLY_STAGE_KEYWORDS = ["concept", "pre-feasibility", "feasibility", "pre-FEED", "pre-FID"]
 
+# Factory-producible grades (mirrors PRODUCIBLE_GRADE_SET in
+# src/data/factory_capabilities.ts). Substring match, same as
+# TypeScript isGradeProducible().
+PRODUCIBLE_GRADES = [
+    "304", "304L", "304H", "316", "316L", "316H", "316Ti", "317L",
+    "321", "321H", "347", "347H", "904L", "309S", "310S",
+    "Duplex 2205", "Super Duplex 2507", "Lean Duplex 2304",
+    "Lean Duplex 2101", "Zeron 100", "S32760",
+    "Inconel 625", "Inconel 825", "Incoloy 800", "Incoloy 800H",
+    "Incoloy 800HT", "Incoloy 825", "Hastelloy C276", "Hastelloy C22",
+    "Monel 400", "Monel K500", "6Mo (UNS S31254)", "Alloy 20",
+    "254SMO", "UNS N08926",
+]
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _is_grade_producible(grade_name: str) -> bool:
+    """Mirror TypeScript isGradeProducible(): exact or substring match."""
+    normalized = (grade_name or "").strip()
+    if not normalized:
+        return False
+    return any(g in normalized for g in PRODUCIBLE_GRADES)
+
 
 def _has_epc_contractor(procurement_chain: str | None) -> bool:
     if not procurement_chain:
@@ -120,8 +142,11 @@ def _score_procurement(project: dict) -> tuple[int, str]:
             score = _score_in_bracket((10, 13), 0.3)
             return score, f"在建项目，预计采购时间窗较远（约{months_ahead}个月），建议持续监控"
 
-        # Under Construction but no date found
-        return 15, "在建项目，采购时间窗未明确推断，按中等紧迫度赋分"
+        # No year in chain: mirror TS estimateProcurementWindow —
+        # Under Construction implies procurement within 3-6 months.
+        factor = 1 - 3 / 6
+        score = _score_in_bracket((18, 20), factor)
+        return score, "在建项目，预计采购时间窗为 3-6 个月，紧迫度高"
 
     if status == "planned":
         chain_upper = procurement_chain.upper()
@@ -152,11 +177,21 @@ def _score_factory_match(project: dict) -> tuple[int, str]:
 
     if rec:
         grades = rec.get("grades", [])
-        # Count in_factory_scope = True
-        producible_count = sum(
-            1 for g in grades
-            if isinstance(g, dict) and g.get("in_factory_scope", False)
-        )
+        # Normalize legacy string grades (mirrors parseRecommendation in
+        # material_matcher.ts): strings get in_factory_scope from
+        # isGradeProducible().
+        producible_count = 0
+        for g in grades:
+            if isinstance(g, dict):
+                grade_name = g.get("grade") or g.get("name") or ""
+                in_scope = g.get("in_factory_scope")
+            else:
+                grade_name = str(g)
+                in_scope = None
+            if in_scope is None:
+                in_scope = _is_grade_producible(grade_name)
+            if in_scope:
+                producible_count += 1
 
         if producible_count >= 3:
             factor = min(1.0, (producible_count - 3) / 3)

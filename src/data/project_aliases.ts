@@ -471,6 +471,50 @@ export const PROJECT_ALIASES: Record<string, ProjectAliasEntry> = {
       'Espirito Santo FPSO',
     ],
   },
+  'brazil-p-74': {
+    displayName: 'FPSO P-74',
+    country: 'Brazil',
+    aliases: [
+      'FPSO P-74',
+      'P-74 FPSO',
+      'P-74',
+      'PETROBRAS 74',
+      'Petrobras 74',
+    ],
+  },
+  'brazil-p-75': {
+    displayName: 'FPSO P-75',
+    country: 'Brazil',
+    aliases: [
+      'FPSO P-75',
+      'P-75 FPSO',
+      'P-75',
+      'PETROBRAS 75',
+      'Petrobras 75',
+    ],
+  },
+  'brazil-p-76': {
+    displayName: 'FPSO P-76',
+    country: 'Brazil',
+    aliases: [
+      'FPSO P-76',
+      'P-76 FPSO',
+      'P-76',
+      'PETROBRAS 76',
+      'Petrobras 76',
+    ],
+  },
+  'brazil-p-77': {
+    displayName: 'FPSO P-77',
+    country: 'Brazil',
+    aliases: [
+      'FPSO P-77',
+      'P-77 FPSO',
+      'P-77',
+      'PETROBRAS 77',
+      'Petrobras 77',
+    ],
+  },
   'brazil-p-78': {
     displayName: 'FPSO P-78',
     country: 'Brazil',
@@ -478,6 +522,8 @@ export const PROJECT_ALIASES: Record<string, ProjectAliasEntry> = {
       'FPSO P-78',
       'P-78 FPSO',
       'P-78',
+      'PETROBRAS 78',
+      'Petrobras 78',
     ],
   },
   'brazil-p-79': {
@@ -487,6 +533,8 @@ export const PROJECT_ALIASES: Record<string, ProjectAliasEntry> = {
       'FPSO P-79',
       'P-79 FPSO',
       'P-79',
+      'PETROBRAS 79',
+      'Petrobras 79',
     ],
   },
   'brazil-p-80': {

@@ -14,6 +14,8 @@ import { sampleProjects, COUNTRY_ALIASES } from "@/data/projects";
 import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
 import { supabase } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
+import { useTimelineEventCounts } from "@/hooks/useTimelineEventCounts";
+import { filterMatureProjects } from "@/lib/project_maturity";
 import { parseCorrosiveMedia } from "@/lib/material_matcher";
 import { scoreOpportunity, scoreBadgeClass } from "@/lib/opportunity_scorer";
 import { generateBattleCard, type BattleCard } from "@/lib/battle_card";
@@ -108,6 +110,7 @@ export default function BattleCardsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const { version, status: connectionStatus } = useProjectRealtime();
+  const timelineEventCounts = useTimelineEventCounts(version);
 
   // ---- 从 Supabase 获取项目数据（projects 表，空则兜底 sampleProjects）----
   useEffect(() => {
@@ -143,8 +146,10 @@ export default function BattleCardsPage() {
   }, [version]);
 
   // ---- 实时评分 + A/B 过滤 + 按分降序 + 生成作战卡摘要 ----
+  // 战报中心只展示成熟商机（技术参数 + 采购链 + 时间线事件齐备），
+  // 潜在项目生成不了有价值的战报。
   const abCards = useMemo<ScoredCard[]>(() => {
-    return projects
+    return filterMatureProjects(projects, timelineEventCounts, false)
       .map((project) => {
         const scoreResult = scoreOpportunity(project);
         return {
@@ -156,7 +161,7 @@ export default function BattleCardsPage() {
       })
       .filter((item) => item.grade === "A" || item.grade === "B")
       .sort((a, b) => b.score - a.score);
-  }, [projects]);
+  }, [projects, timelineEventCounts]);
 
   const handleExport = () => {
     exportOpportunityList(
@@ -178,7 +183,7 @@ export default function BattleCardsPage() {
               战报中心
             </h1>
             <p className="mt-1 text-sm text-fpso-muted">
-              A / B 级商机作战卡 · 按评分降序 · {abCards.length} 个项目
+              A / B 级商机作战卡 · 仅成熟商机 · 按评分降序 · {abCards.length} 个项目
             </p>
           </div>
           <div className="flex items-center gap-3">

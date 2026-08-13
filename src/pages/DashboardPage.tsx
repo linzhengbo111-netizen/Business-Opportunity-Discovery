@@ -17,10 +17,12 @@ import { countryCoordinates, sampleProjects, countryToFlagEmoji, COUNTRY_ALIASES
 import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
 import { supabase } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
+import { useTimelineEventCounts } from "@/hooks/useTimelineEventCounts";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useAuth } from "@/contexts/AuthContext";
 import { matchMaterials, specsFromRow, hasAnySpecs, parseRecommendation, parseCorrosiveMedia, getCorrosiveMediaTags, getCorrosiveMediaDetails } from "@/lib/material_matcher";
 import { exportOpportunityList } from "@/lib/export_opportunities";
+import { filterMatureProjects, hasTimelineData } from "@/lib/project_maturity";
 import { scoreOpportunity, scoreBadgeClass } from "@/lib/opportunity_scorer";
 import { analyzeProjectScenario, assessOpportunity, type AIResult, type ScenarioAnalysis, type OpportunityAssessment } from "@/lib/ai_analyst";
 import BattleCardWrapper from "@/components/dashboard/BattleCard";
@@ -339,6 +341,7 @@ export default function DashboardPage() {
     new Set(["Under Construction", "Planned"]),
   );
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const [showAllProjects, setShowAllProjects] = useState(false);
   const [milestoneMap, setMilestoneMap] = useState<Map<string, { label: string; year: string }>>(new Map());
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [modalTab, setModalTab] = useState<"overview" | "timeline">("overview");
@@ -348,6 +351,7 @@ export default function DashboardPage() {
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(false);
   const { version, status: connectionStatus } = useProjectRealtime();
+  const timelineEventCounts = useTimelineEventCounts(version);
   const { isFollowing, toggleFollowProject, isAuthenticated } = useSubscription();
   const { isGuest } = useAuth();
 
@@ -500,8 +504,10 @@ export default function DashboardPage() {
     if (selectedStatuses.size > 0) {
       result = result.filter((p) => selectedStatuses.has(p.status || "Unknown"));
     }
+    // Maturity filter: default shows mature opportunities only.
+    result = filterMatureProjects(result, timelineEventCounts, showAllProjects);
     return result;
-  }, [projects, selectedCountry, selectedIndustry, selectedConfidence, selectedStatuses]);
+  }, [projects, selectedCountry, selectedIndustry, selectedConfidence, selectedStatuses, timelineEventCounts, showAllProjects]);
 
   const filteredStats = useMemo(() => getStats(filteredProjects), [filteredProjects]);
 
@@ -780,6 +786,8 @@ export default function DashboardPage() {
           onClear={clearAllFilters}
           onExport={isGuest ? undefined : handleExport}
           filteredCount={filteredProjects.length}
+          showAllProjects={showAllProjects}
+          onShowAllProjectsChange={setShowAllProjects}
         />
 
         <main
@@ -1114,6 +1122,15 @@ export default function DashboardPage() {
                     <span className={`text-[11px] font-medium ${statusColorClass(project.status)}`}>
                       {project.status}
                     </span>
+                    {/* 待挖掘 badge: timeline has no linked events */}
+                    {showAllProjects && !hasTimelineData(project, timelineEventCounts) && (
+                      <span
+                        className="inline-flex items-center rounded bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-400 ring-1 ring-amber-400/20"
+                        title="暂无足够商机数据，已加入待挖掘池"
+                      >
+                        待挖掘
+                      </span>
+                    )}
                     {/* Separator */}
                     {(project.waterDepthM != null || project.oilCapacityBpd != null || project.gasCapacityMmcmd != null) && (
                       <span className="mx-0.5 h-3 w-px bg-fpso-border/50 flex-shrink-0" />
@@ -1722,9 +1739,9 @@ export default function DashboardPage() {
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-fpso-dim mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <p className="text-sm text-fpso-muted">No milestone events found for this project.</p>
+                  <p className="text-sm text-fpso-muted">暂无足够商机数据，已加入待挖掘池</p>
                   <p className="text-xs text-fpso-dim mt-1">
-                    No matching events in candidate_events for this project. Data may appear after the next crawl.
+                    待后续抓取到技术参数、采购链与时间线事件后，将自动升级为成熟商机。
                   </p>
                 </div>
               ) : (

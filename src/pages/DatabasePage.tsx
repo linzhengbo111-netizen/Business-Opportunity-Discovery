@@ -12,6 +12,8 @@ import { sampleProjects, COUNTRY_ALIASES } from "@/data/projects";
 import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
 import { supabase } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
+import { useTimelineEventCounts } from "@/hooks/useTimelineEventCounts";
+import { filterMatureProjects, hasTimelineData } from "@/lib/project_maturity";
 import { hasAnySpecs, parseRecommendation, parseCorrosiveMedia, getCorrosiveMediaTags, getCorrosiveMediaDetails } from "@/lib/material_matcher";
 import { scoreOpportunity, scoreBadgeClass } from "@/lib/opportunity_scorer";
 import BattleCardWrapper from "@/components/dashboard/BattleCard";
@@ -19,6 +21,7 @@ import FollowUpStatus from "@/components/dashboard/FollowUpStatus";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 
 /* ------------------------------------------------------------------ */
 /*  shared helpers (same semantics as DashboardPage)                   */
@@ -195,6 +198,7 @@ export default function DatabasePage() {
   const [statusFilter, setStatusFilter] = useState("Active Projects");
   const [confidenceFilter, setConfidenceFilter] = useState("High & Medium");
   const [nameSearch, setNameSearch] = useState("");
+  const [showAllProjects, setShowAllProjects] = useState(false);
 
   // pagination
   const [page, setPage] = useState(1);
@@ -211,6 +215,7 @@ export default function DatabasePage() {
   const { isFollowing, toggleFollowProject, isAuthenticated } = useSubscription();
   const { isGuest } = useAuth();
   const { version, status: connectionStatus } = useProjectRealtime();
+  const timelineEventCounts = useTimelineEventCounts(version);
 
   /* ---- fetch ---- */
   useEffect(() => {
@@ -283,6 +288,9 @@ export default function DatabasePage() {
       list = list.filter((p) => p.name.toLowerCase().includes(q));
     }
 
+    // Maturity filter: default shows mature opportunities only.
+    list = filterMatureProjects(list, timelineEventCounts, showAllProjects);
+
     // Apply sort
     if (sortField === "score") {
       list = [...list].sort((a, b) => {
@@ -293,7 +301,7 @@ export default function DatabasePage() {
     }
 
     return list;
-  }, [projects, industryFilter, countryFilter, statusFilter, confidenceFilter, nameSearch, sortField, sortDir]);
+  }, [projects, industryFilter, countryFilter, statusFilter, confidenceFilter, nameSearch, sortField, sortDir, timelineEventCounts, showAllProjects]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -432,6 +440,21 @@ export default function DatabasePage() {
               className="h-8 w-48 rounded-md bg-fpso-bg/70 px-2.5 py-1 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50 border border-fpso-border placeholder:text-fpso-dim"
             />
           </div>
+
+          {/* show-all toggle */}
+          <div className="ml-auto flex items-center gap-2">
+            <label
+              htmlFor="show-all-toggle"
+              className="text-xs font-medium text-fpso-muted cursor-pointer"
+            >
+              显示全部项目（含待挖掘）
+            </label>
+            <Switch
+              id="show-all-toggle"
+              checked={showAllProjects}
+              onCheckedChange={setShowAllProjects}
+            />
+          </div>
         </section>
 
         {/* table */}
@@ -484,6 +507,14 @@ export default function DatabasePage() {
                       >
                         <td className="px-4 py-2.5 font-medium text-fpso-fg max-w-[220px] truncate">
                           {p.name}
+                          {showAllProjects && !hasTimelineData(p, timelineEventCounts) && (
+                            <span
+                              className="ml-2 inline-block rounded bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-400 ring-1 ring-amber-400/20"
+                              title="暂无足够商机数据，已加入待挖掘池"
+                            >
+                              待挖掘
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-2.5 text-fpso-muted">
                           {p.flag} {p.country}
