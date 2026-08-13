@@ -2,7 +2,7 @@ import DashboardPage from './pages/DashboardPage';
 import DatabasePage from './pages/DatabasePage';
 import ReviewPage from './pages/ReviewPage';
 import SettingsPage from './pages/SettingsPage';
-import IndustryBreakdownPage from './pages/IndustryBreakdownPage';
+// IndustryBreakdownPage intentionally kept on disk — route removed, easy to restore later.
 import ProjectTimelinePage from './pages/ProjectTimelinePage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
 import LoginPage from './pages/LoginPage';
@@ -48,11 +48,6 @@ export const routes: RouteConfig[] = [
     name: 'Review',
     path: '/review',
     element: <ReviewPage />,
-  },
-  {
-    name: 'IndustryBreakdown',
-    path: '/industry-breakdown',
-    element: <IndustryBreakdownPage />,
   },
   {
     name: 'Settings',
