@@ -1,14 +1,70 @@
 /**
- * Cloudflare Worker — API proxy for Feishu OIDC token exchange.
+ * Cloudflare Worker — API proxy for Feishu OIDC token exchange and LLM calls.
  *
  * The Feishu OIDC access_token endpoint requires tenant_access_token
- * authentication, which needs app_secret. This worker keeps the secret
- * server-side and proxies the token exchange for the SPA frontend.
+ * authentication, which needs app_secret. The LLM endpoint (DeepSeek /
+ * OpenAI-compatible) does not send CORS headers to browsers, so browser
+ * calls are blocked — the worker keeps both secrets server-side and proxies
+ * the requests for the SPA frontend.
  */
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+
+    // GET /api/llm/status — whether the LLM API key is configured worker-side
+    if (url.pathname === '/api/llm/status' && request.method === 'GET') {
+      return Response.json({ configured: Boolean(env.LLM_API_KEY) });
+    }
+
+    // POST /api/llm — proxy an OpenAI Chat Completions request.
+    // Body: { messages, temperature?, max_tokens?, model?, response_format? }
+    if (url.pathname === '/api/llm' && request.method === 'POST') {
+      try {
+        const apiKey = env.LLM_API_KEY;
+        if (!apiKey) {
+          return Response.json({ error: 'LLM not configured' }, { status: 503 });
+        }
+
+        const body = await request.json();
+        if (!Array.isArray(body.messages) || body.messages.length === 0) {
+          return Response.json({ error: 'Missing messages array' }, { status: 400 });
+        }
+
+        const upstreamUrl =
+          env.LLM_API_URL || 'https://api.deepseek.com/v1/chat/completions';
+
+        const upstream = await fetch(upstreamUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: body.model || env.LLM_MODEL || 'deepseek-chat',
+            messages: body.messages,
+            temperature: body.temperature ?? 0.2,
+            ...(body.max_tokens != null ? { max_tokens: body.max_tokens } : {}),
+            ...(body.response_format
+              ? { response_format: body.response_format }
+              : {}),
+          }),
+        });
+
+        const text = await upstream.text();
+        if (!upstream.ok) {
+          return Response.json(
+            { error: 'Upstream LLM error' },
+            { status: 502 }
+          );
+        }
+        // Parse once so malformed upstream JSON becomes a clean 502
+        const parsed = JSON.parse(text);
+        return Response.json(parsed);
+      } catch (err) {
+        return Response.json({ error: 'LLM proxy error' }, { status: 502 });
+      }
+    }
 
     // POST /api/feishu/token — exchange OIDC authorization code for user info
     if (url.pathname === '/api/feishu/token' && request.method === 'POST') {

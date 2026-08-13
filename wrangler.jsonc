@@ -13,5 +13,9 @@
   },
   "compatibility_flags": [
     "nodejs_compat"
-  ]
+  ],
+  "vars": {
+    "LLM_API_URL": "https://api.deepseek.com/v1/chat/completions",
+    "LLM_MODEL": "deepseek-chat"
+  }
 }

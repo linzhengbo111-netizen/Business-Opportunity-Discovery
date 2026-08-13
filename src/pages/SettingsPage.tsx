@@ -49,6 +49,12 @@ export default function SettingsPage() {
     }
   }, [isAuthenticated, refreshFollowUps]);
 
+  // AI engine status — worker-side secret, checked at runtime via /api/llm/status
+  const [aiConfigured, setAiConfigured] = useState(false);
+  useEffect(() => {
+    isLLMConfigured().then(setAiConfigured);
+  }, []);
+
   const filteredFollowUps = followUpFilter === 'all'
     ? followUps
     : followUps.filter((fu) => fu.status === followUpFilter);
@@ -129,28 +135,21 @@ export default function SettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {/* AI engine status — reflects LLM_API_KEY presence at build time */}
+            {/* AI engine status — checks GET /api/llm/status (worker-side secret) */}
             <div className="flex items-center gap-2.5">
-              {(() => {
-                const aiConfigured = isLLMConfigured();
-                return (
-                  <>
-                    <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
-                      {aiConfigured && (
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fpso-green opacity-75" />
-                      )}
-                      <span
-                        className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
-                          aiConfigured ? "bg-fpso-green" : "bg-fpso-dim"
-                        }`}
-                      />
-                    </span>
-                    <span className={`text-sm ${aiConfigured ? "text-fpso-green" : "text-fpso-muted"}`}>
-                      {aiConfigured ? "AI 引擎已连接" : "规则引擎模式（未配置 AI）"}
-                    </span>
-                  </>
-                );
-              })()}
+              <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
+                {aiConfigured && (
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fpso-green opacity-75" />
+                )}
+                <span
+                  className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
+                    aiConfigured ? "bg-fpso-green" : "bg-fpso-dim"
+                  }`}
+                />
+              </span>
+              <span className={`text-sm ${aiConfigured ? "text-fpso-green" : "text-fpso-muted"}`}>
+                {aiConfigured ? "AI 引擎已连接" : "规则引擎模式（未配置 AI）"}
+              </span>
             </div>
           </CardContent>
         </Card>
