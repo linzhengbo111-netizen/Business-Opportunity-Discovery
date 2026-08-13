@@ -22,6 +22,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { matchMaterials, specsFromRow, hasAnySpecs, parseRecommendation, parseCorrosiveMedia, getCorrosiveMediaTags, getCorrosiveMediaDetails } from "@/lib/material_matcher";
 import { exportOpportunityList } from "@/lib/export_opportunities";
 import { scoreOpportunity, scoreBadgeClass } from "@/lib/opportunity_scorer";
+import { analyzeProjectScenario, assessOpportunity, type AIResult, type ScenarioAnalysis, type OpportunityAssessment } from "@/lib/ai_analyst";
 import BattleCardWrapper from "@/components/dashboard/BattleCard";
 import FollowUpStatus from "@/components/dashboard/FollowUpStatus";
 import { Building2, Hammer, CalendarDays, PlusCircle, Anchor, Waves, Gauge } from "lucide-react";
@@ -172,6 +173,19 @@ function statusBorderLClass(status: string): string {
     default:
       return "border-l-fpso-muted";
   }
+}
+
+/** Source badge for AI vs rule-engine output. */
+function SourceBadge({ source }: { source: "ai" | "rules" }) {
+  return source === "ai" ? (
+    <span className="inline-flex flex-shrink-0 items-center rounded bg-fpso-green/15 px-1.5 py-0.5 text-[10px] font-semibold text-fpso-green">
+      AI 推断
+    </span>
+  ) : (
+    <span className="inline-flex flex-shrink-0 items-center rounded bg-fpso-muted/15 px-1.5 py-0.5 text-[10px] font-semibold text-fpso-muted">
+      规则引擎
+    </span>
+  );
 }
 
 function confidenceBadgeClass(confidence: string): string {
@@ -329,6 +343,8 @@ export default function DashboardPage() {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [modalTab, setModalTab] = useState<"overview" | "timeline">("overview");
   const [battleCardProject, setBattleCardProject] = useState<Project | null>(null);
+  const [aiScenario, setAiScenario] = useState<AIResult<ScenarioAnalysis> | null>(null);
+  const [aiAssessment, setAiAssessment] = useState<AIResult<OpportunityAssessment> | null>(null);
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(false);
   const { version, status: connectionStatus } = useProjectRealtime();
@@ -623,6 +639,27 @@ export default function DashboardPage() {
     return () => { cancelled = true; };
   }, [selectedProject]);
 
+  // ---- AI 分析（LLM 可用时返回 AI 结果，否则 fallback 到规则引擎）----
+  useEffect(() => {
+    if (!selectedProject) {
+      setAiScenario(null);
+      setAiAssessment(null);
+      return;
+    }
+    let cancelled = false;
+    setAiScenario(null);
+    setAiAssessment(null);
+    Promise.all([
+      analyzeProjectScenario(selectedProject),
+      assessOpportunity(selectedProject),
+    ]).then(([scenario, assessment]) => {
+      if (cancelled) return;
+      setAiScenario(scenario);
+      setAiAssessment(assessment);
+    });
+    return () => { cancelled = true; };
+  }, [selectedProject]);
+
   const handleDotClick = (country: string) => {
     setSelectedCountry(country);
     console.log(`Dot clicked: ${country} (${projects.filter((p) => p.country.trim() === country).length} projects)`);
@@ -798,7 +835,7 @@ export default function DashboardPage() {
               src="/world-map.png"
               alt="世界地图轮廓"
               className="pointer-events-none absolute inset-0 z-0 h-auto w-full select-none"
-              style={{ filter: "brightness(1.3) contrast(1.1)" }}
+              style={{ filter: "brightness(2.0) contrast(1.4)" }}
             />
             {loading ? (
               <div className="flex h-64 items-center justify-center">
@@ -1503,6 +1540,21 @@ export default function DashboardPage() {
                       <span className="font-semibold text-fpso-blue">Action: </span>
                       {scoreResult.recommendedAction}
                     </p>
+                    {/* AI 机会判断（仅 AI 成功时展示，规则结果已在上方展示） */}
+                    {aiAssessment?.source === "ai" && (
+                      <div className="mb-3 rounded-md border border-fpso-green/15 bg-fpso-green/[0.05] p-2.5">
+                        <div className="mb-1 flex items-center justify-between">
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-fpso-dim">
+                            AI 机会判断
+                          </span>
+                          <SourceBadge source="ai" />
+                        </div>
+                        <p className="text-xs leading-relaxed text-fpso-fg/90">{aiAssessment.data.verdict}</p>
+                        {aiAssessment.data.rationale && (
+                          <p className="mt-1 text-[11px] leading-relaxed text-fpso-green/80">{aiAssessment.data.rationale}</p>
+                        )}
+                      </div>
+                    )}
                     {/* Battle Card button — hidden for guests */}
                     {!isGuest && (
                       <button
@@ -1551,6 +1603,42 @@ export default function DashboardPage() {
                   </div>
                 );
               })()}
+
+              {/* AI 分析（S8）— LLM 不可用时展示规则引擎 fallback 并标注来源 */}
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-fpso-dim">AI 分析</h4>
+                  {aiScenario && <SourceBadge source={aiScenario.source} />}
+                </div>
+                {!aiScenario ? (
+                  <p className="text-xs italic text-fpso-dim">AI 分析中…</p>
+                ) : (
+                  <div className="space-y-2 rounded-md border border-fpso-blue/10 bg-fpso-blue/[0.04] p-3">
+                    <p className="text-xs leading-relaxed text-fpso-fg/90">{aiScenario.data.scenario}</p>
+                    {aiScenario.data.keyPoints.length > 0 && (
+                      <ul className="space-y-1">
+                        {aiScenario.data.keyPoints.map((k) => (
+                          <li key={k} className="text-[11px] leading-relaxed text-fpso-blue/80">• {k}</li>
+                        ))}
+                      </ul>
+                    )}
+                    {aiScenario.data.risks.length > 0 && (
+                      <ul className="space-y-1">
+                        {aiScenario.data.risks.map((r) => (
+                          <li key={r} className="text-[11px] leading-relaxed text-fpso-orange/80">⚠ {r}</li>
+                        ))}
+                      </ul>
+                    )}
+                    {aiScenario.data.infoGaps.length > 0 && (
+                      <ul className="space-y-1">
+                        {aiScenario.data.infoGaps.map((g) => (
+                          <li key={g} className="text-[11px] leading-relaxed text-fpso-muted/80">∅ {g}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* 来源链接 */}
               <div>

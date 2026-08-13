@@ -10,6 +10,14 @@ import { useRef, useCallback, useState, useEffect } from "react";
 import { generateBattleCard, type BattleCard } from "@/lib/battle_card";
 import type { Project } from "@/data/projects";
 import { useFollowUp, FOLLOW_UP_STATUS_LABELS, type FollowUp } from "@/hooks/useFollowUp";
+import {
+  recommendProducts,
+  suggestNextActions,
+  type AIResult,
+  type AISource,
+  type ProductRecommendation,
+  type NextActionSuggestions,
+} from "@/lib/ai_analyst";
 
 // ---------------------------------------------------------------------------
 // Grade colour helpers
@@ -114,11 +122,29 @@ async function downloadPng(element: HTMLElement, filename: string) {
 // Sub-components
 // ---------------------------------------------------------------------------
 
-function SectionHeader({ children }: { children: string }) {
+/** Marks whether a section's content came from the LLM or the rule engine. */
+function SourceTag({ source }: { source: AISource }) {
   return (
-    <h4 className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest text-fpso-dim/80">
-      {children}
-    </h4>
+    <span
+      className={
+        source === "ai"
+          ? "inline-flex flex-shrink-0 items-center rounded bg-fpso-green/15 px-1.5 py-0.5 text-[9px] font-semibold text-fpso-green"
+          : "inline-flex flex-shrink-0 items-center rounded bg-fpso-muted/15 px-1.5 py-0.5 text-[9px] font-semibold text-fpso-muted"
+      }
+    >
+      {source === "ai" ? "AI 推断" : "规则引擎"}
+    </span>
+  );
+}
+
+function SectionHeader({ children, source }: { children: string; source?: AISource }) {
+  return (
+    <div className="mb-1.5 flex items-center justify-between gap-2">
+      <h4 className="text-[11px] font-semibold uppercase tracking-widest text-fpso-dim/80">
+        {children}
+      </h4>
+      {source && <SourceTag source={source} />}
+    </div>
   );
 }
 
@@ -134,9 +160,13 @@ interface BattleCardViewProps {
   card: BattleCard;
   innerRef: React.Ref<HTMLDivElement>;
   followUp?: FollowUp | null;
+  /** AI product recommendation — shown instead of rule results when source === "ai". */
+  aiProducts?: AIResult<ProductRecommendation> | null;
+  /** AI next-action suggestions — shown instead of rule results when source === "ai". */
+  aiActions?: AIResult<NextActionSuggestions> | null;
 }
 
-function BattleCardView({ card, innerRef, followUp }: BattleCardViewProps) {
+function BattleCardView({ card, innerRef, followUp, aiProducts, aiActions }: BattleCardViewProps) {
   const showBanner = followUp && (followUp.status === "invalid" || followUp.status === "closed");
   return (
     <div
@@ -192,24 +222,35 @@ function BattleCardView({ card, innerRef, followUp }: BattleCardViewProps) {
             </p>
           </div>
 
-          {/* what to push */}
-          <div>
-            <SectionHeader>What to Push · 推荐产品</SectionHeader>
-            {card.whatToPush.length === 0 ? (
-              <EmptyState />
-            ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {card.whatToPush.map((item) => (
-                  <span
-                    key={item}
-                    className="inline-flex items-center rounded bg-fpso-blue/10 px-2 py-0.5 text-xs font-medium text-fpso-blue border border-fpso-blue/15"
-                  >
-                    {item}
-                  </span>
-                ))}
+          {/* what to push — AI result takes priority when available */}
+          {(() => {
+            const useAi = aiProducts?.source === "ai" && aiProducts.data.products.length > 0;
+            const items = useAi ? aiProducts!.data.products : card.whatToPush;
+            return (
+              <div>
+                <SectionHeader source={useAi ? "ai" : "rules"}>What to Push · 推荐产品</SectionHeader>
+                {items.length === 0 ? (
+                  <EmptyState />
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {items.map((item) => (
+                      <span
+                        key={item}
+                        className="inline-flex items-center rounded bg-fpso-blue/10 px-2 py-0.5 text-xs font-medium text-fpso-blue border border-fpso-blue/15"
+                      >
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {useAi && aiProducts!.data.reasoning && (
+                  <p className="mt-1.5 text-[10px] leading-relaxed text-fpso-dim italic">
+                    {aiProducts!.data.reasoning}
+                  </p>
+                )}
               </div>
-            )}
-          </div>
+            );
+          })()}
 
           {/* material grades */}
           <div>
@@ -273,15 +314,29 @@ function BattleCardView({ card, innerRef, followUp }: BattleCardViewProps) {
             </div>
           </div>
 
-          {/* next action */}
-          <div>
-            <SectionHeader>Next Action · 下一步</SectionHeader>
-            <div className="rounded-md bg-fpso-green/5 border border-fpso-green/10 px-2.5 py-1.5">
-              <p className="text-xs text-fpso-green font-semibold leading-relaxed">
-                {card.nextAction}
-              </p>
-            </div>
-          </div>
+          {/* next action — AI result takes priority when available */}
+          {(() => {
+            const useAi = aiActions?.source === "ai" && aiActions.data.actions.length > 0;
+            return (
+              <div>
+                <SectionHeader source={useAi ? "ai" : "rules"}>Next Action · 下一步</SectionHeader>
+                <div className="rounded-md bg-fpso-green/5 border border-fpso-green/10 px-2.5 py-1.5">
+                  <p className="text-xs text-fpso-green font-semibold leading-relaxed">
+                    {useAi ? aiActions!.data.nextStep : card.nextAction}
+                  </p>
+                  {useAi && aiActions!.data.actions.length > 1 && (
+                    <ul className="mt-1 space-y-0.5">
+                      {aiActions!.data.actions.slice(1).map((a) => (
+                        <li key={a} className="text-[10px] leading-relaxed text-fpso-green/70">
+                          • {a}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
 
@@ -328,6 +383,8 @@ export default function BattleCardWrapper({ project, baseUrl }: BattleCardWrappe
   const cardRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
   const [followUp, setFollowUp] = useState<FollowUp | null>(null);
+  const [aiProducts, setAiProducts] = useState<AIResult<ProductRecommendation> | null>(null);
+  const [aiActions, setAiActions] = useState<AIResult<NextActionSuggestions> | null>(null);
 
   const { getFollowUp } = useFollowUp();
 
@@ -337,6 +394,21 @@ export default function BattleCardWrapper({ project, baseUrl }: BattleCardWrappe
   useEffect(() => {
     getFollowUp(project.name).then(setFollowUp);
   }, [project.name, getFollowUp]);
+
+  // Fetch AI recommendations — rule results stay visible until the LLM answers
+  useEffect(() => {
+    let cancelled = false;
+    setAiProducts(null);
+    setAiActions(null);
+    Promise.all([recommendProducts(project), suggestNextActions(project)]).then(
+      ([products, actions]) => {
+        if (cancelled) return;
+        setAiProducts(products);
+        setAiActions(actions);
+      },
+    );
+    return () => { cancelled = true; };
+  }, [project.name]);
 
   const filename = `BattleCard_${project.name.replace(/[^a-zA-Z0-9一-鿿]/g, "_")}_${card.generatedAt.slice(0, 10)}.png`;
 
@@ -359,7 +431,13 @@ export default function BattleCardWrapper({ project, baseUrl }: BattleCardWrappe
   return (
     <div className="space-y-3">
       {/* Battle card display */}
-      <BattleCardView card={card} innerRef={cardRef} followUp={followUp} />
+      <BattleCardView
+        card={card}
+        innerRef={cardRef}
+        followUp={followUp}
+        aiProducts={aiProducts}
+        aiActions={aiActions}
+      />
 
       {/* Action buttons */}
       <div className="flex items-center justify-center gap-3 pb-2 no-print">

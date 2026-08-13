@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
+import { isLLMConfigured } from '@/lib/llm_client';
 
 export default function SettingsPage() {
   const { user, isAuthenticated, login } = useAuth();
@@ -127,6 +128,31 @@ export default function SettingsPage() {
               Logged in as <span className="text-fpso-blue font-medium">{user?.name}</span>
             </CardDescription>
           </CardHeader>
+          <CardContent>
+            {/* AI engine status — reflects LLM_API_KEY presence at build time */}
+            <div className="flex items-center gap-2.5">
+              {(() => {
+                const aiConfigured = isLLMConfigured();
+                return (
+                  <>
+                    <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
+                      {aiConfigured && (
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fpso-green opacity-75" />
+                      )}
+                      <span
+                        className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
+                          aiConfigured ? "bg-fpso-green" : "bg-fpso-dim"
+                        }`}
+                      />
+                    </span>
+                    <span className={`text-sm ${aiConfigured ? "text-fpso-green" : "text-fpso-muted"}`}>
+                      {aiConfigured ? "AI 引擎已连接" : "规则引擎模式（未配置 AI）"}
+                    </span>
+                  </>
+                );
+              })()}
+            </div>
+          </CardContent>
         </Card>
 
         {/* Subscription card */}
