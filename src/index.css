@@ -136,6 +136,29 @@
     transition: opacity 0.15s ease-out;
   }
 
+  /* 环形图扇区 — hover 放大 + 发光，点击联动国家筛选 */
+  .chart-slice {
+    cursor: pointer;
+    transition: transform 0.2s ease, filter 0.2s ease;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .chart-slice:hover {
+    transform: scale(1.06);
+    filter: drop-shadow(0 0 6px rgba(0, 212, 255, 0.6));
+  }
+
+  /* Other 扇区不可交互 */
+  .chart-slice--static {
+    cursor: default;
+  }
+
+  .chart-slice--static:hover {
+    transform: none;
+    filter: none;
+  }
+
   @keyframes map-core-pulse {
     0%, 100% {
       transform: translate(-50%, -50%) scale(1);

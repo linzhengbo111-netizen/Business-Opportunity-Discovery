@@ -8,7 +8,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
-  BarChart, Bar, XAxis, YAxis,
 } from "recharts";
 import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
@@ -28,7 +27,7 @@ import { analyzeProjectScenario, assessOpportunity, type AIResult, type Scenario
 import BattleCardWrapper from "@/components/dashboard/BattleCard";
 import OutreachModal from "@/components/dashboard/OutreachModal";
 import FollowUpStatus from "@/components/dashboard/FollowUpStatus";
-import { Building2, Hammer, CalendarDays, PlusCircle, Anchor, Waves, Gauge } from "lucide-react";
+import { Building2, Hammer, CalendarDays, PlusCircle, Anchor, Waves, Gauge, Globe, BarChart3 } from "lucide-react";
 import FilterSidebar from "@/components/dashboard/FilterSidebar";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
@@ -177,6 +176,20 @@ function statusBorderLClass(status: string): string {
       return "border-l-fpso-muted";
   }
 }
+
+/** 状态条形图语义色 — 与项目列表色条/圆点一致 */
+const STATUS_BAR_COLORS: Record<string, string> = {
+  "Under Construction": "#00d4ff",
+  Delivered: "#10b981",
+  Planned: "#ff9f43",
+  Unknown: "#64748b",
+};
+
+/** 环形图顺序色 — 青→深蓝单色系渐变，最亮给最大扇区 */
+const COUNTRY_CHART_COLORS = [
+  "#00d4ff", "#0ea5e9", "#2563eb", "#1d4ed8",
+  "#1e40af", "#1e3a8a", "#172554",
+];
 
 /** Source badge for AI vs rule-engine output. */
 function SourceBadge({ source }: { source: "ai" | "rules" }) {
@@ -520,10 +533,20 @@ export default function DashboardPage() {
       const c = p.country.trim();
       count[c] = (count[c] ?? 0) + 1;
     }
-    return Object.entries(count)
+    const entries = Object.entries(count)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
+    // 最多 6 个国家 + Other：小国合并，保持环形图可读
+    if (entries.length <= 7) return entries;
+    const top = entries.slice(0, 6);
+    const otherValue = entries.slice(6).reduce((sum, e) => sum + e.value, 0);
+    return [...top, { name: "Other", value: otherValue }];
   }, [filteredProjects]);
+
+  const countryTotal = useMemo(
+    () => countryChartData.reduce((sum, d) => sum + d.value, 0),
+    [countryChartData],
+  );
 
   const statusChartData = useMemo(() => {
     const order = ["Under Construction", "Delivered", "Planned"];
@@ -537,6 +560,11 @@ export default function DashboardPage() {
       .map((s) => ({ name: s, value: count[s] }))
       .concat(count["Unknown"] ? [{ name: "Unknown", value: count["Unknown"] }] : []);
   }, [filteredProjects]);
+
+  const statusBarMax = useMemo(
+    () => Math.max(...statusChartData.map((d) => d.value), 1),
+    [statusChartData],
+  );
 
   // 地图光点 — 始终基于全部项目（不受筛选影响），点击光点仍会联动下拉框筛选
   const allCountries = useMemo(
@@ -919,103 +947,148 @@ export default function DashboardPage() {
         </section>
 
         {/* 图表区域 */}
-        <section className="mb-10 grid grid-cols-1 gap-6 lg:grid-cols-2">
-          {/* 国家分布饼图 */}
-          <div className="rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md p-5 shadow-xl hover:shadow-2xl transition-shadow duration-300">
-            <h3 className="mb-4 text-sm font-medium text-fpso-fg">Country Distribution</h3>
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={countryChartData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={90}
-                    paddingAngle={2}
-                    dataKey="value"
-                    stroke="transparent"
-                  >
-                    {countryChartData.map((_, i) => (
-                      <Cell
-                        key={i}
-                        fill={[
-                          "#00d4ff", "#ff9f43", "#10b981", "#a78bfa",
-                          "#f472b6", "#fbbf24", "#60a5fa", "#34d399",
-                        ][i % 8]}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      background: "#131a2e",
-                      border: "1px solid #1e2844",
-                      borderRadius: "8px",
-                      fontSize: "13px",
-                      color: "#f8fafc",
-                    }}
-                    formatter={(value: number) => [`${value} projects`, ""]}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+        <section className="mb-10 grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
+          {/* 国家分布环形图 */}
+          <div className="group relative flex flex-col overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md p-5 shadow-xl transition-all duration-300 hover:border-fpso-blue/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(0,212,255,0.06)]">
+            <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
+              <Globe className="h-20 w-20 text-fpso-blue" />
             </div>
-            {/* 简易图例 */}
-            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
-              {countryChartData.slice(0, 8).map((d, i) => (
-                <span key={d.name} className="inline-flex items-center gap-1.5 text-xs text-fpso-muted">
-                  <span
-                    className="inline-block h-2 w-2 rounded-full"
-                    style={{
-                      background: [
-                        "#00d4ff", "#ff9f43", "#10b981", "#a78bfa",
-                        "#f472b6", "#fbbf24", "#60a5fa", "#34d399",
-                      ][i % 8],
-                    }}
-                  />
-                  {d.name}
-                </span>
-              ))}
+            <div className="relative z-10 flex flex-1 flex-col">
+              <h3 className="mb-4 border-b border-white/5 pb-3 text-xs font-semibold uppercase tracking-widest text-fpso-muted">Country Distribution</h3>
+              {countryChartData.length === 0 ? (
+                <div className="flex flex-1 items-center justify-center">
+                  <span className="text-sm text-fpso-muted">No country data for current filters.</span>
+                </div>
+              ) : (
+                <>
+                  <div className="relative h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={countryChartData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={62}
+                          outerRadius={88}
+                          paddingAngle={2}
+                          dataKey="value"
+                          stroke="transparent"
+                        >
+                          {countryChartData.map((d, i) => (
+                            <Cell
+                              key={d.name}
+                              fill={COUNTRY_CHART_COLORS[i]}
+                              className={d.name === "Other" ? "chart-slice chart-slice--static" : "chart-slice"}
+                              onClick={() => {
+                                if (d.name !== "Other") setSelectedCountry(d.name);
+                              }}
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{
+                            background: "#131a2e",
+                            border: "1px solid #1e2844",
+                            borderRadius: "8px",
+                            fontSize: "13px",
+                            color: "#f8fafc",
+                          }}
+                          formatter={(value: number, name: string) => [`${value} projects`, name]}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    {/* 中心总数 */}
+                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                      <div
+                        className="font-mono text-3xl font-extrabold tabular-nums text-fpso-fg"
+                        style={{ textShadow: "0 0 12px rgba(0,212,255,0.5)" }}
+                      >
+                        {countryTotal}
+                      </div>
+                      <div className="text-xs text-fpso-muted">Projects</div>
+                    </div>
+                  </div>
+                  {/* 图例：色点 + 国旗 + 国家 + 数值 + 百分比，点击联动筛选 */}
+                  <div className="mt-4 space-y-1">
+                    {countryChartData.map((d, i) => {
+                      const flag = d.name === "Other" ? "🌐" : countryToFlagEmoji(d.name) || "🌐";
+                      const pct = countryTotal > 0 ? Math.round((d.value / countryTotal) * 100) : 0;
+                      return (
+                        <button
+                          key={d.name}
+                          type="button"
+                          disabled={d.name === "Other"}
+                          onClick={() => setSelectedCountry(d.name)}
+                          className="flex w-full items-center gap-2.5 rounded-md px-1.5 py-1 text-left text-xs transition-colors hover:bg-fpso-blue/[0.04] disabled:cursor-default"
+                        >
+                          <span
+                            className="h-2 w-2 flex-shrink-0 rounded-full"
+                            style={{ background: COUNTRY_CHART_COLORS[i] }}
+                          />
+                          <span className="flex-shrink-0 text-sm leading-none">{flag}</span>
+                          <span className="min-w-0 flex-1 truncate text-fpso-muted">{d.name}</span>
+                          <span className="font-mono tabular-nums text-fpso-fg">{d.value}</span>
+                          <span className="w-10 flex-shrink-0 text-right font-mono tabular-nums text-fpso-dim">{pct}%</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
-          {/* 状态分布柱状图 */}
-          <div className="rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md p-5 shadow-xl hover:shadow-2xl transition-shadow duration-300">
-            <h3 className="mb-4 text-sm font-medium text-fpso-fg">Status Breakdown</h3>
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={statusChartData} margin={{ top: 0, right: 0, left: -10, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#00d4ff" stopOpacity={0.9} />
-                      <stop offset="100%" stopColor="#00d4ff" stopOpacity={0.2} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis
-                    dataKey="name"
-                    tick={{ fill: "#94a3b8", fontSize: 12 }}
-                    axisLine={{ stroke: "#1e2844" }}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tick={{ fill: "#94a3b8", fontSize: 12 }}
-                    axisLine={{ stroke: "#1e2844" }}
-                    tickLine={false}
-                    allowDecimals={false}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: "#131a2e",
-                      border: "1px solid #1e2844",
-                      borderRadius: "8px",
-                      fontSize: "13px",
-                      color: "#f8fafc",
-                    }}
-                    formatter={(value: number) => [`${value} projects`, ""]}
-                    cursor={{ fill: "rgba(0,212,255,0.08)" }}
-                  />
-                  <Bar dataKey="value" fill="url(#barGradient)" radius={[4, 4, 0, 0]} maxBarSize={64} />
-                </BarChart>
-              </ResponsiveContainer>
+          {/* 状态分布水平条形图 */}
+          <div className="group relative flex flex-col overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md p-5 shadow-xl transition-all duration-300 hover:border-fpso-blue/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(0,212,255,0.06)]">
+            <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
+              <BarChart3 className="h-20 w-20 text-fpso-blue" />
+            </div>
+            <div className="relative z-10 flex flex-1 flex-col">
+              <h3 className="mb-4 border-b border-white/5 pb-3 text-xs font-semibold uppercase tracking-widest text-fpso-muted">Status Breakdown</h3>
+              {statusChartData.length === 0 ? (
+                <div className="flex flex-1 items-center justify-center">
+                  <span className="text-sm text-fpso-muted">No status data for current filters.</span>
+                </div>
+              ) : (
+                <div className="flex flex-1 flex-col justify-center gap-5">
+                  {statusChartData.map((d) => {
+                    const color = STATUS_BAR_COLORS[d.name] ?? "#64748b";
+                    const widthPct = Math.max(Math.round((d.value / statusBarMax) * 100), 2);
+                    return (
+                      <div key={d.name} className="group/row relative">
+                        <div className="flex items-center gap-3">
+                          <span className="flex w-36 flex-shrink-0 items-center gap-2 text-xs text-fpso-muted">
+                            <span
+                              className="h-2 w-2 flex-shrink-0 rounded-full"
+                              style={{ background: color, boxShadow: `0 0 6px ${color}` }}
+                            />
+                            <span className="truncate">{d.name}</span>
+                          </span>
+                          <div className="h-3 flex-1 overflow-hidden rounded-full bg-[#1e2844]">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${widthPct}%` }}
+                              transition={{ duration: 0.6, ease: "easeOut" }}
+                              className="h-full rounded-full transition-all duration-200 group-hover/row:brightness-125"
+                              style={{
+                                background: `linear-gradient(90deg, ${color}55, ${color})`,
+                                boxShadow: `0 0 8px ${color}66`,
+                              }}
+                            />
+                          </div>
+                          <span className="w-10 flex-shrink-0 text-right font-mono text-xs tabular-nums text-fpso-fg">
+                            {d.value}
+                          </span>
+                        </div>
+                        {/* hover tooltip：状态名 + 数量 */}
+                        <div className="pointer-events-none absolute -top-8 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-md border border-[#1e2844] bg-[#131a2e] px-2.5 py-1 text-xs text-fpso-fg opacity-0 shadow-xl transition-opacity duration-200 group-hover/row:opacity-100">
+                          {d.name} — {d.value} projects
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </section>
