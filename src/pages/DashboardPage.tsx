@@ -909,7 +909,7 @@ export default function DashboardPage() {
                     top: `${dot.y}%`,
                     animationDelay: dot.delay,
                     "--dot-delay": dot.delay,
-                  }}
+                  } as React.CSSProperties}
                   aria-label={`${dot.country} 项目`}
                 />
               ))
@@ -1616,8 +1616,7 @@ export default function DashboardPage() {
                         )}
                       </div>
                     )}
-                    {/* Battle Card + Outreach buttons — hidden for guests */}
-                    {!isGuest && (
+                    {/* Battle Card + Outreach buttons — available to guests for roadshow demos */}
                       <div className="mb-3 flex flex-wrap items-center gap-2">
                         <button
                           type="button"
@@ -1641,7 +1640,6 @@ export default function DashboardPage() {
                           生成开发信
                         </button>
                       </div>
-                    )}
                     {/* Expandable dimensions via native <details> */}
                     <details className="group">
                       <summary className="text-xs font-medium text-fpso-blue hover:text-fpso-blue/80 transition-colors cursor-pointer select-none mb-2">

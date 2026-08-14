@@ -66,15 +66,19 @@ export function useSubscription() {
           setCountries(unique);
         }
       })
-      .catch(() => {
-        // fallback: common countries
-        setCountries(['Brazil', 'Guyana', 'UK', 'Norway', 'China', 'Angola', 'Nigeria', 'Malaysia']);
-      });
+      .then(
+        () => {},
+        () => {
+          // fallback: common countries
+          setCountries(['Brazil', 'Guyana', 'UK', 'Norway', 'China', 'Angola', 'Nigeria', 'Malaysia']);
+        },
+      );
   }, []);
 
   // Fetch user's subscription from Supabase
   const fetchSubscription = useCallback(async () => {
-    if (!user?.open_id) {
+    // Guests have no subscription rows — skip the round trip entirely.
+    if (!user?.open_id || user?.role === "guest") {
       setSubscription(null);
       return;
     }
@@ -88,6 +92,18 @@ export function useSubscription() {
         .maybeSingle();
 
       if (error) {
+        // PGRST205: the user_subscriptions table does not exist yet
+        // (migration 017_create_user_subscriptions.sql not applied).
+        // Treat as "no subscription saved" instead of spamming the console
+        // on every page load.
+        if (error.code === "PGRST205") {
+          setSubscription({
+            user_open_id: user.open_id,
+            ...DEFAULT_SUBSCRIPTION,
+          });
+          setLoading(false);
+          return;
+        }
         console.error('Failed to fetch subscription:', error);
         setSubscription(null);
       } else if (data) {
@@ -159,7 +175,12 @@ export function useSubscription() {
         }
 
         if (error) {
-          toast.error(`Save failed: ${error.message}`);
+          if (error.code === "PGRST205") {
+            // Table missing (migration 017 not applied) — nothing to save to.
+            toast.error("订阅功能暂不可用（数据表未创建）");
+          } else {
+            toast.error(`Save failed: ${error.message}`);
+          }
           return;
         }
 

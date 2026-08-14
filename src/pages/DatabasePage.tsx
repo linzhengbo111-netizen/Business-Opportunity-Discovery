@@ -856,8 +856,8 @@ export default function DatabasePage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs text-fpso-muted">Grades:</span>
                         {rec.grades.map((g) => (
-                          <span key={g} className="rounded bg-fpso-blue/10 px-2 py-0.5 text-xs font-medium text-fpso-blue">
-                            {g}
+                          <span key={g.grade} className="rounded bg-fpso-blue/10 px-2 py-0.5 text-xs font-medium text-fpso-blue">
+                            {g.grade}
                           </span>
                         ))}
                       </div>
