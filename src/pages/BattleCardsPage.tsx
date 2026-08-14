@@ -146,7 +146,7 @@ export default function BattleCardsPage() {
   }, [version]);
 
   // ---- 实时评分 + A/B 过滤 + 按分降序 + 生成作战卡摘要 ----
-  // 战报中心只展示成熟商机（技术参数 + 采购链 + 时间线事件齐备），
+  // 战报中心只展示成熟商机（技术参数 + 时间线事件齐备），
   // 潜在项目生成不了有价值的战报。
   const abCards = useMemo<ScoredCard[]>(() => {
     return filterMatureProjects(projects, timelineEventCounts, false)

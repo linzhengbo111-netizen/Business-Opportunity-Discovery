@@ -2,7 +2,7 @@
 """
 Opportunity maturity audit — classifies every project as:
 
-  mature     = (water_depth_m OR oil_capacity_bpd) AND procurement_chain
+  mature     = (water_depth_m OR oil_capacity_bpd)
                AND >= 1 candidate_events linked (canonical id or fuzzy name)
   potential  = everything else (goes to the 待挖掘 pool)
 
@@ -117,8 +117,7 @@ def main():
 
     def is_mature(p, n_events):
         tech = p["water_depth_m"] is not None or p["oil_capacity_bpd"] is not None
-        chain = bool((p["procurement_chain"] or "").strip())
-        return tech and chain and n_events >= 1
+        return tech and n_events >= 1
 
     mature, potential = [], []
     zero_event, fuzzy_only = [], []
@@ -148,14 +147,7 @@ def main():
     for p in potential:
         n = p["_events"]
         tech = p["water_depth_m"] is not None or p["oil_capacity_bpd"] is not None
-        chain = bool((p["procurement_chain"] or "").strip())
-        key = ("no-events" if n == 0 else "events")
-        if tech and chain and n > 0:
-            key = "ok"  # unreachable
-        elif tech and not chain and n > 0:
-            key = "no-chain"
-        elif (not tech) and chain and n > 0:
-            key = "no-tech"
+        key = "no-events" if n == 0 else "no-tech"
         reasons[key] += 1
     log.info("potential breakdown: %s", dict(reasons))
 
@@ -178,10 +170,9 @@ def main():
         name = (p["name"] or "").strip()
         if anp_interest.search(name):
             n = event_count(p)
-            log.info("  %-50r events=%d tech=%s chain=%s mature=%s",
+            log.info("  %-50r events=%d tech=%s mature=%s",
                      name, n,
                      p["water_depth_m"] is not None or p["oil_capacity_bpd"] is not None,
-                     bool((p["procurement_chain"] or "").strip()),
                      is_mature(p, n))
 
     summary = {

@@ -1741,7 +1741,7 @@ export default function DashboardPage() {
                   </svg>
                   <p className="text-sm text-fpso-muted">暂无足够商机数据，已加入待挖掘池</p>
                   <p className="text-xs text-fpso-dim mt-1">
-                    待后续抓取到技术参数、采购链与时间线事件后，将自动升级为成熟商机。
+                    待后续抓取到技术参数与时间线事件后，将自动升级为成熟商机。
                   </p>
                 </div>
               ) : (

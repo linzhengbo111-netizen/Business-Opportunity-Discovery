@@ -5,7 +5,6 @@ import { normalizeProjectName } from "@/data/project_aliases";
  * 商机成熟度分类（纯前端计算，无数据库字段）：
  *
  *   成熟商机 (mature)   = 有技术参数 (water_depth_m 或 oil_capacity_bpd)
- *                       + 有采购链 (procurement_chain)
  *                       + 有时间线事件 (至少 1 条 candidate_events 关联)
  *   潜在项目 (potential) = 不满足上述任一条件的项目
  */
@@ -37,8 +36,7 @@ export function isMatureProject(
 ): boolean {
   const hasTechParams =
     project.waterDepthM != null || project.oilCapacityBpd != null;
-  const hasProcurementChain = (project.procurementChain ?? "").trim().length > 0;
-  return hasTechParams && hasProcurementChain && hasTimelineData(project, eventCounts);
+  return hasTechParams && hasTimelineData(project, eventCounts);
 }
 
 export function maturityFor(
