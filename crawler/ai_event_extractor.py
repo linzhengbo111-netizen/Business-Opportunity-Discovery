@@ -175,13 +175,19 @@ def _build_prompt(article):
         "article (e.g. \"FPSO Bacalhau\", \"Johan Castberg\", "
         "\"FPSO Prosperity\"). Empty string if the article names no "
         "specific project. Do NOT guess or infer project names.",
-        f"2. event_type: exactly one of {json.dumps(EVENT_TYPES)}. Use "
-        "\"ARTICLE_MENTION\" when no specific event type applies.",
+        f"2. event_type: exactly one of {json.dumps(EVENT_TYPES)}. "
+        "Classify the article's main FPSO activity concretely: contract "
+        "awards and construction orders are CONTRACT_AWARDED or "
+        "FPSO_CONTRACT_AWARDED, first oil / first gas / production start "
+        "are FIRST_OIL or PRODUCTION_START, unit delivery is DELIVERED, "
+        "etc. Use \"ARTICLE_MENTION\" ONLY when the article mentions an "
+        "FPSO without any concrete project activity.",
         "3. publication_date: YYYY-MM-DD from the article only. Empty "
         "string when the article gives no date. Do NOT use today's date.",
-        "4. evidence_quote: an EXACT verbatim sentence from the article "
-        "(Title or Summary above) that supports the event. Never invent, "
-        "paraphrase, or translate. Empty string if nothing supports it.",
+        "4. evidence_quote: copy a sentence character-for-character from "
+        "the Title or Summary above. Never invent, paraphrase, translate, "
+        "or begin with \"The article...\". Empty string if nothing "
+        "supports it.",
         "5. summary: one sentence summarizing the event in English, max "
         "50 words. Use the verbatim evidence_quote when possible.",
         "6. If the article mentions no FPSO project events at all, return "
@@ -332,6 +338,81 @@ def rule_engine_fallback(article):
 
 
 # ========================================================================
+# Post-processing guards (LLM output cannot be trusted on its own)
+# ========================================================================
+
+_WS_RE = re.compile(r"\s+")
+
+
+def _norm_ws(text):
+    return _WS_RE.sub(" ", (text or "").strip()).lower()
+
+
+def _quote_is_verbatim(quote, article):
+    """True when the quote is a character-for-character substring of the
+    article title or summary (whitespace-normalized). Short quotes are
+    rejected: a 5-word overlap is noise, not evidence."""
+    q = _norm_ws(quote)
+    if len(q) < 20:
+        return False
+    for field in ("title", "summary"):
+        if q in _norm_ws(article.get(field) or ""):
+            return True
+    return False
+
+
+# Keyword → event type for upgrading lazy "ARTICLE_MENTION" replies. Only
+# fires when the article text itself contains the keyword, mirroring the
+# adapters' rule engine — never inventing an event the text does not state.
+_UPGRADE_KEYWORDS = {
+    "FPSO_CONTRACT_AWARDED": [
+        "fpso contract", "fpso contracts", "fpso construction",
+        "construction starts", "construction order", "hull construction",
+    ],
+    "CONTRACT_AWARDED": [
+        "awarded", "contract", "order", "deal", "secured", "agreement",
+        "feed", "taps", "purchase", "buy", "acquire",
+    ],
+    "FIRST_OIL": ["first oil", "first production"],
+    "PRODUCTION_START": [
+        "production start", "started production", "commenced production",
+        "gas injection", "starts operating", "started operating",
+        "start-up", "startup",
+    ],
+    "DELIVERED": [
+        "delivered", "sailaway", "sail away", "delivery", "commissioned",
+    ],
+    "CONTRACT_ANNOUNCEMENT": ["announced", "extension"],
+}
+
+
+def _upgrade_event_type(article):
+    """Upgrade ARTICLE_MENTION to a concrete type when the article text
+    clearly states one. Returns the new type, or ARTICLE_MENTION when no
+    keyword matches."""
+    text = f"{article.get('title') or ''} {article.get('summary') or ''}".lower()
+    for event_type, keywords in _UPGRADE_KEYWORDS.items():
+        if any(kw in text for kw in keywords):
+            return event_type
+    return "ARTICLE_MENTION"
+
+
+def _postprocess_events(events, article):
+    """Enforce data-quality invariants the LLM cannot be trusted with:
+    verbatim-only evidence quotes, and concrete event types for articles
+    whose text clearly supports one (upgrades lazy ARTICLE_MENTION)."""
+    cleaned = []
+    for ev in events:
+        quote = ev.get("evidence_quote") or ""
+        if quote and not _quote_is_verbatim(quote, article):
+            ev["evidence_quote"] = ""
+        if ev["event_type"] == "ARTICLE_MENTION":
+            ev["event_type"] = _upgrade_event_type(article)
+        cleaned.append(ev)
+    return cleaned
+
+
+# ========================================================================
 # Article payload helpers
 # ========================================================================
 
@@ -440,6 +521,8 @@ def run_ai_extraction(supabase, rows, update_existing=True, polite_delay=0.3):
                 stats["ai_success"] += 1
                 if not events:
                     stats["ai_no_event"] += 1
+                else:
+                    events = _postprocess_events(events, article)
             else:
                 stats["ai_failed"] += 1
 
