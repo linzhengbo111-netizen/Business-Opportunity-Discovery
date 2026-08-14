@@ -911,57 +911,37 @@ export default function DashboardPage() {
           </div>
 
           <div className="map-container relative w-full overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300">
-            <div className="relative aspect-[2/1] w-full">
-              {/* 模糊辉光层 — 底图线条泛青发光 */}
-              <img
-                src="/world-map.png"
-                alt=""
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-0 z-0 h-full w-full select-none opacity-70 mix-blend-screen"
-                style={{ filter: "hue-rotate(80deg) saturate(0.9) blur(1.5px)" }}
-              />
-              {/* 锐利轮廓层 — 绿色原线转为主题青色 */}
-              <img
-                src="/world-map.png"
-                alt="世界地图轮廓"
-                className="pointer-events-none absolute inset-0 z-[1] h-full w-full select-none"
-                style={{ filter: "hue-rotate(80deg) saturate(0.9) contrast(1.05)" }}
-              />
-              {/* 渐隐 — 底图边缘融入卡片背景 */}
-              <div className="map-vignette pointer-events-none absolute inset-0 z-[5]" />
-              {/* CRT 扫描线 */}
-              <div className="map-scanlines pointer-events-none absolute inset-0 z-[15]" />
-              {/* HUD 四角括号 */}
-              <div className="pointer-events-none absolute left-3 top-3 z-[15] h-5 w-5 border-l border-t border-fpso-blue/30" />
-              <div className="pointer-events-none absolute right-3 top-3 z-[15] h-5 w-5 border-r border-t border-fpso-blue/30" />
-              <div className="pointer-events-none absolute bottom-3 left-3 z-[15] h-5 w-5 border-b border-l border-fpso-blue/30" />
-              <div className="pointer-events-none absolute bottom-3 right-3 z-[15] h-5 w-5 border-b border-r border-fpso-blue/30" />
-              {loading ? (
-                <div className="absolute inset-0 z-20 flex items-center justify-center">
-                  <span className="text-sm text-fpso-muted">Loading map data…</span>
-                </div>
-              ) : mapDots.length === 0 ? (
-                <div className="absolute inset-0 z-20 flex items-center justify-center">
-                  <span className="text-sm text-fpso-muted">No project locations found.</span>
-                </div>
-              ) : (
-                mapDots.map((dot) => (
-                  <button
-                    key={dot.country}
-                    type="button"
-                    onClick={() => handleDotClick(dot.country)}
-                    className="map-pulse absolute z-10 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full border border-fpso-blue bg-fpso-blue outline-none focus:ring-2 focus:ring-fpso-blue/50"
-                    style={{
-                      left: `${dot.x}%`,
-                      top: `${dot.y}%`,
-                      animationDelay: dot.delay,
-                      "--dot-delay": dot.delay,
-                    } as React.CSSProperties}
-                    aria-label={`${dot.country} 项目`}
-                  />
-                ))
-              )}
-            </div>
+            <img
+              src="/world-map.png"
+              alt="世界地图轮廓"
+              className="pointer-events-none absolute inset-0 z-0 h-auto w-full select-none"
+              style={{ filter: "brightness(2.0) contrast(1.4)" }}
+            />
+            {loading ? (
+              <div className="flex h-64 items-center justify-center">
+                <span className="text-sm text-fpso-muted">Loading map data…</span>
+              </div>
+            ) : mapDots.length === 0 ? (
+              <div className="flex h-64 items-center justify-center">
+                <span className="text-sm text-fpso-muted">No project locations found.</span>
+              </div>
+            ) : (
+              mapDots.map((dot) => (
+                <button
+                  key={dot.country}
+                  type="button"
+                  onClick={() => handleDotClick(dot.country)}
+                  className="map-pulse absolute z-10 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full border border-fpso-blue bg-fpso-blue outline-none focus:ring-2 focus:ring-fpso-blue/50"
+                  style={{
+                    left: `${dot.x}%`,
+                    top: `${dot.y}%`,
+                    animationDelay: dot.delay,
+                    "--dot-delay": dot.delay,
+                  } as React.CSSProperties}
+                  aria-label={`${dot.country} 项目`}
+                />
+              ))
+            )}
           </div>
 
         </section>
