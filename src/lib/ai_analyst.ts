@@ -355,3 +355,68 @@ export async function suggestNextActions(
     },
   };
 }
+
+// ---------------------------------------------------------------------------
+// 5. generate_outreach_message — sales outreach email draft
+// ---------------------------------------------------------------------------
+
+/** generate_outreach_message output. */
+export interface OutreachMessage {
+  subject: string;
+  body: string;
+}
+
+/**
+ * Generate a cold-outreach email draft (开发信) for a project.
+ *
+ * Unlike the analysis functions above there is NO rule-engine fallback:
+ * the email must be written by the LLM. On any failure (no API key,
+ * network error, malformed JSON, missing subject/body) returns null —
+ * the caller shows "信息不足，暂无法生成开发信".
+ */
+export async function generate_outreach_message(
+  project: Project,
+  factoryCapabilities?: FactoryCapabilities,
+  rulesResult?: MaterialMatchResult,
+): Promise<OutreachMessage | null> {
+  const factory = factoryCapabilities ?? defaultFactoryCapabilities();
+  const rules = materialRules(project, rulesResult);
+  const procWindow = estimateProcurementWindow(project);
+
+  const descriptionText = [project.name, project.summary, project.application]
+    .filter(Boolean)
+    .join(" ");
+  const productNeeds = inferProductNeeds(descriptionText);
+  const recommendedProducts =
+    productNeeds.length > 0 ? productNeeds.map((p) => p.label) : rules.applications;
+
+  const ai = await askJSON(
+    [
+      "请为该 FPSO 项目撰写一封销售开发信（冷邮件）草稿，输出 JSON。",
+      "工厂：Jiaxing MT Stainless Steel（嘉兴 MT 不锈钢）。",
+      "项目数据：",
+      JSON.stringify(projectFacts(project), null, 2),
+      "工厂生产能力：",
+      JSON.stringify(factory, null, 2),
+      "规则引擎匹配结果：",
+      JSON.stringify(rules, null, 2),
+      "推荐产品：",
+      JSON.stringify(recommendedProducts, null, 2),
+      "采购时间窗估计：",
+      JSON.stringify(procWindow, null, 2),
+      "写作要求：",
+      "1. 严格只基于给定的项目事实和工厂能力撰写，不得编造任何过往业绩、合作案例、认证资质、客户名单、联系人姓名或产能数据。",
+      "2. 语气专业、简洁。正文语言默认英文。问候语全信只写一个：巴西或拉美项目写 'Prezados Senhores,'，其余项目写 'Dear Procurement Team,'。不要写两个问候语。",
+      "3. 正文必须包含：(a) 从项目数据中识别到的具体需求——材质牌号、产品类型、工况环境（腐蚀性介质、水深、产量等）；(b) 工厂能提供的对应产品与牌号；(c) 请求进一步沟通或索取技术规格书 / RFQ。",
+      "4. 若项目数据中有 procurement_chain（EPC 或采购链，如 SBM Offshore），正文中须明确提到该采购链，说明我们理解该项目由其建造/采购，并针对其供应链提出供货意向。没有 EPC 或采购联系人姓名时不要硬编收件人姓名，用第 2 条的通用称呼。",
+      "5. 信息不足时不要编造，宁可写通用表述。",
+      "6. 正文为纯文本（段落间用空行分隔），不要 Markdown 格式。",
+      '输出格式：{"subject": "邮件主题（英文）", "body": "邮件正文，署名 Jiaxing MT Stainless Steel — Sales Team"}',
+    ].join("\n"),
+  );
+
+  const subject = toStr(ai?.subject);
+  const body = toStr(ai?.body);
+  if (!subject || !body) return null;
+  return { subject, body };
+}

@@ -26,6 +26,7 @@ import { filterMatureProjects, hasTimelineData } from "@/lib/project_maturity";
 import { scoreOpportunity, scoreBadgeClass } from "@/lib/opportunity_scorer";
 import { analyzeProjectScenario, assessOpportunity, type AIResult, type ScenarioAnalysis, type OpportunityAssessment } from "@/lib/ai_analyst";
 import BattleCardWrapper from "@/components/dashboard/BattleCard";
+import OutreachModal from "@/components/dashboard/OutreachModal";
 import FollowUpStatus from "@/components/dashboard/FollowUpStatus";
 import { Building2, Hammer, CalendarDays, PlusCircle, Anchor, Waves, Gauge } from "lucide-react";
 import FilterSidebar from "@/components/dashboard/FilterSidebar";
@@ -346,6 +347,7 @@ export default function DashboardPage() {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [modalTab, setModalTab] = useState<"overview" | "timeline">("overview");
   const [battleCardProject, setBattleCardProject] = useState<Project | null>(null);
+  const [outreachProject, setOutreachProject] = useState<Project | null>(null);
   const [aiScenario, setAiScenario] = useState<AIResult<ScenarioAnalysis> | null>(null);
   const [aiAssessment, setAiAssessment] = useState<AIResult<OpportunityAssessment> | null>(null);
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
@@ -1614,18 +1616,31 @@ export default function DashboardPage() {
                         )}
                       </div>
                     )}
-                    {/* Battle Card button — hidden for guests */}
+                    {/* Battle Card + Outreach buttons — hidden for guests */}
                     {!isGuest && (
-                      <button
-                        type="button"
-                        onClick={() => setBattleCardProject(selectedProject)}
-                        className="mb-3 inline-flex items-center gap-1.5 rounded-md border border-fpso-green/20 bg-fpso-green/5 px-3 py-1.5 text-xs font-medium text-fpso-green hover:bg-fpso-green/10 hover:border-fpso-green/30 transition-colors"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        生成作战卡
-                      </button>
+                      <div className="mb-3 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setBattleCardProject(selectedProject)}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-fpso-green/20 bg-fpso-green/5 px-3 py-1.5 text-xs font-medium text-fpso-green hover:bg-fpso-green/10 hover:border-fpso-green/30 transition-colors"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          生成作战卡
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setOutreachProject(selectedProject)}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-fpso-orange/20 bg-fpso-orange/5 px-3 py-1.5 text-xs font-medium text-fpso-orange hover:bg-fpso-orange/10 hover:border-fpso-orange/30 transition-colors"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                          </svg>
+                          生成开发信
+                        </button>
+                      </div>
                     )}
                     {/* Expandable dimensions via native <details> */}
                     <details className="group">
@@ -1860,6 +1875,9 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* 开发信弹窗 */}
+      <OutreachModal project={outreachProject} onClose={() => setOutreachProject(null)} />
     </>
   );
 }

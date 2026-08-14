@@ -18,6 +18,7 @@ import {
   type ProductRecommendation,
   type NextActionSuggestions,
 } from "@/lib/ai_analyst";
+import OutreachModal from "@/components/dashboard/OutreachModal";
 
 // ---------------------------------------------------------------------------
 // Grade colour helpers
@@ -385,6 +386,7 @@ export default function BattleCardWrapper({ project, baseUrl }: BattleCardWrappe
   const [followUp, setFollowUp] = useState<FollowUp | null>(null);
   const [aiProducts, setAiProducts] = useState<AIResult<ProductRecommendation> | null>(null);
   const [aiActions, setAiActions] = useState<AIResult<NextActionSuggestions> | null>(null);
+  const [showOutreach, setShowOutreach] = useState(false);
 
   const { getFollowUp } = useFollowUp();
 
@@ -473,7 +475,23 @@ export default function BattleCardWrapper({ project, baseUrl }: BattleCardWrappe
           </svg>
           Download PNG
         </button>
+
+        <button
+          type="button"
+          onClick={() => setShowOutreach(true)}
+          className="inline-flex items-center gap-1.5 rounded-md border border-fpso-orange/20 bg-fpso-orange/5 px-3 py-1.5 text-xs font-medium text-fpso-orange hover:bg-fpso-orange/10 hover:border-fpso-orange/30 transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+          生成开发信
+        </button>
       </div>
+
+      {/* 开发信弹窗 */}
+      {showOutreach && (
+        <OutreachModal project={project} onClose={() => setShowOutreach(false)} />
+      )}
 
       {/* Print-only styles */}
       <style>{`
