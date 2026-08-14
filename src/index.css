@@ -159,6 +159,26 @@
     filter: none;
   }
 
+  /* 地图底图 — 径向渐隐到页面背景色，融入卡片 */
+  .map-vignette {
+    background: radial-gradient(
+      ellipse at center,
+      transparent 55%,
+      rgba(10, 15, 30, 0.92) 100%
+    );
+  }
+
+  /* 地图 — CRT 扫描线 */
+  .map-scanlines {
+    background-image: repeating-linear-gradient(
+      0deg,
+      rgba(148, 163, 184, 0.035) 0px,
+      rgba(148, 163, 184, 0.035) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+  }
+
   @keyframes map-core-pulse {
     0%, 100% {
       transform: translate(-50%, -50%) scale(1);
