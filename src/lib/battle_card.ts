@@ -32,7 +32,7 @@ export interface BattleCardContact {
 export interface BattleCard {
   projectName: string;
   country: string;
-  status: string;
+  phase: string;
   totalScore: number;
   grade: "A" | "B" | "C" | "D";
   whyPursue: string;
@@ -246,12 +246,18 @@ function buildNextAction(project: Project): string {
     return "准备技术方案和报价模板，针对性跟进";
   }
 
-  // Default by status
-  const statusLower = (project.status ?? "").toLowerCase();
-  if (statusLower === "under construction") {
+  // Default by phase
+  const phase = project.phase;
+  if (phase === "Procurement") {
+    return "立即联系EPC承包商，进入询价清单";
+  }
+  if (phase === "EPC Award" || phase === "Construction") {
     return "确认采购进度和询价时间节点";
   }
-  if (statusLower === "planned") {
+  if (phase === "Approval") {
+    return "跟踪FID与EPC授标公告，提前递交资质";
+  }
+  if (phase === "Planning" || phase === "Design" || phase === "Concept") {
     return "建立初步联系，了解项目规划时间表";
   }
 
@@ -309,7 +315,7 @@ export function generateBattleCard(project: Project, baseUrl?: string): BattleCa
   return {
     projectName: project.name,
     country: project.country,
-    status: project.status || "Unknown",
+    phase: project.phase || "Unknown",
     totalScore: scoreResult.totalScore,
     grade: scoreResult.grade,
     whyPursue,

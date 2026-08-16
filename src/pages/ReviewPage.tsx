@@ -14,6 +14,7 @@ import { sampleProjects, COUNTRY_ALIASES } from "@/data/projects";
 import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
 import { supabase } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
+import { phaseBgClass, phaseFromRow } from "@/lib/project_phase";
 
 /* ------------------------------------------------------------------ */
 /*  types                                                              */
@@ -50,15 +51,6 @@ function saveBookmarks(bookmarks: Set<string>) {
 function truncate(text: string, max: number) {
   if (!text) return "";
   return text.length > max ? text.slice(0, max) + "…" : text;
-}
-
-function statusBgClass(status: string): string {
-  switch (status) {
-    case "Under Construction": return "bg-fpso-blue/15 text-fpso-blue";
-    case "Delivered":        return "bg-fpso-green/15 text-fpso-green";
-    case "Planned":          return "bg-fpso-orange/15 text-fpso-orange";
-    default:                 return "bg-fpso-muted/15 text-fpso-muted";
-  }
 }
 
 function confidenceBgClass(confidence: string): string {
@@ -105,7 +97,7 @@ function mapRowToProject(row: Record<string, unknown>): Project {
     name,
     country,
     flag:           String(row.flag ?? ""),
-    status:         String(row.status ?? ""),
+    phase:          phaseFromRow(row),
     summary:        String(row.summary ?? ""),
     source: {
       name: String(row.source_name ?? ""),
@@ -388,8 +380,8 @@ export default function ReviewPage() {
                         <h3 className="text-base font-semibold text-fpso-fg">
                           {p.name}
                         </h3>
-                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${statusBgClass(p.status)}`}>
-                          {p.status || "Unknown"}
+                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${phaseBgClass(p.phase)}`}>
+                          {p.phase ?? "Unknown"}
                         </span>
                         {p.confidence && (
                           <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${confidenceBgClass(p.confidence)}`}>

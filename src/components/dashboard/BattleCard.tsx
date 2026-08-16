@@ -195,7 +195,7 @@ function BattleCardView({ card, innerRef, followUp, aiProducts, aiActions }: Bat
           <div className="flex items-center gap-2 mt-1">
             <span className="text-xs text-fpso-muted">{card.country}</span>
             <span className="h-3 w-px bg-fpso-border/50" />
-            <span className="text-xs text-fpso-muted">{card.status}</span>
+            <span className="text-xs text-fpso-muted">{card.phase}</span>
           </div>
         </div>
         <div className="flex flex-col items-end flex-shrink-0">

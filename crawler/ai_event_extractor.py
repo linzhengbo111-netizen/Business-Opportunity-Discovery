@@ -86,6 +86,105 @@ DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 # ========================================================================
+# Project phase taxonomy (replaces the legacy 4-value status system)
+# ========================================================================
+
+# Standardized lifecycle phases. Order = lifecycle order; when several
+# phases match a project, the latest phase in this order wins.
+PROJECT_PHASES = [
+    "Concept",        # 业主/政府首次提出初步构想
+    "Planning",       # 整体建设方案初步规划
+    "Design",         # 工程细节方案设计
+    "Approval",       # 正式通过审批确认落地
+    "EPC Award",      # 确定总承包商
+    "Procurement",    # EPC 启动物资采购
+    "Construction",   # 现场正式开工
+    "Commissioning",  # 完工后调试
+    "Delivery",       # 正式交付投入运营
+]
+PHASES_SET = set(PROJECT_PHASES)
+PHASE_ORDER = {p: i for i, p in enumerate(PROJECT_PHASES)}
+
+# Optional proxy for LLM calls: POST {LLM_PROXY_URL}/api/llm with the same
+# OpenAI Chat Completions body but NO Authorization header (the worker
+# keeps the API key server-side). When unset, call_llm() talks to DeepSeek
+# directly via LLM_API_URL/LLM_API_KEY, matching the rest of the crawler.
+LLM_PROXY_URL = os.getenv("LLM_PROXY_URL", "").strip().rstrip("/")
+
+
+def _phase_prompt(project, events_text):
+    """Build the phase-classification prompt for one project."""
+    lines = [
+        "Classify the lifecycle phase of one FPSO/oil & gas project.",
+        "Phases (in lifecycle order): " + " → ".join(PROJECT_PHASES) + ".",
+        "",
+        "Project data:",
+        f"- Name: {project.get('name') or '(unknown)'}",
+        f"- Country: {project.get('country') or '(unknown)'}",
+        f"- Summary: {project.get('summary') or '(none)'}",
+        f"- Procurement chain: {project.get('procurement_chain') or '(none)'}",
+    ]
+    for key, label in (("operator_name", "Operator"),
+                       ("field_name", "Field"),
+                       ("basin", "Basin")):
+        val = project.get(key)
+        if val:
+            lines.append(f"- {label}: {val}")
+    lines.append("")
+    if events_text.strip():
+        lines.append("Linked timeline events (evidence):")
+        lines.append(events_text[:4000])
+    else:
+        lines.append("Linked timeline events: (none)")
+    lines += [
+        "",
+        "Return a JSON object with this exact shape:",
+        '{"phase": "<one of the 9 phases above>", "reasoning": "<one short sentence>"}',
+        "",
+        "Rules:",
+        "1. phase: exactly one of Concept / Planning / Design / Approval / "
+        "EPC Award / Procurement / Construction / Commissioning / Delivery.",
+        "2. If evidence supports several phases, return the LATEST phase in "
+        "the lifecycle order (e.g. award + procurement → Procurement).",
+        "3. Use ONLY facts present in the data above. Never invent events.",
+        "4. If nothing supports any phase, return an empty string for phase: "
+        '{"phase": "", "reasoning": "insufficient data"}.',
+    ]
+    return "\n".join(lines)
+
+
+def _call_llm_via_proxy(messages, temperature=0.2, max_tokens=300):
+    """Call the deployed Cloudflare Worker /api/llm proxy (no auth header
+    needed client-side). Returns assistant text, or None on any failure.
+    Never raises."""
+    if not LLM_PROXY_URL:
+        return None
+    body = {
+        "model": LLM_MODEL,
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "response_format": {"type": "json_object"},
+    }
+    try:
+        resp = requests.post(f"{LLM_PROXY_URL}/api/llm", json=body, timeout=90)
+        if resp.status_code != 200:
+            log.warning("Phase proxy HTTP %s: %s",
+                        resp.status_code, resp.text[:200])
+            return None
+        data = resp.json()
+        content = (data.get("choices") or [{}])[0] \
+            .get("message", {}).get("content")
+        if isinstance(content, str) and content.strip():
+            return content.strip()
+    except requests.exceptions.RequestException as exc:
+        log.warning("Phase proxy request failed: %s", exc)
+    except (json.JSONDecodeError, ValueError) as exc:
+        log.warning("Phase proxy response parse error: %s", exc)
+    return None
+
+
+# ========================================================================
 # LLM call — never raises, returns None on any failure
 # ========================================================================
 
@@ -145,6 +244,127 @@ def call_llm(messages, temperature=0.2, max_tokens=900):
         if attempt == 1:
             time.sleep(2)
     return None
+
+
+# ========================================================================
+# Phase determination — AI + rule fallback
+# ========================================================================
+
+# Keyword → phase rules used when the AI cannot judge. Mirrors the
+# legacy STATUS_PATTERNS but finer-grained, one keyword set per phase.
+# Rule 2 (phase from rules): the latest phase in lifecycle order wins.
+_RULE_PHASE_KEYWORDS = {
+    "Delivery": [
+        "first oil", "first gas", "production start", "started production",
+        "commenced production", "on stream", "onstream", "in operation",
+        "operational", "delivered", "delivery", "sailaway", "sail away",
+        "achieved first oil", "producing",
+    ],
+    "Commissioning": [
+        "commissioning", "commissioned", "start-up", "startup",
+        "hook-up", "hook up", "mechanical completion",
+    ],
+    "Construction": [
+        "under construction", "construction", "being built", "building",
+        "fabrication", "steel cut", "first steel", "keel laying",
+        "hull launch", "topsides", "integration", "outfitting", "dry dock",
+        "conversion", "yard",
+    ],
+    "Procurement": [
+        "procurement", "purchasing", "purchase", "tender", "bid",
+        "invitation to tender", "rfq", "request for quotation",
+        "long-lead", "long lead", "materials order", "equipment order",
+        "supply contract", "vendor registration",
+    ],
+    "EPC Award": [
+        "epc contract", "epc award", "epcc", "contract awarded",
+        "awarded contract", "fpso contract", "contract award",
+        "letter of intent", "loi", "won contract", "secured contract",
+        "agreement signed", "epcic",
+    ],
+    "Approval": [
+        "approved", "approval", "final investment decision", "fid",
+        "sanctioned", "sanction", "development consent", "consent granted",
+        "permit granted", "license granted", "regulatory approval",
+        "eia approved", "environmental approval", "环评", "批复", "核准",
+    ],
+    "Design": [
+        "feed", "front-end engineering", "front end engineering",
+        "detailed design", "engineering design", "pre-feed", "prefeed",
+    ],
+    "Planning": [
+        "planned", "planning", "proposed", "development plan",
+        "field development plan", "master plan", "pre-feasibility",
+        "feasibility", "study", "eia", "environmental impact",
+        "environmental assessment", "环评", "概念设计", "规划",
+    ],
+    "Concept": [
+        "concept", "conceptual", "preliminary", "early-stage",
+        "initial proposal", "under study", "envisaged", "mooted",
+    ],
+}
+
+
+def infer_phase_from_rules(project, events_text=""):
+    """Rule-based phase inference from project fields + event text.
+
+    Scans combined text for per-phase keyword sets and returns the latest
+    lifecycle phase with a match, or None when nothing matches.
+    """
+    text = " ".join(str(project.get(k) or "") for k in (
+        "name", "summary", "procurement_chain", "application"))
+    text = f"{text} {events_text}".lower()
+
+    hits = []
+    for phase, keywords in _RULE_PHASE_KEYWORDS.items():
+        if any(kw in text for kw in keywords):
+            hits.append(phase)
+    if not hits:
+        return None
+    return max(hits, key=lambda p: PHASE_ORDER[p])
+
+
+def determine_project_phase(project, events_text=""):
+    """Classify a project into one of the 9 lifecycle phases via the LLM
+    (DeepSeek, through the /api/llm proxy when LLM_PROXY_URL is set).
+
+    Args:
+        project: dict with snake_case project fields (name, summary,
+                 procurement_chain, ...).
+        events_text: concatenated text of linked candidate_events
+                     (summaries + evidence quotes).
+
+    Returns (phase, reasoning, source) where source is "ai" or "rules";
+    phase is None when neither can judge. Never raises.
+    """
+    if _llm_configured() or LLM_PROXY_URL:
+        prompt = _phase_prompt(project, events_text)
+        messages = [
+            {"role": "system",
+             "content": "You are an oil & gas FPSO industry analyst. "
+                        "Classify project lifecycle phases from facts only. "
+                        "Never invent events."},
+            {"role": "user", "content": prompt},
+        ]
+        reply = None
+        if LLM_PROXY_URL:
+            reply = _call_llm_via_proxy(messages)
+        if reply is None and _llm_configured():
+            reply = call_llm(messages, max_tokens=300)
+        if reply is not None:
+            obj = _extract_json_object(reply)
+            if obj:
+                phase = str(obj.get("phase") or "").strip()
+                reasoning = str(obj.get("reasoning") or "").strip()[:300]
+                if phase in PHASES_SET:
+                    return phase, reasoning, "ai"
+                # LLM answered nothing usable — fall through to rules
+                log.info("AI phase reply had no valid phase: %r", phase)
+
+    phase = infer_phase_from_rules(project, events_text)
+    if phase:
+        return phase, "rule inference", "rules"
+    return None, "", "none"
 
 
 # ========================================================================
@@ -319,7 +539,7 @@ def rule_engine_fallback(article):
     if pub_date and not DATE_RE.match(pub_date):
         pub_date = ""
 
-    project_name, _country, status = extract_project_info(title, summary)
+    project_name, _country, _phase = extract_project_info(title, summary)
 
     text_lower = f"{title} {summary}".lower()
     event_type = "ARTICLE_MENTION"

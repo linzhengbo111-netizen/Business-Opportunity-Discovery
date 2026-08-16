@@ -14,7 +14,9 @@ export interface Project {
   name: string;
   country: string;
   flag: string;
-  status: string;
+  /** Lifecycle phase (9-phase taxonomy). Null = unknown, pending AI judgment.
+   *  Legacy `status` rows are normalized client-side via project_phase.ts. */
+  phase: string | null;
   summary: string;
   source: ProjectSource;
   stainlessSteel: string;
@@ -57,7 +59,7 @@ export const sampleProjects: Project[] = [
     name: "FPSO Maria Quitéria",
     country: "Brazil",
     flag: "🇧🇷",
-    status: "Under Construction",
+    phase: "Construction",
     summary: "Petrobras pre-salt Santos Basin",
     source: { name: "Petrobras", url: "", date: "2026-07-17" },
     stainlessSteel: "",
@@ -68,7 +70,7 @@ export const sampleProjects: Project[] = [
     name: "FPSO Prosperity",
     country: "Guyana",
     flag: "🇬🇾",
-    status: "Delivered",
+    phase: "Delivery",
     summary: "ExxonMobil Stabroek block Payara",
     source: { name: "SBM Offshore", url: "", date: "2026-07-17" },
     stainlessSteel: "",
@@ -79,7 +81,7 @@ export const sampleProjects: Project[] = [
     name: "FPSO Agogo",
     country: "Angola",
     flag: "🇦🇴",
-    status: "Under Construction",
+    phase: "EPC Award",
     summary: "MODEC EPC contract for TotalEnergies",
     source: { name: "MODEC", url: "", date: "2026-07-17" },
     stainlessSteel: "",
@@ -90,7 +92,7 @@ export const sampleProjects: Project[] = [
     name: "FPSO Zafiro",
     country: "Nigeria",
     flag: "🇳🇬",
-    status: "Planned",
+    phase: "Planning",
     summary: "Replacement for aging FPSO",
     source: { name: "World Oil", url: "", date: "2026-07-17" },
     stainlessSteel: "",
@@ -101,7 +103,7 @@ export const sampleProjects: Project[] = [
     name: "FPSO Rosebank",
     country: "UK",
     flag: "🇬🇧",
-    status: "Planned",
+    phase: "Design",
     summary:
       "Equinor's major North Sea development project featuring advanced subsea production systems and stainless steel topside modules",
     source: { name: "Offshore Energy", url: "", date: "2026-07-17" },
@@ -113,7 +115,7 @@ export const sampleProjects: Project[] = [
     name: "FPSO Atlanta",
     country: "Brazil",
     flag: "🇧🇷",
-    status: "Under Construction",
+    phase: "Construction",
     summary: "Enauta's Santos Basin project",
     source: { name: "Offshore Magazine", url: "", date: "2026-07-17" },
     stainlessSteel: "",
@@ -124,7 +126,7 @@ export const sampleProjects: Project[] = [
     name: "FPSO Baobab",
     country: "Côte d'Ivoire",
     flag: "🇨🇮",
-    status: "Planned",
+    phase: "Design",
     summary: "FEED phase targeting 2028 startup",
     source: { name: "Offshore Energy", url: "", date: "2026-07-17" },
     stainlessSteel: "",

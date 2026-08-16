@@ -1,6 +1,7 @@
 import { PanelLeftClose, PanelLeftOpen, RotateCcw, Download, X } from "lucide-react";
 import type { Project } from "@/data/projects";
 import { Switch } from "@/components/ui/switch";
+import { PHASES, PHASE_UNKNOWN, PHASE_HEX } from "@/lib/project_phase";
 
 const INDUSTRY_OPTIONS = [
   "All Industries",
@@ -12,11 +13,10 @@ const INDUSTRY_OPTIONS = [
 
 const CONFIDENCE_OPTIONS = ["High & Medium", "High", "Medium", "Low", "All"] as const;
 
-const STATUS_OPTIONS = [
-  { label: "Under Construction", color: "#00d4ff" },
-  { label: "Planned", color: "#ff9f43" },
-  { label: "Delivered", color: "#10b981" },
-  { label: "Unknown", color: "#94a3b8" },
+/** 10 phase filter chips — 9 lifecycle phases + Unknown. */
+const PHASE_CHIP_OPTIONS = [
+  ...PHASES.map((label) => ({ label, color: PHASE_HEX[label] })),
+  { label: PHASE_UNKNOWN, color: PHASE_HEX[PHASE_UNKNOWN] },
 ] as const;
 
 const SIDEBAR_EXPANDED = 260;
@@ -31,11 +31,11 @@ interface FilterSidebarProps {
   selectedCountry: string;
   selectedIndustry: string;
   selectedConfidence: string;
-  selectedStatuses: Set<string>;
+  selectedPhases: Set<string>;
   onCountryChange: (value: string) => void;
   onIndustryChange: (value: string) => void;
   onConfidenceChange: (value: string) => void;
-  onStatusToggle: (status: string) => void;
+  onPhaseToggle: (phase: string) => void;
   onClear: () => void;
   /** Called when user clicks the export button. */
   onExport?: () => void;
@@ -67,11 +67,11 @@ export default function FilterSidebar({
   selectedCountry,
   selectedIndustry,
   selectedConfidence,
-  selectedStatuses,
+  selectedPhases,
   onCountryChange,
   onIndustryChange,
   onConfidenceChange,
-  onStatusToggle,
+  onPhaseToggle,
   onClear,
   onExport,
   filteredCount = 0,
@@ -82,7 +82,7 @@ export default function FilterSidebar({
     selectedCountry !== "All Countries" ||
     selectedIndustry !== "All Industries" ||
     selectedConfidence !== "All" ||
-    selectedStatuses.size > 0;
+    selectedPhases.size > 0;
 
   const exportDisabled = !onExport || filteredCount === 0;
 
@@ -212,16 +212,16 @@ export default function FilterSidebar({
               </SelectField>
             </FilterGroup>
 
-            {/* Status multi-select */}
-            <FilterGroup label="Status">
+            {/* Phase multi-select — 10 chips */}
+            <FilterGroup label="Phase">
               <div className="flex flex-wrap gap-1.5">
-                {STATUS_OPTIONS.map((s) => {
-                  const active = selectedStatuses.has(s.label);
+                {PHASE_CHIP_OPTIONS.map((s) => {
+                  const active = selectedPhases.has(s.label);
                   return (
                     <button
                       key={s.label}
                       type="button"
-                      onClick={() => onStatusToggle(s.label)}
+                      onClick={() => onPhaseToggle(s.label)}
                       className="inline-flex items-center rounded-md px-2 py-1 text-[11px] font-medium transition-all border"
                       style={{
                         borderColor: active ? s.color : "rgb(30 40 68 / 0.6)",

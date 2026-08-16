@@ -2059,29 +2059,53 @@ def get_display_name(canonical_id):
     return aliases[0] if aliases else canonical_id
 
 
+# Legacy 4-value status taxonomy replaced by 9 lifecycle phases
+# (migration 025). Ordered early→late; extract_project_info returns the
+# latest phase whose keyword matches.
 STATUS_PATTERNS = {
-    "Under Construction": [
+    "Delivery": [
+        "delivered", "delivery", "completed", "first oil",
+        "production start", "operational", "in operation", "on stream",
+        "started production", "commenced production", "onstation",
+        "on station", "sailaway", "sail away", "achieved first oil",
+        "producing", "production commenced",
+    ],
+    "Commissioning": [
+        "commissioning", "commissioned", "start-up", "startup",
+        "hook-up", "hook up", "mechanical completion",
+    ],
+    "Construction": [
         "under construction", "being built", "construction",
         "building", "fabrication", "under development",
         "steel cut", "first steel", "keel laying", "hull launch",
         "topsides", "integration", "outfitting", "dry dock",
     ],
-    "Delivered": [
-        "delivered", "delivery", "completed", "commissioned",
-        "first oil", "production start", "operational",
-        "in operation", "on stream", "started production",
-        "commenced production", "onstation", "on station",
-        "sailaway", "sail away", "achieved first oil",
-        "producing", "production commenced",
+    "Procurement": [
+        "procurement", "tender", "bid", "purchase", "vendor registration",
+        "long-lead", "long lead",
     ],
-    "Planned": [
-        "planned", "planning", "proposed", "sanctioned",
-        "approved", "FEED", "pre-FEED",
-        "front-end engineering", "conceptual", "study",
-        "tender", "bid", "contract awarded",
-        "letter of intent", "LOI", "MoU",
-        "memorandum", "agreement signed", "secured contract",
+    "EPC Award": [
+        "epc contract", "contract awarded", "letter of intent", "LOI",
+        "MoU", "memorandum", "agreement signed", "secured contract",
         "won contract", "awarded contract",
+    ],
+    "Approval": [
+        "approved", "approval", "sanctioned", "fid",
+        "final investment decision", "development consent",
+        "permit granted", "license granted", "eia approved",
+    ],
+    "Design": [
+        "FEED", "pre-FEED", "front-end engineering", "detailed design",
+        "engineering design",
+    ],
+    "Planning": [
+        "planned", "planning", "proposed", "study",
+        "development plan", "field development plan",
+        "environmental impact", "eia",
+    ],
+    "Concept": [
+        "concept", "conceptual", "pre-feasibility", "feasibility",
+        "preliminary",
     ],
 }
 
@@ -2784,18 +2808,16 @@ def extract_project_info(title, summary):
     # ---- country ----
     country = extract_country(title, summary)
 
-    # ---- status ----
-    status = "Unknown"
+    # ---- phase ----
+    # Dict is ordered early→late; keep the LAST matching phase so the
+    # latest lifecycle stage wins.
+    phase = "Unknown"
     text_lower = text.lower()
     for label, keywords in STATUS_PATTERNS.items():
-        for kw in keywords:
-            if kw in text_lower:
-                status = label
-                break
-        if status != "Unknown":
-            break
+        if any(kw in text_lower for kw in keywords):
+            phase = label
 
-    return project_name, country, status
+    return project_name, country, phase
 
 
 # ---- Crawl helpers ---------------------------------------------------
@@ -3027,7 +3049,7 @@ def crawl_media_site(site_config, session, supabase=None):
                 # No date found — keep but flag for lower confidence downstream
                 log.info("  KEEP (no date, low confidence): %s", title[:60])
 
-            project_name, country, status = extract_project_info(title, summary)
+            project_name, country, phase = extract_project_info(title, summary)
 
             procurement = extract_procurement(full_text)
             tech_specs = extract_tech_specs_from_article(full_text)
@@ -3037,7 +3059,8 @@ def crawl_media_site(site_config, session, supabase=None):
                 "name": project_name,
                 "country": country or "",
                 "flag": country_to_flag(country or ""),
-                "status": status or "Unknown",
+                "status": phase or "Unknown",  # legacy key kept for row readers
+                "phase": phase or "",
                 "summary": (summary or title)[:500],
                 "source_name": site_config["name"],
                 "source_url": link or "",
@@ -3051,7 +3074,7 @@ def crawl_media_site(site_config, session, supabase=None):
                 "corrosive_media": corrosive,
                 **tech_specs,
             })
-            log.info("  %s | %s | %s", status, country or "?", project_name[:50])
+            log.info("  %s | %s | %s", phase, country or "?", project_name[:50])
 
         except Exception:
             log.warning("  Parse error in %s element", site_config["name"], exc_info=True)
@@ -3108,6 +3131,7 @@ def insert_candidate_events(supabase, articles):
                 "publication_date": a.get("publication_date")
                                     or a.get("source_date", ""),
                 "procurement_chain": a.get("procurement_chain", ""),
+                "phase": a.get("phase", ""),
                 # 技术规格字段
                 "water_depth_m": a.get("water_depth_m"),
                 "oil_capacity_bpd": a.get("oil_capacity_bpd"),

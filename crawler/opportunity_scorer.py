@@ -105,14 +105,30 @@ def _parse_recommendation(json_str: str | None) -> dict | None:
 # ---------------------------------------------------------------------------
 
 def _score_procurement(project: dict) -> tuple[int, str]:
-    status = (project.get("status") or "").strip().lower()
+    # Phase-based (migration 025). Legacy status values normalized first.
+    _LEGACY = {
+        "delivered": "Delivery", "completed": "Delivery",
+        "under construction": "Construction", "planned": "Planning",
+    }
+    raw = (project.get("phase") or project.get("status") or "").strip()
+    phase = _LEGACY.get(raw.lower(), raw) or None
 
-    if status == "delivered":
-        return 0, "项目已投产交付，无采购机会"
+    if phase in ("Delivery", "Commissioning"):
+        return 0, f"项目已进入{phase}阶段，无新建采购机会（可跟进MRO备件）"
 
     procurement_chain = project.get("procurement_chain") or ""
 
-    if status == "under construction":
+    if phase == "Procurement":
+        # Core business window — highest urgency by definition.
+        factor = 1.0
+        score = _score_in_bracket((18, 20), factor)
+        return score, "项目处于物资采购阶段，采购窗口已开启，紧迫度最高"
+
+    if phase == "EPC Award":
+        score = _score_in_bracket((16, 19), 0.7)
+        return score, "项目已确定EPC总包，长周期设备采购即将启动，应尽快触达"
+
+    if phase == "Construction":
         # Try to estimate procurement window from procurement_chain text
         # Look for date patterns like 2026-Q3, 2026H2, 2026/2027, etc.
         chain_upper = procurement_chain.upper()
@@ -131,40 +147,44 @@ def _score_procurement(project: dict) -> tuple[int, str]:
             if months_ahead <= 6:
                 factor = max(0, 1 - (months_ahead - 0) / 6)
                 score = _score_in_bracket((18, 20), factor)
-                return score, f"在建项目，预计采购时间约{max(0, months_ahead)}个月内，紧迫度高"
+                return score, f"建设期项目，预计采购时间约{max(0, months_ahead)}个月内，紧迫度高"
 
             if months_ahead <= 12:
                 factor = max(0, 1 - (months_ahead - 6) / 6)
                 score = _score_in_bracket((14, 17), factor)
-                return score, f"在建项目，预计采购时间约{months_ahead}个月内，有一定准备时间"
+                return score, f"建设期项目，预计采购时间约{months_ahead}个月内，有一定准备时间"
 
             # > 12 months out
             score = _score_in_bracket((10, 13), 0.3)
-            return score, f"在建项目，预计采购时间窗较远（约{months_ahead}个月），建议持续监控"
+            return score, f"建设期项目，预计采购时间窗较远（约{months_ahead}个月），建议持续监控"
 
         # No year in chain: mirror TS estimateProcurementWindow —
-        # Under Construction implies procurement within 3-6 months.
+        # Construction implies procurement within 3-6 months.
         factor = 1 - 3 / 6
         score = _score_in_bracket((18, 20), factor)
-        return score, "在建项目，预计采购时间窗为 3-6 个月，紧迫度高"
+        return score, "建设期项目，预计采购时间窗为 3-6 个月，紧迫度高"
 
-    if status == "planned":
+    if phase == "Approval":
+        return _score_in_bracket((12, 15), 0.6), \
+            "项目已获批/临近FID，采购窗口临近，建议提前布局"
+
+    if phase in ("Planning", "Design"):
         chain_upper = procurement_chain.upper()
         is_feed_fid = any(kw.upper() in chain_upper for kw in FEED_FID_KEYWORDS)
         is_early = any(kw.upper() in chain_upper for kw in EARLY_STAGE_KEYWORDS)
 
         if is_feed_fid:
             score = _score_in_bracket((10, 13), 0.7)
-            return score, "规划中项目，处于FEED/FID阶段，采购临近"
+            return score, "规划/设计期项目，处于FEED/FID阶段，采购临近"
 
         if is_early:
             score = _score_in_bracket((5, 9), 0.4)
-            return score, "规划中项目，处于早期概念/可研阶段，采购较远"
+            return score, "规划/设计期项目，处于早期概念/可研阶段，采购较远"
 
-        return _score_in_bracket((5, 9), 0.6), "规划中项目，阶段信息不明确"
+        return _score_in_bracket((5, 9), 0.6), "规划/设计期项目，阶段信息不明确"
 
-    # Unknown status
-    return 5, f"项目状态未知（{status or '无数据'}），按最低紧迫度赋分"
+    # Unknown / no phase
+    return 5, f"项目阶段未知（{raw or '无数据'}），按最低紧迫度赋分"
 
 
 # ---------------------------------------------------------------------------

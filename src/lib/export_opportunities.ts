@@ -6,7 +6,7 @@
  * where at least one recommended stainless steel grade is within the
  * factory's production capability (in_factory_scope = true).
  *
- * Columns: project name, country, status, estimated procurement window,
+ * Columns: project name, country, phase, estimated procurement window,
  * operator, EPC contractor, recommended producible grades, inferred
  * product types, target customer type, project URL.
  */
@@ -178,7 +178,7 @@ export function exportOpportunityList(projects: Project[], baseUrl?: string): vo
     rows.push([
       project.name,
       project.country,
-      project.status || "Unknown",
+      project.phase || "Unknown",
       procurementWindow.window,
       procurementWindow.confidence,
       project.operatorName || sourceName || "",

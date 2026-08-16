@@ -25,6 +25,7 @@ import {
   TARGET_CUSTOMER_KEYWORDS,
   EXCLUDED_CUSTOMER_KEYWORDS,
 } from "@/data/factory_capabilities";
+import { normalizePhase } from "@/lib/project_phase";
 
 // ---- Types ---------------------------------------------------------------
 
@@ -1045,6 +1046,8 @@ export interface ProcurementWindowResult {
  */
 export interface ProcurementProjectInput {
   name?: string;
+  phase?: string | null;
+  /** Legacy pre-migration field — normalized via project_phase.normalizePhase. */
   status?: string;
   summary?: string;
   industry?: string;
@@ -1092,7 +1095,8 @@ export function estimateProcurementWindow(
   project: ProcurementProjectInput,
   timelineEvents?: ProcurementTimelineEvent[],
 ): ProcurementWindowResult {
-  const status = (project.status ?? "").trim();
+  // Phase-first (9-phase taxonomy); legacy status values tolerated.
+  const phase = normalizePhase(project.phase) ?? normalizePhase(project.status);
   const summary = (project.summary ?? "").toLowerCase();
   const name = (project.name ?? "").toLowerCase();
   const combined = summary + " " + name;
@@ -1121,8 +1125,30 @@ export function estimateProcurementWindow(
     }
   }
 
-  // ---- Rule 2: Under Construction → imminent procurement (3-6 months) ----
-  if (status === "Under Construction") {
+  // ---- Rule 2: Procurement phase → window open NOW ----
+  if (phase === "Procurement") {
+    return {
+      window: "0-3 个月",
+      confidence: "high",
+      reasoning:
+        "项目处于物资采购阶段，采购窗口已开启。应立即联系 EPC 承包商进入询价清单。 " +
+        "基于项目当前阶段推算，非官方公布日期。",
+    };
+  }
+
+  // ---- Rule 3: EPC Award → procurement starts within 2-4 months ----
+  if (phase === "EPC Award") {
+    return {
+      window: "2-4 个月",
+      confidence: "high",
+      reasoning:
+        "项目已确定 EPC 总包，长周期设备采购通常在授标后 2-4 个月启动。 " +
+        "建议尽快触达 EPC 承包商与业主。基于项目当前阶段推算，非官方公布日期。",
+    };
+  }
+
+  // ---- Rule 4: Construction → bulk piping procurement (3-6 months) ----
+  if (phase === "Construction") {
     return {
       window: "3-6 个月",
       confidence: "medium",
@@ -1132,66 +1158,60 @@ export function estimateProcurementWindow(
     };
   }
 
-  // ---- Rule 3: Planned + FEED/FID phase → 6-12 months ----
-  if (status === "Planned") {
-    const isFeed =
-      combined.includes("feed") ||
-      combined.includes("front end") ||
-      combined.includes("fid") ||
-      combined.includes("final investment");
-    const isEia =
-      combined.includes("eia") ||
-      combined.includes("environmental") ||
-      combined.includes("pre-feed") ||
-      combined.includes("conceptual") ||
-      combined.includes("feasibility");
-
-    if (isFeed) {
-      return {
-        window: "6-12 个月",
-        confidence: "medium",
-        reasoning:
-          "项目处于规划阶段，检测到 FEED/FID 阶段信息。FID 通常触发长周期设备采购（6-12 个月）。" +
-          "建议关注 FID 公告。基于项目当前阶段推算，非官方公布日期。",
-      };
-    }
-
-    if (isEia) {
-      return {
-        window: "12-18 个月",
-        confidence: "low",
-        reasoning:
-          "项目处于早期规划 / EIA 阶段，采购窗口预计在 12-18 个月后。" +
-          "建议在项目进入 FEED 或 FID 阶段后重新评估。基于项目当前阶段推算，非官方公布日期。",
-      };
-    }
-
-    // Planned but no phase detected → FPSO default
-    const isFpso = (project.industry ?? "").toUpperCase() === "FPSO";
+  // ---- Rule 5: Approval (FID/consent) → long-lead purchasing soon ----
+  if (phase === "Approval") {
     return {
-      window: isFpso ? "6-12 个月" : "12 个月以上",
-      confidence: "low",
+      window: "6-12 个月",
+      confidence: "medium",
       reasoning:
-        isFpso
-          ? "规划中的 FPSO 项目。行业惯例：FID 后约 6 个月启动长周期设备采购。" +
-            "FID 日期未确认，预计采购窗口为 6-12 个月。基于项目当前阶段推算，非官方公布日期。"
-          : "规划中项目，缺少详细阶段数据，保守估计采购窗口在 12 个月以上。" +
-            "建议补充时间线数据以提高置信度。基于项目当前阶段推算，非官方公布日期。",
+        "项目已获批/临近 FID。FID 通常触发长周期设备采购（6-12 个月）。" +
+        "建议关注 EPC 授标公告。基于项目当前阶段推算，非官方公布日期。",
     };
   }
 
-  // ---- Rule 4: Delivered / complete → retrospective, no active window ----
-  if (status === "Delivered" || status === "Completed") {
+  // ---- Rule 6: Design (FEED) → 12-18 months ----
+  if (phase === "Design") {
+    return {
+      window: "12-18 个月",
+      confidence: "low",
+      reasoning:
+        "项目处于工程设计阶段（FEED 等），采购窗口预计在 12-18 个月后。" +
+        "建议在项目进入 EPC 授标阶段后重新评估。基于项目当前阶段推算，非官方公布日期。",
+    };
+  }
+
+  // ---- Rule 7: Planning / Concept → furthest out ----
+  if (phase === "Planning" || phase === "Concept") {
+    const isEia =
+      combined.includes("eia") ||
+      combined.includes("environmental") ||
+      combined.includes("conceptual") ||
+      combined.includes("feasibility");
+    const isFpso = (project.industry ?? "").toUpperCase() === "FPSO";
+    return {
+      window: isEia ? "18 个月以上" : isFpso ? "12 个月以上" : "12 个月以上",
+      confidence: "low",
+      reasoning:
+        isEia
+          ? "项目处于早期规划 / EIA 阶段，采购窗口预计在 18 个月以上。" +
+            "建议在项目进入 FEED 或 FID 阶段后重新评估。基于项目当前阶段推算，非官方公布日期。"
+          : "项目处于规划/概念阶段，采购窗口较远。行业惯例：FID 后约 6 个月启动长周期设备采购。" +
+            "FID 日期未确认。基于项目当前阶段推算，非官方公布日期。",
+    };
+  }
+
+  // ---- Rule 8: Commissioning / Delivery → retrospective, no active window ----
+  if (phase === "Commissioning" || phase === "Delivery") {
     return {
       window: "时间未定",
       confidence: "high",
       reasoning:
-        "项目已交付/完工，采购窗口已过。建议转向 MRO（维护、检修、运营）备件市场。" +
+        "项目已进入交付/调试或运营阶段，新建采购窗口已过。建议转向 MRO（维护、检修、运营）备件市场。" +
         "基于项目当前阶段推算，非官方公布日期。",
     };
   }
 
-  // ---- Rule 5: Unknown status → FPSO default heuristic ----
+  // ---- Rule 9: Unknown phase → FPSO default heuristic ----
   const isFpso = (project.industry ?? "").toUpperCase() === "FPSO";
   return {
     window: isFpso ? "6-12 个月" : "时间未定",
@@ -1200,7 +1220,7 @@ export function estimateProcurementWindow(
       isFpso
         ? "项目数据不足，无法精确推算。FPSO 行业默认：FID 后约 6 个月启动长周期设备采购，" +
           "保守估计采购窗口为 6-12 个月。基于项目当前阶段推算，非官方公布日期。"
-        : "项目数据不足，无法推算采购时间窗。建议补充状态、阶段和时间线数据。" +
+        : "项目数据不足，无法推算采购时间窗。建议补充阶段和时间线数据。" +
           "基于项目当前阶段推算，非官方公布日期。",
   };
 }

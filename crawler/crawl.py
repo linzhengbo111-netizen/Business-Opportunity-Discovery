@@ -63,7 +63,9 @@ from ai_event_extractor import (  # noqa: E402
     run_ai_extraction,
     fetch_pending_reanalyzable,
     log_stats,
+    PHASES_SET,
 )
+from backfill_phases import run_phase_backfill, log_phase_stats  # noqa: E402
 
 # Tier 1 — 线索发现 (media)
 from adapters.offshore_energy import run_adapter as run_offshore_energy  # noqa: E402
@@ -434,38 +436,66 @@ def auto_classify(supabase):
 # ========================================================================
 
 
-def _derive_status(candidate, source_info):
-    """Derive project status for candidate_events rows that lack a 'status' column.
+def _derive_phase(candidate, source_info):
+    """Derive project lifecycle phase for candidate_events rows that lack a
+    'phase' column value.
 
     Uses source priority and event_type as signals:
-      P0 + DEVELOPMENT_PLAN_SUBMITTED  → Planned
-      P0 + PRODUCTION_START / FIRST_OIL → Delivered
-      P0 + DEVELOPMENT_CONSENT_GRANTED → Under Construction
-      P0 (other)                       → Under Construction
-      P1/P2                            → Planned
+      P0 + PRODUCTION_START / FIRST_OIL       → Delivery
+      P0 + FPSO_CONTRACT_AWARDED              → EPC Award
+      P0 + EIA_SUBMITTED / consent / permits  → Approval
+      P0 + DEVELOPMENT_PLAN_*                 → Planning
+      P0 + VENDOR_REGISTRATION_ACTION         → Procurement
+      P0 (other)                              → Construction
+      P1/P2                                   → Planning
 
-    Returns a status string suitable for the projects table.
+    Returns a phase string suitable for the projects table.
     """
     priority = source_info.get("priority", "")
     event_type = (candidate.get("event_type", "") or "").strip()
 
-    early_stage = {"DEVELOPMENT_PLAN_SUBMITTED", "DEVELOPMENT_PLAN_UPDATED",
-                   "FIELD_DEVELOPMENT_PLAN", "EIA_SUBMITTED",
-                   "VENDOR_REGISTRATION_ACTION"}
-    mid_stage = {"DEVELOPMENT_CONSENT_GRANTED", "FPSO_CONTRACT_AWARDED",
-                 "PERMIT_GRANTED", "LICENSE_GRANTED", "REGULATORY_DATA",
-                 "PUBLIC_NOTICE", "CONTRACT_ANNOUNCEMENT"}
-    late_stage = {"PRODUCTION_START", "FIRST_OIL"}
+    plan_stage = {"DEVELOPMENT_PLAN_SUBMITTED", "DEVELOPMENT_PLAN_UPDATED",
+                  "FIELD_DEVELOPMENT_PLAN"}
+    approval_stage = {"DEVELOPMENT_CONSENT_GRANTED", "PERMIT_GRANTED",
+                      "LICENSE_GRANTED", "EIA_SUBMITTED",
+                      "REGULATORY_DATA", "PUBLIC_NOTICE"}
+    award_stage = {"FPSO_CONTRACT_AWARDED", "CONTRACT_ANNOUNCEMENT"}
+    procurement_stage = {"VENDOR_REGISTRATION_ACTION"}
+    late_stage = {"PRODUCTION_START", "FIRST_OIL", "DELIVERED"}
 
     if priority == "P0":
         if event_type in late_stage:
-            return "Delivered"
-        elif event_type in early_stage:
-            return "Planned"
-        else:
-            return "Under Construction"
-    else:
-        return "Planned"
+            return "Delivery"
+        if event_type in plan_stage:
+            return "Planning"
+        if event_type in approval_stage:
+            return "Approval"
+        if event_type in award_stage:
+            return "EPC Award"
+        if event_type in procurement_stage:
+            return "Procurement"
+        return "Construction"
+    return "Planning"
+
+
+_LEGACY_STATUS_TO_PHASE = {
+    "delivered": "Delivery",
+    "completed": "Delivery",
+    "under construction": "Construction",
+    "planned": "Planning",
+}
+
+
+def _phase_of_candidate(c):
+    """Read a phase from a candidate row, tolerating the legacy 'status'
+    key and old status values."""
+    raw = c.get("phase") or c.get("status")
+    if not raw:
+        return None
+    stripped = str(raw).strip()
+    if stripped in PHASES_SET:
+        return stripped
+    return _LEGACY_STATUS_TO_PHASE.get(stripped.lower())
 
 
 def promote_accepted_candidates(supabase):
@@ -483,8 +513,8 @@ def promote_accepted_candidates(supabase):
     4. Upsert into projects table: match by 'name' column, update existing,
        insert new.
 
-    Status is derived from source priority + event_type since candidate_events
-    has no native 'status' column (see _derive_status).
+    Phase is derived from source priority + event_type since candidate_events
+    has no native 'status' column (see _derive_phase).
     """
     log.info("=" * 54)
     log.info("PROMOTE MODE: moving accepted/auto_accepted candidates to projects")
@@ -589,14 +619,13 @@ def promote_accepted_candidates(supabase):
                 merged_source_date = c.get("source_date", "")
                 merged_country = c.get("country", "")
                 merged_flag = c.get("flag", "")
-                # Derive status: candidate_events has no 'status' column
-                raw_status = c.get("status")
-                if raw_status:
-                    merged_status = raw_status
-                else:
+                # Derive phase: candidate_events may carry a phase column
+                # (post-migration) or only event_type signals.
+                merged_phase = _phase_of_candidate(c)
+                if not merged_phase:
                     src_name = c.get("source_name", "")
                     matched_name, src_info = _lookup_source(src_name, sources)
-                    merged_status = _derive_status(c, src_info)
+                    merged_phase = _derive_phase(c, src_info)
             else:
                 # Multiple candidates for the same project — merge
                 summaries = [c.get("summary", "") for c in group if c.get("summary")]
@@ -628,14 +657,12 @@ def promote_accepted_candidates(supabase):
                 else:
                     merged_country = ""
 
-                # Status: derive from best candidate (most recent source_date)
-                raw_status = best.get("status")
-                if raw_status:
-                    merged_status = raw_status
-                else:
+                # Phase: derive from best candidate (most recent source_date)
+                merged_phase = _phase_of_candidate(best)
+                if not merged_phase:
                     src_name = best.get("source_name", "")
                     matched_name, src_info = _lookup_source(src_name, sources)
-                    merged_status = _derive_status(best, src_info)
+                    merged_phase = _derive_phase(best, src_info)
                 merged_flag = best.get("flag", "")
 
                 log.info("  Merging %d candidates → %s", len(group), effective_name[:60])
@@ -644,7 +671,7 @@ def promote_accepted_candidates(supabase):
                 "name": effective_name,
                 "country": merged_country,
                 "flag": merged_flag,
-                "status": merged_status,
+                "phase": merged_phase,
                 "summary": merged_summary[:2000],
                 "source_name": merged_source_name,
                 "source_url": merged_source_url,
@@ -662,12 +689,12 @@ def promote_accepted_candidates(supabase):
             }
 
             # ---- Skip Delivered projects with old dates (pre-2023 noise) ----
-            existing = project_table.select("id, status").eq("name", effective_name).execute()
-            existing_status = ""
+            existing = project_table.select("id, phase").eq("name", effective_name).execute()
+            existing_phase = ""
             if existing.data:
-                existing_status = existing.data[0].get("status", "")
+                existing_phase = existing.data[0].get("phase", "") or existing.data[0].get("status", "")
             # Skip if already Delivered in projects table and candidate date is old
-            if existing_status == "Delivered" and merged_source_date < "2023-01-01":
+            if existing_phase == "Delivery" and merged_source_date < "2023-01-01":
                 log.info("  SKIP (Delivered + old date): %s | %s",
                          effective_name[:60], merged_source_date)
                 continue
@@ -1109,7 +1136,7 @@ def auto_ingest_to_projects(supabase, skip_enrich=False):
                 matched_name, src_info = _lookup_source(src_name, sources)
                 priority = src_info.get("priority", "")
                 event_type = c.get("event_type", "") or ""
-                merged_status = _derive_status(c, src_info)
+                merged_phase = _derive_phase(c, src_info)
                 confidence = _confidence_from_priority(priority, event_type)
             else:
                 summaries = [c.get("summary", "") for c in group if c.get("summary")]
@@ -1144,7 +1171,7 @@ def auto_ingest_to_projects(supabase, skip_enrich=False):
                 matched_name, src_info = _lookup_source(src_name, sources)
                 priority = src_info.get("priority", "")
                 event_type = best.get("event_type", "") or ""
-                merged_status = _derive_status(best, src_info)
+                merged_phase = _derive_phase(best, src_info)
                 confidence = _confidence_from_priority(priority, event_type)
 
                 log.info("  Merging %d candidates → %s", len(group), effective_name[:60])
@@ -1153,7 +1180,7 @@ def auto_ingest_to_projects(supabase, skip_enrich=False):
                 "name": effective_name,
                 "country": merged_country,
                 "flag": merged_flag,
-                "status": merged_status,
+                "phase": merged_phase,
                 "summary": merged_summary[:2000],
                 "source_name": merged_source_name,
                 "source_url": merged_source_url,
@@ -1177,11 +1204,11 @@ def auto_ingest_to_projects(supabase, skip_enrich=False):
                 project_data["corrosive_media"] = corrosive_merged
 
             # ---- Skip Delivered projects with old dates (pre-2023 noise) ----
-            existing = project_table.select("id, status").eq("name", effective_name).execute()
-            existing_status = ""
+            existing = project_table.select("id, phase").eq("name", effective_name).execute()
+            existing_phase = ""
             if existing.data:
-                existing_status = existing.data[0].get("status", "")
-            if existing_status == "Delivered" and merged_source_date < "2023-01-01":
+                existing_phase = existing.data[0].get("phase", "") or existing.data[0].get("status", "")
+            if existing_phase == "Delivery" and merged_source_date < "2023-01-01":
                 log.info("  SKIP (Delivered + old date): %s | %s",
                          effective_name[:60], merged_source_date)
                 continue
@@ -1190,7 +1217,7 @@ def auto_ingest_to_projects(supabase, skip_enrich=False):
             # Only runs when project has searchable keywords (name, operator, field, etc.)
             # and is missing at least one tech-spec field. Best-effort: errors are logged
             # but never block the ingest.
-            if not skip_enrich and (not existing.data or existing_status != "Delivered"):
+            if not skip_enrich and (not existing.data or existing_phase != "Delivery"):
                 try:
                     has_keywords = any([
                         project_data.get("operator_name"),
@@ -1458,6 +1485,12 @@ def main():
         action="store_true",
         help="Skip the AI event extraction step after crawl.",
     )
+    parser.add_argument(
+        "--backfill-phases",
+        action="store_true",
+        help="AI-classify lifecycle phases for all projects and write "
+             "projects.phase (requires migration 025 applied).",
+    )
     args = parser.parse_args()
 
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -1495,6 +1528,15 @@ def main():
         rows = fetch_pending_reanalyzable(supabase, limit=500)
         stats = run_ai_extraction(supabase, rows)
         log_stats(stats)
+        return
+
+    # Phase backfill — AI lifecycle classification for all projects
+    if args.backfill_phases:
+        log.info("PHASE BACKFILL MODE: classifying lifecycle phases "
+                 "for all projects")
+        stats = run_phase_backfill(supabase, write=True)
+        stats["_wrote"] = True
+        log_phase_stats(stats)
         return
 
     # Promote mode

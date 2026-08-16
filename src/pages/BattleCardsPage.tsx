@@ -13,6 +13,7 @@ import type { Project } from "@/data/projects";
 import { sampleProjects, COUNTRY_ALIASES } from "@/data/projects";
 import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
 import { supabase } from "@/db/supabase";
+import { phaseFromRow } from "@/lib/project_phase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
 import { useTimelineEventCounts } from "@/hooks/useTimelineEventCounts";
 import { filterMatureProjects } from "@/lib/project_maturity";
@@ -68,7 +69,7 @@ function mapRowToProject(row: Record<string, unknown>): Project {
     name,
     country,
     flag: String(row.flag ?? ""),
-    status: String(row.status ?? ""),
+    phase: phaseFromRow(row),
     summary: String(row.summary ?? ""),
     source: {
       name: String(row.source_name ?? ""),

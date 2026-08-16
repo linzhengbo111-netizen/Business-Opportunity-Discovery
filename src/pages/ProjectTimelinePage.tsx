@@ -9,6 +9,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
 import { supabase } from "@/db/supabase";
+import { phaseFromRow } from "@/lib/project_phase";
 import {
   getAllCanonicalIds,
   getDisplayName,
@@ -280,7 +281,7 @@ export default function ProjectTimelinePage() {
         name: String(row.name ?? ""),
         country,
         flag: String(row.flag ?? ""),
-        status: String(row.status ?? ""),
+        phase: phaseFromRow(row),
         summary: String(row.summary ?? ""),
         source: {
           name: String(row.source_name ?? ""),
@@ -611,7 +612,7 @@ export default function ProjectTimelinePage() {
                 label="Country"
                 value={`${projectInfo.flag ? projectInfo.flag + " " : ""}${projectInfo.country}`}
               />
-              <InfoItem label="Status" value={projectInfo.status} />
+              <InfoItem label="Phase" value={projectInfo.phase ?? "Unknown"} />
               <InfoItem label="Industry" value={projectInfo.industry ?? "FPSO"} />
               {projectInfo.waterDepthM != null && (
                 <InfoItem

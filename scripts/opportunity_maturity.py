@@ -68,16 +68,16 @@ def fetch_all(query):
 def looks_real_fpso(p):
     """Heuristic: is this row a real FPSO/floating project vs. noise?"""
     name = (p["name"] or "").strip()
-    status = (p["status"] or "").strip()
+    phase = (p["phase"] or p["status"] or "").strip()
     if FILE_EXT_RE.search(name) or TITLE_JUNK_RE.search(name):
         return False
     if len(name) > 80:
         return False
-    if PERSON_LIKE_RE.match(name) and status in ("", "Unknown"):
+    if PERSON_LIKE_RE.match(name) and phase in ("", "Unknown"):
         return False
     if PLATFORM_RE.search(name) or FPSO_RE.search(name):
         return True
-    if status in ("Delivered", "Under Construction", "Planned"):
+    if phase not in ("", "Unknown"):
         return True
     return normalize_project_name(name) is not None
 
@@ -90,7 +90,7 @@ def main():
     sb = get_client()
 
     projects = fetch_all(sb.table("projects").select(
-        "id,name,country,status,confidence,source_name,"
+        "id,name,country,phase,status,confidence,source_name,"
         "water_depth_m,oil_capacity_bpd,procurement_chain"))
     events = fetch_all(sb.table("candidate_events").select(
         "canonical_project_id,project_name_raw,review_status"))
@@ -155,9 +155,9 @@ def main():
     log.info("zero-event projects (%d):", len(zero_event))
     for p in sorted(zero_event, key=lambda r: (r["name"] or "").lower()):
         real = looks_real_fpso(p)
-        log.info("  %-8s id=%-5s %-45r status=%-16s fuzzy=%d src=%s",
+        log.info("  %-8s id=%-5s %-45r phase=%-16s fuzzy=%d src=%s",
                  "REAL" if real else "NOISE", p["id"], p["name"],
-                 (p["status"] or "")[:16], p["_events_fuzzy"],
+                 (p["phase"] or p["status"] or "")[:16], p["_events_fuzzy"],
                  p["source_name"] or "-")
 
     # Brazilian platform spot check (ANP targets)

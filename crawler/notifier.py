@@ -340,7 +340,7 @@ def notify_subscribers(supabase, new_projects: list[dict]) -> dict:
                 project_name=project.get("name", ""),
                 country=project.get("country", ""),
                 industry=project.get("industry", ""),
-                status=project.get("status", ""),
+                status=project.get("phase") or project.get("status", ""),
                 summary=project.get("summary", ""),
                 project_id=project.get("name", ""),
                 is_update=is_update,

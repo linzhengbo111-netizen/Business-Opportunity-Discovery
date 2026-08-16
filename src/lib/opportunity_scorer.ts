@@ -102,15 +102,30 @@ function scoreProcurement(
   project: Project,
   procWindow: ReturnType<typeof estimateProcurementWindow>,
 ): DimensionScore {
-  const { status, procurementChain } = project;
-  const statusLower = (status ?? "").toLowerCase();
+  const { phase, procurementChain } = project;
 
-  // Delivered projects: no procurement opportunity
-  if (statusLower === "delivered") {
-    return { score: 0, reasoning: "项目已投产交付，无采购机会" };
+  // Delivered / commissioning projects: no new-build procurement opportunity
+  if (phase === "Delivery" || phase === "Commissioning") {
+    return { score: 0, reasoning: `项目已进入${phase}阶段，无新建采购机会（可跟进MRO备件）` };
   }
 
-  if (statusLower === "under construction") {
+  // Procurement: core business window — highest urgency by definition
+  if (phase === "Procurement") {
+    return {
+      score: scoreInBracket({ min: 18, max: 20 }, 1),
+      reasoning: "项目处于物资采购阶段，采购窗口已开启，紧迫度最高",
+    };
+  }
+
+  // EPC Award: long-lead equipment purchasing starts within months
+  if (phase === "EPC Award") {
+    return {
+      score: scoreInBracket({ min: 16, max: 19 }, 0.7),
+      reasoning: "项目已确定EPC总包，长周期设备采购即将启动，应尽快触达",
+    };
+  }
+
+  if (phase === "Construction") {
     // Check fuzzy procurement window from estimateProcurementWindow
     const windowStr = procWindow.window;
     if (windowStr && windowStr !== "时间未定") {
@@ -124,7 +139,7 @@ function scoreProcurement(
           const score = scoreInBracket({ min: 18, max: 20 }, factor);
           return {
             score,
-            reasoning: `在建项目，预计采购时间窗为 ${windowStr}，紧迫度高`,
+            reasoning: `建设期项目，预计采购时间窗为 ${windowStr}，紧迫度高`,
           };
         }
         if (monthsAhead <= 12) {
@@ -132,14 +147,14 @@ function scoreProcurement(
           const score = scoreInBracket({ min: 14, max: 17 }, factor);
           return {
             score,
-            reasoning: `在建项目，预计采购时间窗为 ${windowStr}，有一定准备时间`,
+            reasoning: `建设期项目，预计采购时间窗为 ${windowStr}，有一定准备时间`,
           };
         }
-        // > 12 months out on Under Construction is unusual but possible
+        // > 12 months out on Construction is unusual but possible
         const score = scoreInBracket({ min: 10, max: 13 }, 0.3);
         return {
           score,
-          reasoning: `在建项目，预计采购时间窗较远（${windowStr}），建议持续监控`,
+          reasoning: `建设期项目，预计采购时间窗较远（${windowStr}），建议持续监控`,
         };
       }
 
@@ -148,17 +163,24 @@ function scoreProcurement(
       const score = scoreInBracket({ min: 14, max: 20 }, factor);
       return {
         score,
-        reasoning: `在建项目，预计采购时间窗为 ${windowStr}，紧迫度较高`,
+        reasoning: `建设期项目，预计采购时间窗为 ${windowStr}，紧迫度较高`,
       };
     }
-    // Under Construction but no clear window: default mid-high
+    // Construction but no clear window: default mid-high
     return {
       score: 15,
-      reasoning: "在建项目，采购时间窗未明确推断，按中等紧迫度赋分",
+      reasoning: "建设期项目，采购时间窗未明确推断，按中等紧迫度赋分",
     };
   }
 
-  if (statusLower === "planned") {
+  if (phase === "Approval") {
+    return {
+      score: scoreInBracket({ min: 12, max: 15 }, 0.6),
+      reasoning: "项目已获批/临近FID，采购窗口临近，建议提前布局",
+    };
+  }
+
+  if (phase === "Planning" || phase === "Design") {
     const chain = (procurementChain ?? "").toUpperCase();
     const isFeedFid = FEED_FID_KEYWORDS.some((kw) => chain.includes(kw.toUpperCase()));
     const isEarly = EARLY_STAGE_KEYWORDS.some((kw) => chain.includes(kw.toUpperCase()));
@@ -166,26 +188,26 @@ function scoreProcurement(
     if (isFeedFid) {
       return {
         score: scoreInBracket({ min: 10, max: 13 }, 0.7),
-        reasoning: "规划中项目，处于FEED/FID阶段，采购临近",
+        reasoning: "规划/设计期项目，处于FEED/FID阶段，采购临近",
       };
     }
     if (isEarly) {
       return {
         score: scoreInBracket({ min: 5, max: 9 }, 0.4),
-        reasoning: "规划中项目，处于早期概念/可研阶段，采购较远",
+        reasoning: "规划/设计期项目，处于早期概念/可研阶段，采购较远",
       };
     }
-    // Planned but no phase info
+    // Planned/Design but no phase info
     return {
       score: scoreInBracket({ min: 5, max: 9 }, 0.6),
-      reasoning: "规划中项目，阶段信息不明确",
+      reasoning: "规划/设计期项目，阶段信息不明确",
     };
   }
 
-  // Unknown status: conservative default
+  // Unknown / Concept phase: conservative default
   return {
     score: 5,
-    reasoning: `项目状态未知（${status || "无数据"}），按最低紧迫度赋分`,
+    reasoning: `项目阶段未知（${phase || "无数据"}），按最低紧迫度赋分`,
   };
 }
 

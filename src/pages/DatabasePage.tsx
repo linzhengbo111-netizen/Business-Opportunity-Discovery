@@ -16,6 +16,7 @@ import { useTimelineEventCounts } from "@/hooks/useTimelineEventCounts";
 import { filterMatureProjects, hasTimelineData } from "@/lib/project_maturity";
 import { hasAnySpecs, parseRecommendation, parseCorrosiveMedia, getCorrosiveMediaTags, getCorrosiveMediaDetails } from "@/lib/material_matcher";
 import { scoreOpportunity, scoreBadgeClass } from "@/lib/opportunity_scorer";
+import { PHASES, PHASE_UNKNOWN, phaseBgClass, phaseFromRow } from "@/lib/project_phase";
 import BattleCardWrapper from "@/components/dashboard/BattleCard";
 import FollowUpStatus from "@/components/dashboard/FollowUpStatus";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -38,24 +39,6 @@ function getUniqueCountries(projects: Project[]): string[] {
 function getCountryFlag(projects: Project[], country: string): string {
   const found = projects.find((p) => p.country.trim() === country.trim() && p.flag);
   return found?.flag ?? "";
-}
-
-function statusColorClass(status: string): string {
-  switch (status) {
-    case "Under Construction": return "text-fpso-blue";
-    case "Delivered":        return "text-fpso-green";
-    case "Planned":          return "text-fpso-orange";
-    default:                 return "text-fpso-muted";
-  }
-}
-
-function statusBgClass(status: string): string {
-  switch (status) {
-    case "Under Construction": return "bg-fpso-blue/15 text-fpso-blue";
-    case "Delivered":        return "bg-fpso-green/15 text-fpso-green";
-    case "Planned":          return "bg-fpso-orange/15 text-fpso-orange";
-    default:                 return "bg-fpso-muted/15 text-fpso-muted";
-  }
 }
 
 function confidenceBgClass(confidence: string): string {
@@ -103,7 +86,7 @@ function mapRowToProject(row: Record<string, unknown>): Project {
     name,
     country,
     flag:           String(row.flag ?? ""),
-    status:         String(row.status ?? ""),
+    phase:          phaseFromRow(row),
     summary:        String(row.summary ?? ""),
     source: {
       name: String(row.source_name ?? ""),
@@ -131,7 +114,8 @@ function mapRowToProject(row: Record<string, unknown>): Project {
 /*  constants                                                          */
 /* ------------------------------------------------------------------ */
 
-const STATUS_OPTIONS = ["Active Projects", "All", "Under Construction", "Delivered", "Planned", "Unknown"];
+/** Phase filter options — 9 lifecycle phases + Unknown (10). */
+const PHASE_FILTER_OPTIONS = ["All", ...PHASES, PHASE_UNKNOWN];
 const INDUSTRY_OPTIONS = [
   "All Industries",
   "FPSO",
@@ -195,7 +179,7 @@ export default function DatabasePage() {
     return "All Industries";
   });
   const [countryFilter, setCountryFilter] = useState("All Countries");
-  const [statusFilter, setStatusFilter] = useState("Active Projects");
+  const [phaseFilter, setPhaseFilter] = useState("All");
   const [confidenceFilter, setConfidenceFilter] = useState("High & Medium");
   const [nameSearch, setNameSearch] = useState("");
   const [showAllProjects, setShowAllProjects] = useState(false);
@@ -269,10 +253,12 @@ export default function DatabasePage() {
     if (countryFilter !== "All Countries") {
       list = list.filter((p) => p.country.trim() === countryFilter);
     }
-    if (statusFilter === "Active Projects") {
-      list = list.filter((p) => p.status === "Under Construction" || p.status === "Planned");
-    } else if (statusFilter !== "All") {
-      list = list.filter((p) => p.status === statusFilter);
+    if (phaseFilter !== "All") {
+      if (phaseFilter === PHASE_UNKNOWN) {
+        list = list.filter((p) => p.phase == null);
+      } else {
+        list = list.filter((p) => p.phase === phaseFilter);
+      }
     }
     if (confidenceFilter === "High & Medium") {
       list = list.filter(
@@ -301,7 +287,7 @@ export default function DatabasePage() {
     }
 
     return list;
-  }, [projects, industryFilter, countryFilter, statusFilter, confidenceFilter, nameSearch, sortField, sortDir, timelineEventCounts, showAllProjects]);
+  }, [projects, industryFilter, countryFilter, phaseFilter, confidenceFilter, nameSearch, sortField, sortDir, timelineEventCounts, showAllProjects]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -312,7 +298,7 @@ export default function DatabasePage() {
   }, [filtered, safePage]);
 
   // reset page when filters change
-  useEffect(() => { setPage(1); }, [industryFilter, countryFilter, statusFilter, confidenceFilter, nameSearch]);
+  useEffect(() => { setPage(1); }, [industryFilter, countryFilter, phaseFilter, confidenceFilter, nameSearch]);
 
   const pages = buildPages(safePage, totalPages);
 
@@ -398,15 +384,15 @@ export default function DatabasePage() {
             </select>
           </div>
 
-          {/* status */}
+          {/* phase */}
           <div className="flex items-center gap-2">
-            <label className="text-xs font-medium text-fpso-muted">Status</label>
+            <label className="text-xs font-medium text-fpso-muted">Phase</label>
             <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              value={phaseFilter}
+              onChange={(e) => setPhaseFilter(e.target.value)}
               className="h-8 min-w-[160px] rounded-md bg-fpso-bg/70 px-2.5 py-1 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50 border border-fpso-border"
             >
-              {STATUS_OPTIONS.map((s) => (
+              {PHASE_FILTER_OPTIONS.map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>
@@ -468,7 +454,7 @@ export default function DatabasePage() {
                   <tr className="border-b border-white/5 bg-fpso-bg/40 backdrop-blur-md text-left text-xs font-medium uppercase tracking-wider text-fpso-muted">
                     <th className="px-4 py-3">Project</th>
                     <th className="px-4 py-3">Country</th>
-                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Phase</th>
                     <th className="px-4 py-3">Corrosive</th>
                     <th className="px-4 py-3">Confidence</th>
                     <th
@@ -520,8 +506,8 @@ export default function DatabasePage() {
                           {p.flag} {p.country}
                         </td>
                         <td className="px-4 py-2.5">
-                          <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${statusBgClass(p.status)}`}>
-                            {p.status || "Unknown"}
+                          <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${phaseBgClass(p.phase)}`}>
+                            {p.phase ?? "Unknown"}
                           </span>
                         </td>
                         <td className="px-4 py-2.5">
@@ -675,8 +661,8 @@ export default function DatabasePage() {
             <h3 className="mb-1 text-xl font-bold text-fpso-fg">{selected.name}</h3>
             <div className="mb-4 flex items-center gap-3 text-sm">
               <span className="text-fpso-muted">{selected.flag} {selected.country}</span>
-              <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusBgClass(selected.status)}`}>
-                {selected.status || "Unknown"}
+              <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${phaseBgClass(selected.phase)}`}>
+                {selected.phase ?? "Unknown"}
               </span>
               {selected.confidence && (
                 <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${confidenceBgClass(selected.confidence)}`}>

@@ -23,6 +23,11 @@ import { matchMaterials, specsFromRow, hasAnySpecs, parseRecommendation, parseCo
 import { exportOpportunityList } from "@/lib/export_opportunities";
 import { filterMatureProjects, hasTimelineData } from "@/lib/project_maturity";
 import { scoreOpportunity, scoreBadgeClass } from "@/lib/opportunity_scorer";
+import {
+  PHASES, PHASE_UNKNOWN, PHASE_HEX, PHASE_SEGMENTS, PHASE_UNLIT,
+  phaseGroup, phaseColorClass, phaseDotClass, phaseBorderLClass,
+  phaseProgressIndex, phaseLabel, phaseFromRow,
+} from "@/lib/project_phase";
 import { analyzeProjectScenario, assessOpportunity, type AIResult, type ScenarioAnalysis, type OpportunityAssessment } from "@/lib/ai_analyst";
 import BattleCardWrapper from "@/components/dashboard/BattleCard";
 import OutreachModal from "@/components/dashboard/OutreachModal";
@@ -105,8 +110,9 @@ function timelineDotColor(eventType: string): string {
 
 interface Stats {
   total: number;
-  active: number;
-  planned: number;
+  early: number;
+  mid: number;
+  late: number;
   addedThisWeek: number;
 }
 
@@ -115,8 +121,9 @@ function getStats(projects: Project[]): Stats {
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   return {
     total: projects.length,
-    active: projects.filter((p) => p.status === "Under Construction").length,
-    planned: projects.filter((p) => p.status === "Planned").length,
+    early: projects.filter((p) => phaseGroup(p.phase) === "early").length,
+    mid: projects.filter((p) => phaseGroup(p.phase) === "mid").length,
+    late: projects.filter((p) => phaseGroup(p.phase) === "late").length,
     addedThisWeek: projects.filter((p) => {
       if (!p.source.date) return false;
       const d = new Date(p.source.date);
@@ -138,52 +145,7 @@ function getCountryFlag(projects: Project[], country: string): string {
   return found?.flag ?? "";
 }
 
-function statusColorClass(status: string): string {
-  switch (status) {
-    case "Under Construction":
-      return "text-fpso-blue";
-    case "Delivered":
-      return "text-fpso-green";
-    case "Planned":
-      return "text-fpso-orange";
-    default:
-      return "text-fpso-muted";
-  }
-}
 
-function statusDotClass(status: string): string {
-  switch (status) {
-    case "Under Construction":
-      return "bg-fpso-blue";
-    case "Delivered":
-      return "bg-fpso-green";
-    case "Planned":
-      return "bg-fpso-orange";
-    default:
-      return "bg-fpso-muted";
-  }
-}
-
-function statusBorderLClass(status: string): string {
-  switch (status) {
-    case "Under Construction":
-      return "border-l-fpso-blue";
-    case "Delivered":
-      return "border-l-fpso-green";
-    case "Planned":
-      return "border-l-fpso-orange";
-    default:
-      return "border-l-fpso-muted";
-  }
-}
-
-/** 状态条形图语义色 — 与项目列表色条/圆点一致 */
-const STATUS_BAR_COLORS: Record<string, string> = {
-  "Under Construction": "#00d4ff",
-  Delivered: "#10b981",
-  Planned: "#ff9f43",
-  Unknown: "#64748b",
-};
 
 /** 环形图顺序色 — 青→深蓝单色系渐变，最亮给最大扇区 */
 const COUNTRY_CHART_COLORS = [
@@ -217,31 +179,7 @@ function confidenceBadgeClass(confidence: string): string {
   }
 }
 
-/** Phase segments for the progress bar: label, lit color, unlit color. */
-const PHASE_SEGMENTS = [
-  { label: "规划", color: "#6b7280" },
-  { label: "FEED", color: "#7dd3fc" },
-  { label: "在建", color: "#00d4ff" },
-  { label: "投产", color: "#10b981" },
-] as const;
 
-const PHASE_UNLIT = "#1e2844";
-
-/** Map project status to phase progress (0-4 segments lit).
- *  0 = none, 1 = 规划, 2 = FEED, 3 = 在建, 4 = 投产.
- *  Derived from milestone data when available; falls back to status inference. */
-function getPhaseProgress(status: string): number {
-  switch (status) {
-    case "Planned":
-      return 1;
-    case "Under Construction":
-      return 3;
-    case "Delivered":
-      return 4;
-    default:
-      return 0;
-  }
-}
 
 /** Apply country name alias with case-insensitive fallback. */
 function normalizeCountry(raw: string): string {
@@ -277,7 +215,7 @@ function mapRowToProject(row: Record<string, unknown>): Project {
     name,
     country,
     flag: String(row.flag ?? ""),
-    status: String(row.status ?? ""),
+    phase: phaseFromRow(row),
     summary: String(row.summary ?? ""),
     source: {
       name: String(row.source_name ?? ""),
@@ -318,7 +256,7 @@ function mapCandidateToProject(row: Record<string, unknown>): Project {
     name,
     country,
     flag: countryToFlagEmoji(country),
-    status: "Unknown",
+    phase: phaseFromRow(row),
     summary: String(row.summary ?? ""),
     source: {
       name: String(row.source_name ?? ""),
@@ -351,8 +289,9 @@ export default function DashboardPage() {
   const [selectedCountry, setSelectedCountry] = useState("All Countries");
   const [selectedIndustry, setSelectedIndustry] = useState("All Industries");
   const [selectedConfidence, setSelectedConfidence] = useState("High & Medium");
-  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(
-    new Set(["Under Construction", "Planned"]),
+  const [selectedPhases, setSelectedPhases] = useState<Set<string>>(
+    // Default: every business-relevant phase (all except delivered/commissioning).
+    () => new Set(PHASES.filter((p) => p !== "Delivery" && p !== "Commissioning")),
   );
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [showAllProjects, setShowAllProjects] = useState(false);
@@ -439,7 +378,7 @@ export default function DashboardPage() {
 
       if (merged.length > 0) {
         console.log("[Dashboard] ✅ Using live Supabase data:");
-        console.table(merged.map((p) => ({ name: p.name, country: p.country, status: p.status })));
+        console.table(merged.map((p) => ({ name: p.name, country: p.country, phase: p.phase })));
         if (!cancelled) setProjects(merged);
       } else {
         console.warn("[Dashboard] Both tables EMPTY. Falling back to sampleProjects.");
@@ -516,13 +455,13 @@ export default function DashboardPage() {
         (p) => (p.confidence ?? "medium") === selectedConfidence.toLowerCase(),
       );
     }
-    if (selectedStatuses.size > 0) {
-      result = result.filter((p) => selectedStatuses.has(p.status || "Unknown"));
+    if (selectedPhases.size > 0) {
+      result = result.filter((p) => selectedPhases.has(phaseLabel(p.phase)));
     }
     // Maturity filter: default shows mature opportunities only.
     result = filterMatureProjects(result, timelineEventCounts, showAllProjects);
     return result;
-  }, [projects, selectedCountry, selectedIndustry, selectedConfidence, selectedStatuses, timelineEventCounts, showAllProjects]);
+  }, [projects, selectedCountry, selectedIndustry, selectedConfidence, selectedPhases, timelineEventCounts, showAllProjects]);
 
   const filteredStats = useMemo(() => getStats(filteredProjects), [filteredProjects]);
 
@@ -548,22 +487,22 @@ export default function DashboardPage() {
     [countryChartData],
   );
 
-  const statusChartData = useMemo(() => {
-    const order = ["Under Construction", "Delivered", "Planned"];
+  const phaseChartData = useMemo(() => {
     const count: Record<string, number> = {};
     for (const p of filteredProjects) {
-      const s = p.status || "Unknown";
-      count[s] = (count[s] ?? 0) + 1;
+      const ph = phaseLabel(p.phase);
+      count[ph] = (count[ph] ?? 0) + 1;
     }
+    // 9 phases in lifecycle order, then Unknown last
+    const order = [...PHASES, PHASE_UNKNOWN];
     return order
-      .filter((s) => count[s] != null)
-      .map((s) => ({ name: s, value: count[s] }))
-      .concat(count["Unknown"] ? [{ name: "Unknown", value: count["Unknown"] }] : []);
+      .filter((ph) => count[ph] != null)
+      .map((ph) => ({ name: ph, value: count[ph] }));
   }, [filteredProjects]);
 
-  const statusBarMax = useMemo(
-    () => Math.max(...statusChartData.map((d) => d.value), 1),
-    [statusChartData],
+  const phaseBarMax = useMemo(
+    () => Math.max(...phaseChartData.map((d) => d.value), 1),
+    [phaseChartData],
   );
 
   // 地图光点 — 始终基于全部项目（不受筛选影响），点击光点仍会联动下拉框筛选
@@ -750,11 +689,11 @@ export default function DashboardPage() {
     }
   }
 
-  function toggleStatus(status: string) {
-    setSelectedStatuses((prev) => {
+  function togglePhase(phase: string) {
+    setSelectedPhases((prev) => {
       const next = new Set(prev);
-      if (next.has(status)) next.delete(status);
-      else next.add(status);
+      if (next.has(phase)) next.delete(phase);
+      else next.add(phase);
       return next;
     });
   }
@@ -763,7 +702,7 @@ export default function DashboardPage() {
     setSelectedCountry("All Countries");
     setSelectedIndustry("All Industries");
     setSelectedConfidence("High & Medium");
-    setSelectedStatuses(new Set(["Under Construction", "Planned"]));
+    setSelectedPhases(new Set(PHASES.filter((p) => p !== "Delivery" && p !== "Commissioning")));
   }
 
   /** Handle CSV export of factory-qualified projects in current view. */
@@ -808,11 +747,11 @@ export default function DashboardPage() {
           selectedCountry={selectedCountry}
           selectedIndustry={selectedIndustry}
           selectedConfidence={selectedConfidence}
-          selectedStatuses={selectedStatuses}
+          selectedPhases={selectedPhases}
           onCountryChange={setSelectedCountry}
           onIndustryChange={handleIndustryChange}
           onConfidenceChange={isGuest ? () => {} : setSelectedConfidence}
-          onStatusToggle={toggleStatus}
+          onPhaseToggle={togglePhase}
           onClear={clearAllFilters}
           onExport={isGuest ? undefined : handleExport}
           filteredCount={filteredProjects.length}
@@ -833,7 +772,7 @@ export default function DashboardPage() {
 
         {/* 指标统计带 */}
         <section className="mb-8">
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
             {/* Total Projects */}
             <div className="group relative overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300 p-4 transition-all hover:border-fpso-blue/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(0,212,255,0.06)]">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
@@ -850,7 +789,41 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Active (Under Construction) */}
+            {/* Early (Concept / Planning / Design) */}
+            <div className="group relative overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300 p-4 transition-all hover:border-fpso-muted/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(148,163,184,0.06)]">
+              <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
+                <CalendarDays className="h-20 w-20 text-fpso-muted" />
+              </div>
+              <div className="relative z-10 flex items-center gap-3">
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-fpso-muted/10 ring-1 ring-fpso-muted/20">
+                  <CalendarDays className="h-4 w-4 text-fpso-muted" />
+                </span>
+                <div className="min-w-0">
+                  <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Early Phase</div>
+                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300" style={{ textShadow: "0 0 8px rgba(0,212,255,0.5)" }}>{filteredStats.early}</div>
+                  <div className="truncate text-xs text-fpso-dim">Concept · Planning · Design</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Mid (Approval / EPC Award / Procurement) */}
+            <div className="group relative overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300 p-4 transition-all hover:border-yellow-400/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(250,204,21,0.08)]">
+              <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
+                <Hammer className="h-20 w-20 text-yellow-400" />
+              </div>
+              <div className="relative z-10 flex items-center gap-3">
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-yellow-400/10 ring-1 ring-yellow-400/20">
+                  <Hammer className="h-4 w-4 text-yellow-400" />
+                </span>
+                <div className="min-w-0">
+                  <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Mid Phase</div>
+                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300" style={{ textShadow: "0 0 8px rgba(0,212,255,0.5)" }}>{filteredStats.mid}</div>
+                  <div className="truncate text-xs text-fpso-dim">Approval · EPC Award · Procurement</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Late (Construction / Commissioning / Delivery) */}
             <div className="group relative overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300 p-4 transition-all hover:border-fpso-blue/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(0,212,255,0.06)]">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <Hammer className="h-20 w-20 text-fpso-blue" />
@@ -860,26 +833,9 @@ export default function DashboardPage() {
                   <Hammer className="h-4 w-4 text-fpso-blue" />
                 </span>
                 <div className="min-w-0">
-                  <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Active</div>
-                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300" style={{ textShadow: "0 0 8px rgba(0,212,255,0.5)" }}>{filteredStats.active}</div>
-                  <div className="truncate text-xs text-fpso-dim">Under Construction</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Planned */}
-            <div className="group relative overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300 p-4 transition-all hover:border-fpso-orange/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(255,159,67,0.06)]">
-              <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
-                <CalendarDays className="h-20 w-20 text-fpso-orange" />
-              </div>
-              <div className="relative z-10 flex items-center gap-3">
-                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-fpso-orange/10 ring-1 ring-fpso-orange/20">
-                  <CalendarDays className="h-4 w-4 text-fpso-orange" />
-                </span>
-                <div className="min-w-0">
-                  <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Planned</div>
-                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300" style={{ textShadow: "0 0 8px rgba(0,212,255,0.5)" }}>{filteredStats.planned}</div>
-                  <div className="truncate text-xs text-fpso-dim">Future Projects</div>
+                  <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Late Phase</div>
+                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300" style={{ textShadow: "0 0 8px rgba(0,212,255,0.5)" }}>{filteredStats.late}</div>
+                  <div className="truncate text-xs text-fpso-dim">Construction · Commissioning · Delivery</div>
                 </div>
               </div>
             </div>
@@ -1044,16 +1000,16 @@ export default function DashboardPage() {
               <BarChart3 className="h-20 w-20 text-fpso-blue" />
             </div>
             <div className="relative z-10 flex flex-1 flex-col">
-              <h3 className="mb-4 border-b border-white/5 pb-3 text-xs font-semibold uppercase tracking-widest text-fpso-muted">Status Breakdown</h3>
-              {statusChartData.length === 0 ? (
+              <h3 className="mb-4 border-b border-white/5 pb-3 text-xs font-semibold uppercase tracking-widest text-fpso-muted">Phase Breakdown</h3>
+              {phaseChartData.length === 0 ? (
                 <div className="flex flex-1 items-center justify-center">
-                  <span className="text-sm text-fpso-muted">No status data for current filters.</span>
+                  <span className="text-sm text-fpso-muted">No phase data for current filters.</span>
                 </div>
               ) : (
-                <div className="flex flex-1 flex-col justify-center gap-5">
-                  {statusChartData.map((d) => {
-                    const color = STATUS_BAR_COLORS[d.name] ?? "#64748b";
-                    const widthPct = Math.max(Math.round((d.value / statusBarMax) * 100), 2);
+                <div className="flex flex-1 flex-col justify-center gap-4">
+                  {phaseChartData.map((d) => {
+                    const color = PHASE_HEX[d.name] ?? "#64748b";
+                    const widthPct = Math.max(Math.round((d.value / phaseBarMax) * 100), 2);
                     return (
                       <div key={d.name} className="group/row relative">
                         <div className="flex items-center gap-3">
@@ -1123,13 +1079,13 @@ export default function DashboardPage() {
                   viewport={{ once: true }}
                   transition={{ duration: 0.3, ease: "easeOut" }}
                   onClick={() => setSelectedProject(project)}
-                  className={`project-row group cursor-pointer border-b border-white/5 border-l-4 px-5 py-5 last:border-b-0 transition-all hover:bg-fpso-blue/[0.04] hover:border-white/10 ${statusBorderLClass(project.status)}`}
+                  className={`project-row group cursor-pointer border-b border-white/5 border-l-4 px-5 py-5 last:border-b-0 transition-all hover:bg-fpso-blue/[0.04] hover:border-white/10 ${phaseBorderLClass(project.phase)}`}
                 >
                   {/* Row 1: status dot + name + country + source */}
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 flex-1 items-center gap-2.5">
                       <span
-                        className={`mt-0.5 h-2 w-2 flex-shrink-0 rounded-full ${statusDotClass(project.status)}`}
+                        className={`mt-0.5 h-2 w-2 flex-shrink-0 rounded-full ${phaseDotClass(project.phase)}`}
                         style={{ boxShadow: `0 0 6px currentColor` }}
                       />
                       <h3 className="truncate text-sm font-semibold text-fpso-fg group-hover:text-white transition-colors">
@@ -1193,9 +1149,9 @@ export default function DashboardPage() {
                         </span>
                       );
                     })()}
-                    {/* Status text */}
-                    <span className={`text-[11px] font-medium ${statusColorClass(project.status)}`}>
-                      {project.status}
+                    {/* Phase text */}
+                    <span className={`text-[11px] font-medium ${phaseColorClass(project.phase)}`}>
+                      {phaseLabel(project.phase)}
                     </span>
                     {/* 待挖掘 badge: timeline has no linked events */}
                     {showAllProjects && !hasTimelineData(project, timelineEventCounts) && (
@@ -1259,9 +1215,9 @@ export default function DashboardPage() {
                     </div>
                   )}
 
-                  {/* Phase progress bar */}
+                  {/* Phase progress bar — 9 lifecycle segments */}
                   {(() => {
-                    const progress = getPhaseProgress(project.status);
+                    const progress = phaseProgressIndex(project.phase);
                     return (
                       <div className="mt-2.5 ml-4 flex gap-1" style={{ height: 4 }}>
                         {PHASE_SEGMENTS.map((seg, i) => (
@@ -1417,8 +1373,8 @@ export default function DashboardPage() {
                   <span>{selectedProject.country}</span>
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-md bg-fpso-bg px-3 py-1 text-sm">
-                  <span className={`h-2 w-2 rounded-full ${statusDotClass(selectedProject.status)}`} style={{ boxShadow: `0 0 6px currentColor` }} />
-                  <span className={statusColorClass(selectedProject.status)}>{selectedProject.status || "Unknown"}</span>
+                  <span className={`h-2 w-2 rounded-full ${phaseDotClass(selectedProject.phase)}`} style={{ boxShadow: `0 0 6px currentColor` }} />
+                  <span className={phaseColorClass(selectedProject.phase)}>{phaseLabel(selectedProject.phase)}</span>
                 </span>
                 {selectedProject.confidence && (
                   <span className={`inline-flex items-center gap-1 rounded-md px-3 py-1 text-sm ${confidenceBadgeClass(selectedProject.confidence)}`}>

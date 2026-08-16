@@ -14,7 +14,8 @@ import json
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.dirname(__file__))
 
-from crawl import normalize_project_name, get_display_name, PROJECT_ALIASES
+from crawl import normalize_project_name, get_display_name
+from adapters.media_common import PROJECT_ALIASES
 
 
 def test_guyana_payara_aliases():
@@ -228,7 +229,7 @@ def test_promote_merge_logic():
             "project_name_raw": "FPSO Prosperity",
             "country": "Guyana",
             "flag": "🇬🇾",
-            "status": "Delivered",
+            "phase": "Delivery",
             "summary": "SBM Offshore FPSO Prosperity delivered for ExxonMobil's Payara development.",
             "source_name": "SBM Offshore",
             "source_url": "https://example.com/prosperity",
@@ -241,7 +242,7 @@ def test_promote_merge_logic():
             "project_name_raw": "Payara Dev Project",
             "country": "Guyana",
             "flag": "🇬🇾",
-            "status": "Under Construction",
+            "phase": "Construction",
             "summary": "Payara development progressing — FPSO Prosperity integration at Seatrium.",
             "source_name": "Offshore Energy",
             "source_url": "https://example.com/payara-dev",
@@ -271,7 +272,7 @@ def test_promote_merge_logic():
     for name, group in groups.items():
         print(f"  Group '{name[:60]}': {len(group)} candidate(s)")
         for c in group:
-            print(f"    - {c['project_name_raw'][:50]} (status: {c['status']})")
+            print(f"    - {c['project_name_raw'][:50]} (phase: {c['phase']})")
 
     # Assertions
     all_passed = True
@@ -311,14 +312,15 @@ def test_promote_merge_logic():
         print(f"    Merged: {merged[:200]}...")
         all_passed = False
 
-    # Status should be Delivered (higher priority than Under Construction)
-    statuses = [c.get("status") for c in group]
-    status_priority = {"Delivered": 0, "Under Construction": 1, "Planned": 2, "Unknown": 3}
-    merged_status = min(statuses, key=lambda s: status_priority.get(s, 99))
-    if merged_status == "Delivered":
-        print(f"  ✓ PASS: Merged status is 'Delivered' (higher priority than 'Under Construction')")
+    # Phase should be Delivery (latest lifecycle phase wins over Construction)
+    phases = [c.get("phase") or c.get("status") for c in group]
+    phase_order = ["Concept", "Planning", "Design", "Approval", "EPC Award",
+                   "Procurement", "Construction", "Commissioning", "Delivery"]
+    merged_phase = max(phases, key=lambda s: phase_order.index(s) if s in phase_order else -1)
+    if merged_phase == "Delivery":
+        print(f"  ✓ PASS: Merged phase is 'Delivery' (later than 'Construction')")
     else:
-        print(f"  ✗ FAIL: Expected merged status 'Delivered', got '{merged_status}'")
+        print(f"  ✗ FAIL: Expected merged phase 'Delivery', got '{merged_phase}'")
         all_passed = False
 
     print()
@@ -339,7 +341,7 @@ def test_promote_keeps_unmatched():
             "id": 1,
             "project_name_raw": "FPSO SomeNewField",
             "country": "Brazil",
-            "status": "Planned",
+            "phase": "Planning",
             "summary": "A brand new field with no alias registered yet.",
             "source_name": "OE Digital",
         },
@@ -347,7 +349,7 @@ def test_promote_keeps_unmatched():
             "id": 2,
             "project_name_raw": "FPSO SomeNewField",
             "country": "Brazil",
-            "status": "Planned",
+            "phase": "Planning",
             "summary": "Another article about the same new field.",
             "source_name": "World Oil",
         },

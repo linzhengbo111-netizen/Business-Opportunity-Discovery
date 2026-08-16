@@ -128,7 +128,7 @@ function projectFacts(project: Project): Record<string, unknown> {
   return {
     name: project.name,
     country: project.country,
-    status: project.status,
+    phase: project.phase,
     industry: project.industry,
     summary: project.summary,
     application: project.application,
