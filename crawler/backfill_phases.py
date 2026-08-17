@@ -91,8 +91,14 @@ def _backup_local(projects, write_mode):
     log.info("Local backup written: %s (%d rows)", path, len(payload))
 
 
-def run_phase_backfill(supabase, write=False, limit=0):
-    """Classify phases for all projects and optionally write them back."""
+def run_phase_backfill(supabase, write=False, limit=0, source_filter=None,
+                       only_null=False):
+    """Classify phases for all projects and optionally write them back.
+
+    source_filter: only process rows whose source_name matches (e.g. re-run
+    one source after a prompt/rule change).
+    only_null: only process rows whose phase is NULL — idempotent resume
+    for rows neither AI nor rules could judge earlier."""
     # Pre-migration the `phase` column does not exist yet — degrade the
     # select so a dry run still works.
     try:
@@ -107,6 +113,11 @@ def run_phase_backfill(supabase, write=False, limit=0):
             supabase.table("projects"),
             "id,name,status,summary,country,procurement_chain,"
             "operator_name,field_name,basin,application")
+    if only_null:
+        projects = [p for p in projects if p.get("phase") is None]
+    if source_filter:
+        projects = [p for p in projects
+                    if (p.get("source_name") or "") == source_filter]
     if limit:
         projects = projects[:limit]
     log.info("Loaded %d projects (write=%s)", len(projects), write)
@@ -165,7 +176,9 @@ def run_phase_backfill(supabase, write=False, limit=0):
                 "reasoning": reasoning[:120],
             })
 
-        if write and phase:
+        if write:
+            # Write even when phase is None — spec: rows neither AI nor
+            # rules can judge get phase = NULL (待 AI 判断).
             try:
                 projects_table.update({"phase": phase}) \
                     .eq("id", p.get("id")).execute()
@@ -214,11 +227,18 @@ def main():
                     help="persist phase updates (default: dry run)")
     ap.add_argument("--limit", type=int, default=0,
                     help="only process the first N projects (0 = all)")
+    ap.add_argument("--source", default=None,
+                    help="only process rows whose source_name matches")
+    ap.add_argument("--only-null", action="store_true",
+                    help="only process rows whose phase is NULL "
+                         "(idempotent resume)")
     args = ap.parse_args()
 
     sb = create_client(os.environ["VITE_SUPABASE_URL"],
                        os.environ["VITE_SUPABASE_ANON_KEY"])
-    stats = run_phase_backfill(sb, write=args.write, limit=args.limit)
+    stats = run_phase_backfill(sb, write=args.write, limit=args.limit,
+                              source_filter=args.source,
+                              only_null=args.only_null)
     stats["_wrote"] = args.write
     log_phase_stats(stats)
 

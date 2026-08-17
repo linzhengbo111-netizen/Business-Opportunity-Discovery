@@ -146,8 +146,12 @@ def _phase_prompt(project, events_text):
         "EPC Award / Procurement / Construction / Commissioning / Delivery.",
         "2. If evidence supports several phases, return the LATEST phase in "
         "the lifecycle order (e.g. award + procurement → Procurement).",
-        "3. Use ONLY facts present in the data above. Never invent events.",
-        "4. If nothing supports any phase, return an empty string for phase: "
+        "3. A Consent Date / Production Start older than 10 years means the "
+        "field is already producing or abandoned → Delivery (or Commissioning "
+        "if commissioning data exists). A consent date alone is ONLY Approval "
+        "when it is recent (within ~10 years) or no production data exists.",
+        "4. Use ONLY facts present in the data above. Never invent events.",
+        "5. If nothing supports any phase, return an empty string for phase: "
         '{"phase": "", "reasoning": "insufficient data"}.',
     ]
     return "\n".join(lines)
@@ -324,6 +328,21 @@ def infer_phase_from_rules(project, events_text=""):
     return max(hits, key=lambda p: PHASE_ORDER[p])
 
 
+def _stale_consent_delivery_override(project):
+    """Deterministic date rule: a Consent Date / Production Start older
+    than 10 years means the field is producing or abandoned — no new-build
+    procurement. Overrides any AI phase of Approval/earlier with Delivery.
+    Returns "Delivery" when the rule fires, else None."""
+    summary = str(project.get("summary") or "")
+    this_year = datetime.now(timezone.utc).year
+    m = re.search(r"consent date:\s*(\d{4})", summary, re.IGNORECASE)
+    if not m:
+        m = re.search(r"production start:\s*(\d{4})", summary, re.IGNORECASE)
+    if m and this_year - int(m.group(1)) > 10:
+        return "Delivery"
+    return None
+
+
 def determine_project_phase(project, events_text=""):
     """Classify a project into one of the 9 lifecycle phases via the LLM
     (DeepSeek, through the /api/llm proxy when LLM_PROXY_URL is set).
@@ -337,6 +356,14 @@ def determine_project_phase(project, events_text=""):
     Returns (phase, reasoning, source) where source is "ai" or "rules";
     phase is None when neither can judge. Never raises.
     """
+    # Fast path: decades-old consent date with no redevelopment signal —
+    # deterministic Delivery, no LLM call needed.
+    override = _stale_consent_delivery_override(project)
+    if override and not re.search(
+            r"replacement|redevelopment|refurbishment|new build|construction|"
+            r"conversion|life extension|revital", events_text, re.IGNORECASE):
+        return override, "stale consent date override", "rules"
+
     if _llm_configured() or LLM_PROXY_URL:
         prompt = _phase_prompt(project, events_text)
         messages = [
@@ -357,12 +384,20 @@ def determine_project_phase(project, events_text=""):
                 phase = str(obj.get("phase") or "").strip()
                 reasoning = str(obj.get("reasoning") or "").strip()[:300]
                 if phase in PHASES_SET:
+                    # Date-based sanity override: decades-old consent dates
+                    # cannot be Approval — the field is producing/abandoned.
+                    override = _stale_consent_delivery_override(project)
+                    if override and PHASE_ORDER[phase] < PHASE_ORDER[override]:
+                        return override, "stale consent date override", "rules"
                     return phase, reasoning, "ai"
                 # LLM answered nothing usable — fall through to rules
                 log.info("AI phase reply had no valid phase: %r", phase)
 
     phase = infer_phase_from_rules(project, events_text)
     if phase:
+        override = _stale_consent_delivery_override(project)
+        if override and PHASE_ORDER[phase] < PHASE_ORDER[override]:
+            return override, "stale consent date override", "rules"
         return phase, "rule inference", "rules"
     return None, "", "none"
 
