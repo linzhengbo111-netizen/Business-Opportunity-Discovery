@@ -118,6 +118,13 @@ def _phase_prompt(project, events_text):
         "Classify the lifecycle phase of one FPSO/oil & gas project.",
         "Phases (in lifecycle order): " + " → ".join(PROJECT_PHASES) + ".",
         "",
+        f"TODAY IS {datetime.now(timezone.utc).strftime('%Y-%m-%d')}. "
+        "Treat dates relative to this, not relative to model knowledge.",
+        "Data note: 'ANP open data' rows come from the Brazilian regulator's "
+        "register of OPERATING production units; 'Start: YYYY' in such rows "
+        "is the year the unit began production (投产年份). A unit whose Start "
+        "year is today's year or earlier is producing now.",
+        "",
         "Project data:",
         f"- Name: {project.get('name') or '(unknown)'}",
         f"- Country: {project.get('country') or '(unknown)'}",
