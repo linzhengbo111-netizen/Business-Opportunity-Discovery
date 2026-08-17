@@ -98,7 +98,7 @@ def run_phase_backfill(supabase, write=False, limit=0):
     try:
         projects = _fetch_all_paged(
             supabase.table("projects"),
-            "id,name,status,phase,summary,country,procurement_chain,"
+            "id,name,phase,summary,country,procurement_chain,"
             "operator_name,field_name,basin,application")
     except Exception as exc:  # 42703: column projects.phase does not exist
         log.warning("projects.phase unavailable (%s) — selecting legacy "
