@@ -82,7 +82,7 @@ export default function FilterSidebar({
     selectedCountry !== "All Countries" ||
     selectedIndustry !== "All Industries" ||
     selectedConfidence !== "All" ||
-    selectedPhases.size > 0;
+    (selectedPhases.size > 0 && selectedPhases.size < PHASE_CHIP_OPTIONS.length);
 
   const exportDisabled = !onExport || filteredCount === 0;
 

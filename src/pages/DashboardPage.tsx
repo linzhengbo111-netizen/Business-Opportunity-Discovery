@@ -292,8 +292,8 @@ export default function DashboardPage() {
   const [selectedIndustry, setSelectedIndustry] = useState("All Industries");
   const [selectedConfidence, setSelectedConfidence] = useState("High & Medium");
   const [selectedPhases, setSelectedPhases] = useState<Set<string>>(
-    // Default: every business-relevant phase (all except delivered/commissioning).
-    () => new Set(PHASES.filter((p) => p !== "Delivery" && p !== "Commissioning")),
+    // Default: all 10 phase chips selected (9 lifecycle phases + Unknown) — no phase hidden by default.
+    () => new Set([...PHASES, PHASE_UNKNOWN]),
   );
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [showAllProjects, setShowAllProjects] = useState(false);
@@ -727,7 +727,7 @@ export default function DashboardPage() {
     setSelectedCountry("All Countries");
     setSelectedIndustry("All Industries");
     setSelectedConfidence("High & Medium");
-    setSelectedPhases(new Set(PHASES.filter((p) => p !== "Delivery" && p !== "Commissioning")));
+    setSelectedPhases(new Set([...PHASES, PHASE_UNKNOWN]));
   }
 
   /** Handle CSV export of factory-qualified projects in current view. */
