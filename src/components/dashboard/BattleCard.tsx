@@ -161,13 +161,15 @@ interface BattleCardViewProps {
   card: BattleCard;
   innerRef: React.Ref<HTMLDivElement>;
   followUp?: FollowUp | null;
+  /** Timeline digest passed in by the page — 待补充 shown when absent. */
+  timelineSummary?: string;
   /** AI product recommendation — shown instead of rule results when source === "ai". */
   aiProducts?: AIResult<ProductRecommendation> | null;
   /** AI next-action suggestions — shown instead of rule results when source === "ai". */
   aiActions?: AIResult<NextActionSuggestions> | null;
 }
 
-function BattleCardView({ card, innerRef, followUp, aiProducts, aiActions }: BattleCardViewProps) {
+function BattleCardView({ card, innerRef, followUp, timelineSummary, aiProducts, aiActions }: BattleCardViewProps) {
   const showBanner = followUp && (followUp.status === "invalid" || followUp.status === "closed");
   return (
     <div
@@ -271,6 +273,18 @@ function BattleCardView({ card, innerRef, followUp, aiProducts, aiActions }: Bat
               </div>
             )}
           </div>
+
+          {/* timeline summary — basic cards still show a digest when available */}
+          <div>
+            <SectionHeader>Timeline · 时间线摘要</SectionHeader>
+            {timelineSummary ? (
+              <p className="text-xs leading-relaxed text-fpso-fg/90">{timelineSummary}</p>
+            ) : (
+              <span className="inline-flex items-center rounded bg-amber-400/10 px-2 py-0.5 text-[10px] font-medium text-amber-400 ring-1 ring-amber-400/20">
+                待补充
+              </span>
+            )}
+          </div>
         </div>
 
         {/* ---- right column ---- */}
@@ -295,6 +309,14 @@ function BattleCardView({ card, innerRef, followUp, aiProducts, aiActions }: Bat
                 <div className="flex gap-2">
                   <span className="text-fpso-dim flex-shrink-0">业主:</span>
                   <span>{card.whoToContact.owner}</span>
+                </div>
+              )}
+              {!card.whoToContact.epcContractor && !card.whoToContact.operator && !card.whoToContact.owner && (
+                <div className="flex gap-2">
+                  <span className="text-fpso-dim flex-shrink-0">联系人:</span>
+                  <span className="inline-flex items-center rounded bg-amber-400/10 px-2 py-0.5 text-[10px] font-medium text-amber-400 ring-1 ring-amber-400/20">
+                    待补充
+                  </span>
                 </div>
               )}
               <div className="mt-2 rounded-md bg-fpso-orange/10 border border-fpso-orange/15 px-2.5 py-1.5">
@@ -378,9 +400,11 @@ function BattleCardView({ card, innerRef, followUp, aiProducts, aiActions }: Bat
 interface BattleCardWrapperProps {
   project: Project;
   baseUrl?: string;
+  /** Timeline digest from the page — undefined shows 待补充 in the card. */
+  timelineSummary?: string;
 }
 
-export default function BattleCardWrapper({ project, baseUrl }: BattleCardWrapperProps) {
+export default function BattleCardWrapper({ project, baseUrl, timelineSummary }: BattleCardWrapperProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
   const [followUp, setFollowUp] = useState<FollowUp | null>(null);
@@ -437,6 +461,7 @@ export default function BattleCardWrapper({ project, baseUrl }: BattleCardWrappe
         card={card}
         innerRef={cardRef}
         followUp={followUp}
+        timelineSummary={timelineSummary}
         aiProducts={aiProducts}
         aiActions={aiActions}
       />

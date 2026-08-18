@@ -14,7 +14,7 @@ import PageMeta from "@/components/common/PageMeta";
 import type { Project, MaterialMatchResult } from "@/data/projects";
 import { countryCoordinates, sampleProjects, countryToFlagEmoji, COUNTRY_ALIASES } from "@/data/projects";
 import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
-import { supabase } from "@/db/supabase";
+import { supabase, fetchAllRows } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
 import { useTimelineEventCounts } from "@/hooks/useTimelineEventCounts";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -22,6 +22,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { matchMaterials, specsFromRow, hasAnySpecs, parseRecommendation, parseCorrosiveMedia, getCorrosiveMediaTags, getCorrosiveMediaDetails } from "@/lib/material_matcher";
 import { exportOpportunityList } from "@/lib/export_opportunities";
 import { filterMatureProjects, hasTimelineData } from "@/lib/project_maturity";
+import { projectMatchesSearch } from "@/lib/project_search";
 import { scoreOpportunity, scoreBadgeClass } from "@/lib/opportunity_scorer";
 import {
   PHASES, PHASE_UNKNOWN, PHASE_HEX, PHASE_SEGMENTS, PHASE_UNLIT,
@@ -32,6 +33,7 @@ import { analyzeProjectScenario, assessOpportunity, type AIResult, type Scenario
 import BattleCardWrapper from "@/components/dashboard/BattleCard";
 import OutreachModal from "@/components/dashboard/OutreachModal";
 import FollowUpStatus from "@/components/dashboard/FollowUpStatus";
+import GlobalSearch from "@/components/dashboard/GlobalSearch";
 import { Building2, Hammer, CalendarDays, PlusCircle, Anchor, Waves, Gauge, Globe, BarChart3 } from "lucide-react";
 import FilterSidebar from "@/components/dashboard/FilterSidebar";
 import { motion } from "motion/react";
@@ -295,6 +297,7 @@ export default function DashboardPage() {
   );
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [showAllProjects, setShowAllProjects] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [milestoneMap, setMilestoneMap] = useState<Map<string, { label: string; year: string }>>(new Map());
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [modalTab, setModalTab] = useState<"overview" | "timeline">("overview");
@@ -320,9 +323,14 @@ export default function DashboardPage() {
 
     let cancelled = false;
 
-    async function fetchTable(tableName: string): Promise<Project[]> {
+    async function fetchTable(tableName: "projects" | "candidate_events"): Promise<Project[]> {
       const start = performance.now();
-      const { data, error } = await supabase.from(tableName).select("*");
+      // Paginated loop fetch — plain select("*") caps at 1000 rows.
+      const { data, error } = await fetchAllRows(
+        tableName,
+        "*",
+        tableName === "projects" ? { orderBy: "name" } : { orderBy: "id" },
+      );
       const elapsed = (performance.now() - start).toFixed(0);
 
       if (error) {
@@ -400,10 +408,11 @@ export default function DashboardPage() {
     let cancelled = false;
 
     async function fetchMilestones() {
-      const { data, error } = await supabase
-        .from("candidate_events")
-        .select("canonical_project_id, event_type, publication_date")
-        .not("canonical_project_id", "is", null);
+      const { data, error } = await fetchAllRows(
+        "candidate_events",
+        "canonical_project_id, event_type, publication_date",
+        { orderBy: "id", notNullColumn: "canonical_project_id" },
+      );
 
       if (cancelled || error || !data) return;
 
@@ -458,10 +467,16 @@ export default function DashboardPage() {
     if (selectedPhases.size > 0) {
       result = result.filter((p) => selectedPhases.has(phaseLabel(p.phase)));
     }
-    // Maturity filter: default shows mature opportunities only.
-    result = filterMatureProjects(result, timelineEventCounts, showAllProjects);
+    const searchActive = searchQuery.trim().length > 0;
+    if (searchActive) {
+      // Search shows every matching project — maturity filter not applied.
+      result = result.filter((p) => projectMatchesSearch(p, searchQuery));
+    } else {
+      // Maturity filter: default shows mature opportunities only.
+      result = filterMatureProjects(result, timelineEventCounts, showAllProjects);
+    }
     return result;
-  }, [projects, selectedCountry, selectedIndustry, selectedConfidence, selectedPhases, timelineEventCounts, showAllProjects]);
+  }, [projects, selectedCountry, selectedIndustry, selectedConfidence, selectedPhases, timelineEventCounts, showAllProjects, searchQuery]);
 
   const filteredStats = useMemo(() => getStats(filteredProjects), [filteredProjects]);
 
@@ -645,6 +660,16 @@ export default function DashboardPage() {
     return () => { cancelled = true; };
   }, [selectedProject]);
 
+  /** Short timeline digest for the battle card — undefined until events load. */
+  const battleTimelineSummary = useMemo(() => {
+    if (timelineEvents.length === 0) return undefined;
+    const head = timelineEvents
+      .slice(0, 3)
+      .map((e) => `${formatEventType(e.eventType)}${e.publicationDate ? ` ${e.publicationDate.slice(0, 4)}` : ""}`)
+      .join(" · ");
+    return `${head}（共 ${timelineEvents.length} 条）`;
+  }, [timelineEvents]);
+
   // ---- AI 分析（LLM 可用时返回 AI 结果，否则 fallback 到规则引擎）----
   /** Name candidates for fuzzy timeline matching: core name (text before
    * the first parenthesis) first, then the full name. Raw rows usually
@@ -718,6 +743,12 @@ export default function DashboardPage() {
 
       <Header rightContent={
         <div className="flex flex-shrink-0 items-center gap-2">
+          <GlobalSearch
+            projects={projects}
+            value={searchQuery}
+            onChange={setSearchQuery}
+            onSelect={(p) => setSelectedProject(p)}
+          />
           <span className="relative inline-flex h-2.5 w-2.5">
             {connectionStatus === "connected" && (
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fpso-green opacity-75" />
@@ -1415,7 +1446,7 @@ export default function DashboardPage() {
               <div>
                 <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">Summary</h4>
                 <p className="text-sm leading-relaxed text-fpso-fg">
-                  {selectedProject.summary || "No summary available."}
+                  {selectedProject.summary || <span className="text-fpso-dim italic">暂无数据</span>}
                 </p>
               </div>
 
@@ -1427,7 +1458,9 @@ export default function DashboardPage() {
                     <span className="rounded bg-fpso-blue/10 px-2 py-0.5 text-xs font-medium text-fpso-blue">
                       {selectedProject.stainlessSteel}
                     </span>
-                  ) : "—"}
+                  ) : (
+                    <span className="text-fpso-dim italic">暂无数据</span>
+                  )}
                 </p>
               </div>
 
@@ -1439,31 +1472,39 @@ export default function DashboardPage() {
                     <span className="rounded bg-fpso-orange/10 px-2 py-0.5 text-xs font-medium text-fpso-orange">
                       {selectedProject.application}
                     </span>
-                  ) : "—"}
+                  ) : (
+                    <span className="text-fpso-dim italic">暂无数据</span>
+                  )}
                 </p>
               </div>
 
-              {/* 采购链 */}
-              {selectedProject.procurementChain && (
-                <div>
-                  <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">Procurement Chain</h4>
+              {/* 采购链 — always visible, missing data marked instead of hidden */}
+              <div>
+                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">Procurement Chain</h4>
+                {selectedProject.procurementChain ? (
                   <div className="flex flex-wrap gap-1.5">
-                    {selectedProject.procurementChain.split(", ").map((entity) => (
+                    {selectedProject.procurementChain.split(/,\s*/).filter(Boolean).map((entity) => (
                       <span key={entity} className="rounded bg-fpso-green/10 px-2 py-0.5 text-xs font-medium text-fpso-green">
                         {entity}
                       </span>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <span className="text-fpso-dim italic">暂无数据</span>
+                )}
+              </div>
 
-              {/* Technical Specs & Material Matching */}
-              {(showSpecs || showRec) && (
-                <div>
-                  <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-fpso-dim">
-                    Technical Specs &amp; Material Matching
-                  </h4>
-                  {showSpecs && (
+              {/* Technical Specs & Material Matching — always visible, missing data marked */}
+              <div>
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-fpso-dim">
+                  Technical Specs &amp; Material Matching
+                </h4>
+                {!showSpecs && !showRec && (
+                  <span className="text-fpso-dim italic">暂无数据</span>
+                )}
+                {(() => {
+                  if (!showSpecs) return null;
+                  return (
                     <div className="mb-3 overflow-hidden rounded-md border border-white/5">
                       <table className="w-full text-xs">
                         <tbody>
@@ -1540,7 +1581,8 @@ export default function DashboardPage() {
                         </tbody>
                       </table>
                     </div>
-                  )}
+                  );
+                })()}
                   {showRec && (
                     <div className="space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
@@ -1592,8 +1634,7 @@ export default function DashboardPage() {
                       })()}
                     </div>
                   )}
-                </div>
-              )}
+              </div>
 
               {/* Opportunity Score (S5) */}
               {(() => {
@@ -1781,7 +1822,7 @@ export default function DashboardPage() {
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-fpso-dim mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <p className="text-sm text-fpso-muted">暂无足够商机数据，已加入待挖掘池</p>
+                  <p className="text-sm text-fpso-muted">该项目的关键事件较少，系统正在持续挖掘中</p>
                   <p className="text-xs text-fpso-dim mt-1">
                     待后续抓取到技术参数与时间线事件后，将自动升级为成熟商机。
                   </p>
@@ -1898,6 +1939,7 @@ export default function DashboardPage() {
             <BattleCardWrapper
               project={battleCardProject}
               baseUrl={window.location.origin}
+              timelineSummary={battleTimelineSummary}
             />
           </div>
         </div>

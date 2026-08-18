@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/db/supabase";
+import { fetchAllRows } from "@/db/supabase";
 
 export function useTimelineEventCounts(version: number): Map<string, number> {
   const [counts, setCounts] = useState<Map<string, number>>(new Map());
@@ -14,10 +14,12 @@ export function useTimelineEventCounts(version: number): Map<string, number> {
     let cancelled = false;
 
     async function fetchCounts() {
-      const { data, error } = await supabase
-        .from("candidate_events")
-        .select("canonical_project_id")
-        .not("canonical_project_id", "is", null);
+      // Paginated loop fetch — plain select caps at 1000 rows.
+      const { data, error } = await fetchAllRows(
+        "candidate_events",
+        "canonical_project_id",
+        { orderBy: "id", notNullColumn: "canonical_project_id" },
+      );
 
       if (cancelled || error || !data) return;
 

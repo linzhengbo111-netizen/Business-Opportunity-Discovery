@@ -10,10 +10,11 @@ import PageMeta from "@/components/common/PageMeta";
 import type { Project } from "@/data/projects";
 import { sampleProjects, COUNTRY_ALIASES } from "@/data/projects";
 import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
-import { supabase } from "@/db/supabase";
+import { supabase, fetchAllRows } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
 import { useTimelineEventCounts } from "@/hooks/useTimelineEventCounts";
 import { filterMatureProjects, hasTimelineData } from "@/lib/project_maturity";
+import { projectMatchesSearch } from "@/lib/project_search";
 import { hasAnySpecs, parseRecommendation, parseCorrosiveMedia, getCorrosiveMediaTags, getCorrosiveMediaDetails } from "@/lib/material_matcher";
 import { scoreOpportunity, scoreBadgeClass } from "@/lib/opportunity_scorer";
 import { PHASES, PHASE_UNKNOWN, phaseBgClass, phaseFromRow } from "@/lib/project_phase";
@@ -212,7 +213,8 @@ export default function DatabasePage() {
     let cancelled = false;
 
     async function fetchProjects() {
-      const { data, error } = await supabase!.from("projects").select("*");
+      // Paginated loop fetch — plain select("*") caps at 1000 rows.
+      const { data, error } = await fetchAllRows("projects", "*", { orderBy: "name" });
 
       if (error) {
         console.error("Database fetch error:", error.message);
@@ -269,13 +271,15 @@ export default function DatabasePage() {
         (p) => (p.confidence ?? "medium") === confidenceFilter.toLowerCase(),
       );
     }
-    if (nameSearch.trim()) {
-      const q = nameSearch.trim().toLowerCase();
-      list = list.filter((p) => p.name.toLowerCase().includes(q));
+    const searchActive = nameSearch.trim().length > 0;
+    if (searchActive) {
+      // Search matches all searchable fields and shows every project —
+      // maturity filter not applied while searching.
+      list = list.filter((p) => projectMatchesSearch(p, nameSearch));
+    } else {
+      // Maturity filter: default shows mature opportunities only.
+      list = filterMatureProjects(list, timelineEventCounts, showAllProjects);
     }
-
-    // Maturity filter: default shows mature opportunities only.
-    list = filterMatureProjects(list, timelineEventCounts, showAllProjects);
 
     // Apply sort
     if (sortField === "score") {
@@ -422,7 +426,7 @@ export default function DatabasePage() {
               type="text"
               value={nameSearch}
               onChange={(e) => setNameSearch(e.target.value)}
-              placeholder="Project name…"
+              placeholder="Search projects…"
               className="h-8 w-48 rounded-md bg-fpso-bg/70 px-2.5 py-1 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50 border border-fpso-border placeholder:text-fpso-dim"
             />
           </div>
@@ -703,7 +707,7 @@ export default function DatabasePage() {
             <section className="mb-6">
               <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">Summary</h4>
               <p className="text-sm leading-relaxed text-fpso-fg">
-                {selected.summary || "No summary available."}
+                {selected.summary || <span className="text-fpso-dim italic">暂无数据</span>}
               </p>
             </section>
 
@@ -711,7 +715,7 @@ export default function DatabasePage() {
             <section className="mb-6">
               <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">Supply Chain Material Matching</h4>
               <p className="text-sm text-fpso-fg">
-                {selected.stainlessSteel || "—"}
+                {selected.stainlessSteel || <span className="text-fpso-dim italic">暂无数据</span>}
               </p>
             </section>
 
@@ -719,23 +723,25 @@ export default function DatabasePage() {
             <section className="mb-6">
               <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">Application Scenario</h4>
               <p className="text-sm text-fpso-fg">
-                {selected.application || "—"}
+                {selected.application || <span className="text-fpso-dim italic">暂无数据</span>}
               </p>
             </section>
 
-            {/* procurement chain */}
-            {selected.procurementChain && (
-              <section className="mb-6">
-                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">Procurement Chain</h4>
+            {/* procurement chain — always visible, missing data marked */}
+            <section className="mb-6">
+              <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">Procurement Chain</h4>
+              {selected.procurementChain ? (
                 <div className="flex flex-wrap gap-1.5">
-                  {selected.procurementChain.split(", ").map((entity) => (
+                  {selected.procurementChain.split(/,\s*/).filter(Boolean).map((entity) => (
                     <span key={entity} className="rounded-md bg-fpso-green/15 px-2.5 py-1 text-xs font-medium text-fpso-green">
                       {entity}
                     </span>
                   ))}
                 </div>
-              </section>
-            )}
+              ) : (
+                <span className="text-fpso-dim italic">暂无数据</span>
+              )}
+            </section>
 
             {/* Technical Specs & Material Matching */}
             {(() => {
@@ -751,12 +757,14 @@ export default function DatabasePage() {
               const rec = parseRecommendation(selected.recommendationJson);
               const showSpecs = hasAnySpecs(specs);
               const showRec = rec !== null;
-              if (!showSpecs && !showRec) return null;
               return (
                 <section className="mb-6">
                   <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-fpso-dim">
                     Technical Specs &amp; Material Matching
                   </h4>
+                  {!showSpecs && !showRec && (
+                    <span className="text-fpso-dim italic">暂无数据</span>
+                  )}
                   {/* Technical parameters table */}
                   {showSpecs && (
                     <div className="mb-3 overflow-hidden rounded-md border border-white/5">

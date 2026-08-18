@@ -149,7 +149,7 @@ function buildWhatToPush(project: Project): string[] {
     return rec.applications;
   }
 
-  return ["不锈钢板材/管材（待确认具体规格）"];
+  return ["不锈钢板材/管材（待补充）"];
 }
 
 // ---------------------------------------------------------------------------
@@ -169,7 +169,8 @@ function buildMaterialGrades(project: Project): string[] {
     return [project.stainlessSteel.trim()];
   }
 
-  return [];
+  // No grade data — mark missing instead of leaving the field blank.
+  return ["待补充"];
 }
 
 // ---------------------------------------------------------------------------
@@ -283,7 +284,7 @@ function buildEvidenceSummary(project: Project): string {
       "低可信度";
     parts.push(label);
   }
-  return parts.length > 0 ? parts.join(" · ") : "无来源信息";
+  return parts.length > 0 ? parts.join(" · ") : "来源待补充";
 }
 
 // ---------------------------------------------------------------------------
