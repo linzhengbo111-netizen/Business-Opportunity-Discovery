@@ -22,6 +22,7 @@ import time
 import random
 import logging
 from datetime import datetime, timezone
+from typing import Optional
 from urllib.parse import urljoin
 
 import requests
