@@ -252,7 +252,7 @@ export default function FollowUpStatus({
               size="sm"
               onClick={handleSave}
               disabled={saving}
-              className="h-7 bg-fpso-blue hover:bg-fpso-blue/80 text-white text-xs"
+              className="h-7 bg-fpso-blue hover:bg-fpso-blue/80 text-primary-foreground text-xs"
             >
               {saving ? "Saving..." : "Save"}
             </Button>

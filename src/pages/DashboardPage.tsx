@@ -805,7 +805,7 @@ export default function DashboardPage() {
         <section className="mb-8">
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
             {/* Total Projects */}
-            <div className="group relative overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300 p-4 transition-all hover:border-fpso-blue/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(0,212,255,0.06)]">
+            <div className="group relative overflow-hidden rounded-lg border border-border bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300 p-4 transition-all hover:border-fpso-blue/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(0,212,255,0.06)]">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <Building2 className="h-20 w-20 text-fpso-blue" />
               </div>
@@ -815,13 +815,13 @@ export default function DashboardPage() {
                 </span>
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Total Projects</div>
-                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300" style={{ textShadow: "0 0 8px rgba(0,212,255,0.5)" }}>{filteredStats.total}</div>
+                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300" style={{ textShadow: "var(--neon-shadow)" }}>{filteredStats.total}</div>
                 </div>
               </div>
             </div>
 
             {/* Early (Concept / Planning / Design) */}
-            <div className="group relative overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300 p-4 transition-all hover:border-fpso-muted/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(148,163,184,0.06)]">
+            <div className="group relative overflow-hidden rounded-lg border border-border bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300 p-4 transition-all hover:border-fpso-muted/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(148,163,184,0.06)]">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <CalendarDays className="h-20 w-20 text-fpso-muted" />
               </div>
@@ -831,14 +831,14 @@ export default function DashboardPage() {
                 </span>
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Early Phase</div>
-                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300" style={{ textShadow: "0 0 8px rgba(0,212,255,0.5)" }}>{filteredStats.early}</div>
+                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300" style={{ textShadow: "var(--neon-shadow)" }}>{filteredStats.early}</div>
                   <div className="truncate text-xs text-fpso-dim">Concept · Planning · Design</div>
                 </div>
               </div>
             </div>
 
             {/* Mid (Approval / EPC Award / Procurement) */}
-            <div className="group relative overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300 p-4 transition-all hover:border-yellow-400/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(250,204,21,0.08)]">
+            <div className="group relative overflow-hidden rounded-lg border border-border bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300 p-4 transition-all hover:border-yellow-400/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(250,204,21,0.08)]">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <Hammer className="h-20 w-20 text-yellow-400" />
               </div>
@@ -848,14 +848,14 @@ export default function DashboardPage() {
                 </span>
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Mid Phase</div>
-                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300" style={{ textShadow: "0 0 8px rgba(0,212,255,0.5)" }}>{filteredStats.mid}</div>
+                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300" style={{ textShadow: "var(--neon-shadow)" }}>{filteredStats.mid}</div>
                   <div className="truncate text-xs text-fpso-dim">Approval · EPC Award · Procurement</div>
                 </div>
               </div>
             </div>
 
             {/* Late (Construction / Commissioning / Delivery) */}
-            <div className="group relative overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300 p-4 transition-all hover:border-fpso-blue/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(0,212,255,0.06)]">
+            <div className="group relative overflow-hidden rounded-lg border border-border bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300 p-4 transition-all hover:border-fpso-blue/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(0,212,255,0.06)]">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <Hammer className="h-20 w-20 text-fpso-blue" />
               </div>
@@ -865,14 +865,14 @@ export default function DashboardPage() {
                 </span>
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Late Phase</div>
-                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300" style={{ textShadow: "0 0 8px rgba(0,212,255,0.5)" }}>{filteredStats.late}</div>
+                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300" style={{ textShadow: "var(--neon-shadow)" }}>{filteredStats.late}</div>
                   <div className="truncate text-xs text-fpso-dim">Construction · Commissioning · Delivery</div>
                 </div>
               </div>
             </div>
 
             {/* Added This Week */}
-            <div className="group relative overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300 p-4 transition-all hover:border-fpso-green/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(16,185,129,0.06)]">
+            <div className="group relative overflow-hidden rounded-lg border border-border bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300 p-4 transition-all hover:border-fpso-green/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(16,185,129,0.06)]">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <PlusCircle className="h-20 w-20 text-fpso-green" />
               </div>
@@ -882,7 +882,7 @@ export default function DashboardPage() {
                 </span>
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Added This Week</div>
-                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300" style={{ textShadow: "0 0 8px rgba(0,212,255,0.5)" }}>{filteredStats.addedThisWeek}</div>
+                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300" style={{ textShadow: "var(--neon-shadow)" }}>{filteredStats.addedThisWeek}</div>
                   <div className="truncate text-xs text-fpso-dim">New Discoveries</div>
                 </div>
               </div>
@@ -897,7 +897,7 @@ export default function DashboardPage() {
             <span className="text-xs text-fpso-muted">Equirectangular Projection</span>
           </div>
 
-          <div className="map-container relative w-full overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300">
+          <div className="map-container relative w-full overflow-hidden rounded-lg border border-border bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300">
             <img
               src="/world-map.png"
               alt="世界地图轮廓"
@@ -936,7 +936,7 @@ export default function DashboardPage() {
         {/* 图表区域 */}
         <section className="mb-10 grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
           {/* 国家分布环形图 */}
-          <div className="group relative flex flex-col overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md p-5 shadow-xl transition-all duration-300 hover:border-fpso-blue/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(0,212,255,0.06)]">
+          <div className="group relative flex flex-col overflow-hidden rounded-lg border border-border bg-fpso-card/40 backdrop-blur-md p-5 shadow-xl transition-all duration-300 hover:border-fpso-blue/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(0,212,255,0.06)]">
             <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
               <Globe className="h-20 w-20 text-fpso-blue" />
             </div>
@@ -974,11 +974,11 @@ export default function DashboardPage() {
                         </Pie>
                         <Tooltip
                           contentStyle={{
-                            background: "#131a2e",
-                            border: "1px solid #1e2844",
+                            background: "hsl(var(--card))",
+                            border: "1px solid hsl(var(--border))",
                             borderRadius: "8px",
                             fontSize: "13px",
-                            color: "#f8fafc",
+                            color: "hsl(var(--foreground))",
                           }}
                           formatter={(value: number, name: string) => [`${value} projects`, name]}
                         />
@@ -988,7 +988,7 @@ export default function DashboardPage() {
                     <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                       <div
                         className="font-mono text-3xl font-extrabold tabular-nums text-fpso-fg"
-                        style={{ textShadow: "0 0 12px rgba(0,212,255,0.5)" }}
+                        style={{ textShadow: "var(--neon-shadow)" }}
                       >
                         {countryTotal}
                       </div>
@@ -1026,7 +1026,7 @@ export default function DashboardPage() {
           </div>
 
           {/* 状态分布水平条形图 */}
-          <div className="group relative flex flex-col overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md p-5 shadow-xl transition-all duration-300 hover:border-fpso-blue/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(0,212,255,0.06)]">
+          <div className="group relative flex flex-col overflow-hidden rounded-lg border border-border bg-fpso-card/40 backdrop-blur-md p-5 shadow-xl transition-all duration-300 hover:border-fpso-blue/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(0,212,255,0.06)]">
             <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
               <BarChart3 className="h-20 w-20 text-fpso-blue" />
             </div>
@@ -1051,7 +1051,7 @@ export default function DashboardPage() {
                             />
                             <span className="truncate">{d.name}</span>
                           </span>
-                          <div className="h-3 flex-1 overflow-hidden rounded-full bg-[#1e2844]">
+                          <div className="h-3 flex-1 overflow-hidden rounded-full bg-border">
                             <motion.div
                               initial={{ width: 0 }}
                               animate={{ width: `${widthPct}%` }}
@@ -1068,7 +1068,7 @@ export default function DashboardPage() {
                           </span>
                         </div>
                         {/* hover tooltip：状态名 + 数量 */}
-                        <div className="pointer-events-none absolute -top-8 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-md border border-[#1e2844] bg-[#131a2e] px-2.5 py-1 text-xs text-fpso-fg opacity-0 shadow-xl transition-opacity duration-200 group-hover/row:opacity-100">
+                        <div className="pointer-events-none absolute -top-8 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-md border border-border bg-card px-2.5 py-1 text-xs text-fpso-fg opacity-0 shadow-xl transition-opacity duration-200 group-hover/row:opacity-100">
                           {d.name} — {d.value} projects
                         </div>
                       </div>
@@ -1093,7 +1093,7 @@ export default function DashboardPage() {
             </span>
           </div>
 
-          <div className="rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300">
+          <div className="rounded-lg border border-border bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300">
             {loading ? (
               <div className="px-5 py-10 text-center text-sm text-fpso-muted">Loading projects…</div>
             ) : filteredProjects.length === 0 ? (
@@ -1341,7 +1341,7 @@ export default function DashboardPage() {
           {/* 模态框本体 */}
           <div
             onClick={(e) => e.stopPropagation()}
-            className="relative z-10 w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-2xl animate-fade-in"
+            className="relative z-10 w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl border border-border bg-fpso-card/40 backdrop-blur-md shadow-2xl animate-fade-in"
           >
             {/* 顶部栏 */}
             <div className="flex-shrink-0 flex items-center justify-between border-b border-white/5 px-6 py-4">
@@ -1423,7 +1423,7 @@ export default function DashboardPage() {
                     onClick={() => toggleFollowProject(selectedProject.name)}
                     className={
                       isFollowing(selectedProject.name)
-                        ? 'bg-fpso-blue hover:bg-fpso-blue/80 text-white text-xs'
+                        ? 'bg-fpso-blue hover:bg-fpso-blue/80 text-primary-foreground text-xs'
                         : 'border-fpso-blue/30 text-fpso-blue hover:bg-fpso-blue/10 text-xs'
                     }
                   >

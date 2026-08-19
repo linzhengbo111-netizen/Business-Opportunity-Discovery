@@ -684,7 +684,7 @@ export default function DatabasePage() {
                   onClick={() => toggleFollowProject(selected.name)}
                   className={
                     isFollowing(selected.name)
-                      ? 'bg-fpso-blue hover:bg-fpso-blue/80 text-white text-xs'
+                      ? 'bg-fpso-blue hover:bg-fpso-blue/80 text-primary-foreground text-xs'
                       : 'border-fpso-blue/30 text-fpso-blue hover:bg-fpso-blue/10 text-xs'
                   }
                 >

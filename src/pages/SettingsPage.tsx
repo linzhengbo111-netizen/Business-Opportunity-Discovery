@@ -112,7 +112,7 @@ export default function SettingsPage() {
           </p>
           <Button
             onClick={login}
-            className="bg-fpso-blue hover:bg-fpso-blue/80 text-white"
+            className="bg-fpso-blue hover:bg-fpso-blue/80 text-primary-foreground"
           >
             Login with Feishu
           </Button>
@@ -127,7 +127,7 @@ export default function SettingsPage() {
       <Header />
       <main className="mx-auto max-w-3xl flex flex-col gap-8 px-6 py-10">
         {/* Profile card */}
-        <Card className="border-white/10 bg-fpso-bg/50">
+        <Card className="border-border bg-fpso-bg/50">
           <CardHeader>
             <CardTitle className="text-fpso-fg">Profile</CardTitle>
             <CardDescription>
@@ -155,7 +155,7 @@ export default function SettingsPage() {
         </Card>
 
         {/* Subscription card */}
-        <Card className="border-white/10 bg-fpso-bg/50">
+        <Card className="border-border bg-fpso-bg/50">
           <CardHeader>
             <CardTitle className="text-fpso-fg">Subscription Settings</CardTitle>
             <CardDescription>
@@ -175,7 +175,7 @@ export default function SettingsPage() {
                     className={`cursor-pointer transition-all ${
                       selectedIndustries.includes(industry)
                         ? 'bg-fpso-blue hover:bg-fpso-blue/80'
-                        : 'border-white/10 text-fpso-muted hover:border-fpso-blue/30 hover:text-fpso-fg'
+                        : 'border-border text-fpso-muted hover:border-fpso-blue/30 hover:text-fpso-fg'
                     }`}
                     onClick={() => toggleIndustry(industry)}
                   >
@@ -185,7 +185,7 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <Separator className="bg-white/5" />
+            <Separator className="bg-border/40" />
 
             {/* Countries */}
             <div className="space-y-3">
@@ -202,7 +202,7 @@ export default function SettingsPage() {
                     className={`cursor-pointer transition-all ${
                       selectedCountries.includes(country)
                         ? 'bg-fpso-blue hover:bg-fpso-blue/80'
-                        : 'border-white/10 text-fpso-muted hover:border-fpso-blue/30 hover:text-fpso-fg'
+                        : 'border-border text-fpso-muted hover:border-fpso-blue/30 hover:text-fpso-fg'
                     }`}
                     onClick={() => toggleCountry(country)}
                   >
@@ -212,7 +212,7 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <Separator className="bg-white/5" />
+            <Separator className="bg-border/40" />
 
             {/* Webhook URL */}
             <div className="space-y-3">
@@ -228,7 +228,7 @@ export default function SettingsPage() {
                 placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/..."
                 value={webhookUrl}
                 onChange={(e) => setWebhookUrl(e.target.value)}
-                className="bg-white/5 border-white/10 text-fpso-fg placeholder:text-fpso-muted/50"
+                className="bg-border/40 border-border text-fpso-fg placeholder:text-fpso-muted/50"
               />
             </div>
 
@@ -236,7 +236,7 @@ export default function SettingsPage() {
             <Button
               onClick={handleSave}
               disabled={saving || loading}
-              className="bg-fpso-blue hover:bg-fpso-blue/80 text-white"
+              className="bg-fpso-blue hover:bg-fpso-blue/80 text-primary-foreground"
             >
               {saving ? 'Saving...' : 'Save Settings'}
             </Button>
@@ -244,7 +244,7 @@ export default function SettingsPage() {
         </Card>
 
         {/* Followed projects */}
-        <Card className="border-white/10 bg-fpso-bg/50">
+        <Card className="border-border bg-fpso-bg/50">
           <CardHeader>
             <CardTitle className="text-fpso-fg">Followed Projects</CardTitle>
             <CardDescription>
@@ -277,7 +277,7 @@ export default function SettingsPage() {
         </Card>
 
         {/* My Follow-ups (S7) */}
-        <Card className="border-white/10 bg-fpso-bg/50">
+        <Card className="border-border bg-fpso-bg/50">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -292,7 +292,7 @@ export default function SettingsPage() {
                 variant="outline"
                 onClick={refreshFollowUps}
                 disabled={followUpsLoading}
-                className="border-white/10 text-fpso-muted hover:text-fpso-fg text-xs h-7"
+                className="border-border text-fpso-muted hover:text-fpso-fg text-xs h-7"
               >
                 {followUpsLoading ? "Loading..." : "Refresh"}
               </Button>
@@ -306,7 +306,7 @@ export default function SettingsPage() {
                 className={`cursor-pointer transition-all text-xs ${
                   followUpFilter === 'all'
                     ? 'bg-fpso-blue hover:bg-fpso-blue/80'
-                    : 'border-white/10 text-fpso-muted hover:border-fpso-blue/30 hover:text-fpso-fg'
+                    : 'border-border text-fpso-muted hover:border-fpso-blue/30 hover:text-fpso-fg'
                 }`}
                 onClick={() => setFollowUpFilter('all')}
               >
@@ -321,7 +321,7 @@ export default function SettingsPage() {
                     className={`cursor-pointer transition-all text-xs ${
                       followUpFilter === s
                         ? 'bg-fpso-blue hover:bg-fpso-blue/80'
-                        : 'border-white/10 text-fpso-muted hover:border-fpso-blue/30 hover:text-fpso-fg'
+                        : 'border-border text-fpso-muted hover:border-fpso-blue/30 hover:text-fpso-fg'
                     }`}
                     onClick={() => setFollowUpFilter(s)}
                   >
@@ -331,7 +331,7 @@ export default function SettingsPage() {
               })}
             </div>
 
-            <Separator className="bg-white/5" />
+            <Separator className="bg-border/40" />
 
             {/* Follow-up list */}
             {followUpsLoading ? (
@@ -348,7 +348,7 @@ export default function SettingsPage() {
                   <div
                     key={fu.id ?? fu.project_id}
                     onClick={() => goToProject(fu.project_id)}
-                    className="flex items-start justify-between gap-3 rounded-lg border border-white/5 bg-fpso-bg/30 px-4 py-3 cursor-pointer hover:border-fpso-blue/20 hover:bg-fpso-blue/5 transition-all group"
+                    className="flex items-start justify-between gap-3 rounded-lg border border-border bg-fpso-bg/30 px-4 py-3 cursor-pointer hover:border-fpso-blue/20 hover:bg-fpso-blue/5 transition-all group"
                   >
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-fpso-fg truncate group-hover:text-fpso-blue transition-colors">

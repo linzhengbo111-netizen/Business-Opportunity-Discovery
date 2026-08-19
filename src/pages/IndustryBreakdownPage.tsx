@@ -15,6 +15,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTheme } from "next-themes";
 import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
 
@@ -37,11 +38,17 @@ const HIGHLIGHT_OPACITY = 0.15;
 /** 默认(idle)状态下所有区域材质色叠加不透明度 (0-1)。 */
 const IDLE_REGION_OPACITY = 0.06;
 
-/** 无图片时的暗色背景色 */
-const PLACEHOLDER_BG = "#0d1117";
+/** 无图片时的占位背景色（暗色） */
+const PLACEHOLDER_BG_DARK = "#0d1117";
 
-/** 无图片时的网格线颜色 */
-const PLACEHOLDER_GRID = "rgba(56,139,253,0.06)";
+/** 无图片时的占位背景色（浅色） */
+const PLACEHOLDER_BG_LIGHT = "#f0f4f8";
+
+/** 无图片时的网格线颜色（暗色） */
+const PLACEHOLDER_GRID_DARK = "rgba(56,139,253,0.06)";
+
+/** 无图片时的网格线颜色（浅色） */
+const PLACEHOLDER_GRID_LIGHT = "rgba(15,23,42,0.05)";
 
 // ── 底部缩略板块 ──
 
@@ -223,6 +230,11 @@ export default function IndustryBreakdownPage() {
   // ResizeObserver 回调中读取的最新值 (避免 RO 依赖变化)
   const hoveredRef    = useRef<string | null>(null);
   const animAlphaRef  = useRef(0);
+  // 主题状态通过 ref 供 renderFrame 读取（Canvas 2D 不感知 CSS 变量）
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
+  const themeRef = useRef(isLight);
+  themeRef.current = isLight;
   // 同步 refs
   hoveredRef.current   = hovered;
   animAlphaRef.current = animAlpha;
@@ -279,10 +291,10 @@ export default function IndustryBreakdownPage() {
     if (image) {
       ctx.drawImage(image, 0, 0, iw, ih);
     } else {
-      // 暗色背景 + 细网格
-      ctx.fillStyle = PLACEHOLDER_BG;
+      // 主题占位背景 + 细网格
+      ctx.fillStyle = themeRef.current ? PLACEHOLDER_BG_LIGHT : PLACEHOLDER_BG_DARK;
       ctx.fillRect(0, 0, iw, ih);
-      ctx.strokeStyle = PLACEHOLDER_GRID;
+      ctx.strokeStyle = themeRef.current ? PLACEHOLDER_GRID_LIGHT : PLACEHOLDER_GRID_DARK;
       ctx.lineWidth = 1;
       const grid = 40;
       for (let x = grid; x < iw; x += grid) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, ih); ctx.stroke(); }
@@ -347,7 +359,9 @@ export default function IndustryBreakdownPage() {
     // ── 3. 占位提示 (取水系统 hover，无坐标数据) ──
     if (activeKey && !hasRegion && alpha > 0.5) {
       const textAlpha = 0.7 * Math.min(1, (alpha - 0.5) * 2);
-      ctx.fillStyle = `rgba(255,255,255,${textAlpha})`;
+      ctx.fillStyle = themeRef.current
+        ? `rgba(15,23,42,${textAlpha})`
+        : `rgba(255,255,255,${textAlpha})`;
       ctx.font = `${14 * dpr}px -apple-system, sans-serif`;
       ctx.textAlign = "center";
       ctx.fillText("⚠ 取水系统坐标数据待标定 — 请使用坐标拾取工具标定后更新 REGION_MASKS", cw / 2, ch / 2);
@@ -355,7 +369,7 @@ export default function IndustryBreakdownPage() {
 
     // ── 4. 无图片时的中央提示 ──
     if (!image) {
-      ctx.fillStyle = "rgba(255,255,255,0.2)";
+      ctx.fillStyle = themeRef.current ? "rgba(15,23,42,0.35)" : "rgba(255,255,255,0.2)";
       ctx.font = `${13 * dpr}px -apple-system, sans-serif`;
       ctx.textAlign = "center";
       ctx.fillText("拖拽工艺图至此 或 将图片放入 public/images/desalination-process.png", cw / 2, ch / 2 - 72);
@@ -441,7 +455,7 @@ export default function IndustryBreakdownPage() {
   useEffect(() => {
     resizeCanvas();
     renderFrame(hovered, animAlpha);
-  }, [animAlpha, image, imgSize, hovered, resizeCanvas, renderFrame]);
+  }, [animAlpha, image, imgSize, hovered, isLight, resizeCanvas, renderFrame]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // 拖拽图片处理
@@ -495,7 +509,7 @@ export default function IndustryBreakdownPage() {
         {/* Canvas 区域 */}
         <div
           ref={containerRef}
-          className="flex-1 relative bg-[#0a0a12] overflow-hidden"
+          className="flex-1 relative bg-card dark:bg-[#0a0a12] overflow-hidden transition-theme"
           onDrop={handleDrop}
           onDragOver={handleDragOver}
         >
@@ -525,7 +539,7 @@ export default function IndustryBreakdownPage() {
               {MATERIAL_COLORS.map((m) => (
                 <div key={m.name} className="flex items-center gap-2.5 text-xs">
                   <span
-                    className="inline-block w-3.5 h-3.5 rounded-sm flex-shrink-0 border border-white/10"
+                    className="inline-block w-3.5 h-3.5 rounded-sm flex-shrink-0 border border-border"
                     style={{ background: m.color }}
                   />
                   <span className="font-mono text-fpso-fg w-10">{m.name}</span>
@@ -592,7 +606,7 @@ export default function IndustryBreakdownPage() {
 
       {/* ════════════ 底部缩略板块 ════════════ */}
       <div
-        className="flex-shrink-0 border-t border-fpso-border bg-[#0c0c16]"
+        className="flex-shrink-0 border-t border-fpso-border bg-card dark:bg-[#0c0c16] transition-theme"
         style={{ height: 130 }}
       >
         <div className="flex items-stretch h-full">
@@ -632,7 +646,7 @@ export default function IndustryBreakdownPage() {
                 {/* 标签 */}
                 <span
                   className="text-xs font-medium text-center leading-tight"
-                  style={{ color: isActive ? item.color : "#cdd6f4" }}
+                  style={{ color: isActive ? item.color : "hsl(var(--muted-foreground))" }}
                 >
                   {item.label}
                 </span>

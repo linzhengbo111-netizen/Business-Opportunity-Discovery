@@ -174,7 +174,7 @@ function BattleCardView({ card, innerRef, followUp, timelineSummary, aiProducts,
   return (
     <div
       ref={innerRef}
-      className="battle-card w-full max-w-2xl mx-auto rounded-xl border border-white/5 bg-fpso-card/60 backdrop-blur-md shadow-2xl overflow-hidden"
+      className="battle-card w-full max-w-2xl mx-auto rounded-xl border border-border bg-fpso-card/60 backdrop-blur-md shadow-2xl overflow-hidden"
       style={{ minWidth: 600 }}
     >
       {/* ---- invalid / closed banner ---- */}
@@ -191,7 +191,7 @@ function BattleCardView({ card, innerRef, followUp, timelineSummary, aiProducts,
       )}
 
       {/* ---- top bar ---- */}
-      <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-white/5 bg-fpso-bg/40">
+      <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-border bg-fpso-bg/40">
         <div className="min-w-0 flex-1">
           <h2 className="text-base font-bold text-fpso-fg truncate">{card.projectName}</h2>
           <div className="flex items-center gap-2 mt-1">
@@ -216,7 +216,7 @@ function BattleCardView({ card, innerRef, followUp, timelineSummary, aiProducts,
       <div className="grid grid-cols-2 gap-0">
 
         {/* ---- left column ---- */}
-        <div className="p-4 space-y-4 border-r border-white/5">
+        <div className="p-4 space-y-4 border-r border-border">
           {/* why pursue */}
           <div>
             <SectionHeader>Why Pursue · 为什么值得追</SectionHeader>
@@ -364,7 +364,7 @@ function BattleCardView({ card, innerRef, followUp, timelineSummary, aiProducts,
       </div>
 
       {/* ---- footer ---- */}
-      <div className="flex items-center justify-between px-5 py-3 border-t border-white/5 bg-fpso-bg/30 text-[10px] text-fpso-dim">
+      <div className="flex items-center justify-between px-5 py-3 border-t border-border bg-fpso-bg/30 text-[10px] text-fpso-dim">
         <div className="flex items-center gap-3">
           <span>{card.evidenceSummary}</span>
           {followUp && (
@@ -471,7 +471,7 @@ export default function BattleCardWrapper({ project, baseUrl, timelineSummary }:
         <button
           type="button"
           onClick={onCopyLink}
-          className="inline-flex items-center gap-1.5 rounded-md border border-white/5 bg-fpso-card/40 px-3 py-1.5 text-xs font-medium text-fpso-fg hover:bg-fpso-blue/10 hover:text-fpso-blue hover:border-fpso-blue/30 transition-colors"
+          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-fpso-card/40 px-3 py-1.5 text-xs font-medium text-fpso-fg hover:bg-fpso-blue/10 hover:text-fpso-blue hover:border-fpso-blue/30 transition-colors"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
@@ -482,7 +482,7 @@ export default function BattleCardWrapper({ project, baseUrl, timelineSummary }:
         <button
           type="button"
           onClick={onPrint}
-          className="inline-flex items-center gap-1.5 rounded-md border border-white/5 bg-fpso-card/40 px-3 py-1.5 text-xs font-medium text-fpso-fg hover:bg-fpso-blue/10 hover:text-fpso-blue hover:border-fpso-blue/30 transition-colors"
+          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-fpso-card/40 px-3 py-1.5 text-xs font-medium text-fpso-fg hover:bg-fpso-blue/10 hover:text-fpso-blue hover:border-fpso-blue/30 transition-colors"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />

@@ -99,7 +99,7 @@ export default function FilterSidebar({
 
       {/* Sidebar — fixed on desktop, overlay on mobile */}
       <aside
-        className={`fixed top-16 left-0 z-40 border-r border-white/5 bg-fpso-card/60 backdrop-blur-md transition-all duration-300 ease-in-out overflow-hidden
+        className={`fixed top-16 left-0 z-40 border-r border-border bg-fpso-card/60 backdrop-blur-md transition-all duration-300 ease-in-out overflow-hidden
           max-md:shadow-2xl
           ${collapsed ? "max-md:-translate-x-full" : "max-md:translate-x-0"}
         `}
@@ -111,7 +111,7 @@ export default function FilterSidebar({
         {/* Collapse toggle — always visible */}
         <button
           onClick={onToggle}
-          className="absolute top-3 right-0 flex h-8 w-8 items-center justify-center rounded-l-md bg-fpso-card/80 text-fpso-muted hover:text-fpso-fg hover:bg-fpso-border/50 transition-colors border-y border-l border-white/5"
+          className="absolute top-3 right-0 flex h-8 w-8 items-center justify-center rounded-l-md bg-fpso-card/80 text-fpso-muted hover:text-fpso-fg hover:bg-fpso-border/50 transition-colors border-y border-l border-border"
           title={collapsed ? "Expand filters" : "Collapse filters"}
         >
           {collapsed ? (
@@ -238,7 +238,7 @@ export default function FilterSidebar({
 
             {/* Export button */}
             {onExport && (
-              <div className="pt-3 border-t border-white/5">
+              <div className="pt-3 border-t border-border">
                 <button
                   type="button"
                   onClick={onExport}
@@ -250,7 +250,7 @@ export default function FilterSidebar({
                   }
                   className={`inline-flex w-full items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-semibold transition-all ${
                     exportDisabled
-                      ? "cursor-not-allowed bg-fpso-bg/30 text-fpso-dim border border-white/5"
+                      ? "cursor-not-allowed bg-fpso-bg/30 text-fpso-dim border border-border"
                       : "bg-fpso-blue/15 text-fpso-blue border border-fpso-blue/30 hover:bg-fpso-blue/25 hover:border-fpso-blue/50 active:scale-[0.98]"
                   }`}
                 >
@@ -266,7 +266,7 @@ export default function FilterSidebar({
             )}
 
             {/* Show-all toggle (bottom of sidebar) */}
-            <div className="pt-3 border-t border-white/5">
+            <div className="pt-3 border-t border-border">
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-[11px] font-medium text-fpso-fg leading-snug">
@@ -316,7 +316,7 @@ function SelectField({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="h-8 w-full appearance-none rounded-md border border-white/5 bg-fpso-bg/60 px-2.5 py-1 text-xs text-fpso-fg outline-none transition-colors hover:border-white/10 focus:border-fpso-blue/40 focus:ring-1 focus:ring-fpso-blue/30"
+      className="h-8 w-full appearance-none rounded-md border border-border bg-fpso-bg/60 px-2.5 py-1 text-xs text-fpso-fg outline-none transition-colors hover:border-fpso-blue/40 focus:border-fpso-blue/40 focus:ring-1 focus:ring-fpso-blue/30"
     >
       {children}
     </select>

@@ -89,7 +89,7 @@ export default function GlobalSearch({ projects, value, onChange, onSelect }: Gl
 
       {/* glass results dropdown */}
       {showDropdown && (
-        <div className="absolute right-0 top-full z-50 mt-1.5 w-[340px] overflow-hidden rounded-lg border border-white/10 bg-fpso-card/70 shadow-2xl backdrop-blur-xl lg:w-[380px]">
+        <div className="absolute right-0 top-full z-50 mt-1.5 w-[340px] overflow-hidden rounded-lg border border-border bg-fpso-card/70 shadow-2xl backdrop-blur-xl lg:w-[380px]">
           {matches.length === 0 ? (
             <div className="px-4 py-5 text-center text-xs text-fpso-muted">
               无匹配项目 — 试试项目名 / 国家 / 油田 / 运营商
@@ -128,7 +128,7 @@ export default function GlobalSearch({ projects, value, onChange, onSelect }: Gl
                 </button>
               ))}
               {matches.length > MAX_RESULTS && (
-                <div className="border-t border-white/5 px-3.5 py-1.5 text-center text-[10px] text-fpso-dim">
+                <div className="border-t border-border px-3.5 py-1.5 text-center text-[10px] text-fpso-dim">
                   还有 {matches.length - MAX_RESULTS} 个匹配，继续输入缩小范围
                 </div>
               )}

@@ -92,7 +92,7 @@ export default function LoginPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen" style={{ background: '#0a0f1e' }}>
+      <div className="flex items-center justify-center min-h-screen" style={{ background: 'hsl(var(--background))' }}>
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-400" />
       </div>
     );
@@ -101,15 +101,9 @@ export default function LoginPage() {
   if (isAuthenticated) return null;
 
   return (
-    <div className="relative flex min-h-screen flex-col lg:flex-row" style={{ background: '#0a0f1e' }}>
+    <div className="relative flex min-h-screen flex-col lg:flex-row transition-theme" style={{ background: 'hsl(var(--background))' }}>
       {/* Grid background */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.03]"
-        style={{
-          backgroundImage: `linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px)`,
-          backgroundSize: '60px 60px',
-        }}
-      />
+      <div className="login-grid pointer-events-none absolute inset-0 opacity-[0.03]" />
       {/* Ambient glow blobs */}
       <div className="pointer-events-none absolute left-0 top-0 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-500/5 blur-[120px]" />
       <div className="pointer-events-none absolute bottom-0 right-0 h-[500px] w-[500px] translate-x-1/3 translate-y-1/3 rounded-full bg-blue-500/5 blur-[120px]" />
@@ -127,13 +121,13 @@ export default function LoginPage() {
           </div>
 
           {/* Title */}
-          <h1 className="mb-4 text-4xl font-bold tracking-tight text-slate-100 lg:text-5xl">
+          <h1 className="mb-4 text-4xl font-bold tracking-tight text-foreground lg:text-5xl">
             Business Opportunity{' '}
             <span className="bg-gradient-to-r from-emerald-400 to-emerald-300 bg-clip-text text-transparent">
               Discovery
             </span>
           </h1>
-          <p className="mb-10 text-lg leading-relaxed text-slate-400">
+          <p className="mb-10 text-lg leading-relaxed text-muted-foreground">
             Lock in stainless steel opportunities 3–6 months ahead. From reactive inquiry-waiting
             to proactive customer targeting.
           </p>
@@ -142,35 +136,35 @@ export default function LoginPage() {
           <div className="mb-12 space-y-6">
             {FEATURES.map((f) => (
               <div key={f.title} className="flex gap-4">
-                <div className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-white/5 bg-white/[0.03] text-emerald-400">
+                <div className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-border bg-card/50 text-emerald-400">
                   {f.icon}
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-200">{f.title}</h3>
-                  <p className="mt-0.5 text-sm leading-relaxed text-slate-500">{f.desc}</p>
+                  <h3 className="text-sm font-semibold text-foreground">{f.title}</h3>
+                  <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">{f.desc}</p>
                 </div>
               </div>
             ))}
           </div>
 
           {/* Stats bar */}
-          <div className="flex items-center gap-8 rounded-xl border border-white/5 bg-white/[0.02] px-8 py-4">
+          <div className="flex items-center gap-8 rounded-xl border border-border bg-card/60 px-8 py-4">
             {statsLoading ? (
-              <span className="text-sm text-slate-600">Loading stats...</span>
+              <span className="text-sm text-muted-foreground">Loading stats...</span>
             ) : (
               <>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-slate-100 tabular-nums">
+                  <div className="text-2xl font-bold text-foreground tabular-nums">
                     {stats.countries.toLocaleString()}
                   </div>
-                  <div className="text-xs text-slate-500">Countries</div>
+                  <div className="text-xs text-muted-foreground">Countries</div>
                 </div>
-                <div className="h-8 w-px bg-white/5" />
+                <div className="h-8 w-px bg-border" />
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-slate-100 tabular-nums">
+                  <div className="text-2xl font-bold text-foreground tabular-nums">
                     {stats.projects.toLocaleString()}
                   </div>
-                  <div className="text-xs text-slate-500">Projects Tracked</div>
+                  <div className="text-xs text-muted-foreground">Projects Tracked</div>
                 </div>
               </>
             )}
@@ -183,8 +177,8 @@ export default function LoginPage() {
         <div className="w-full max-w-sm">
           {/* Card */}
           <div
-            className="rounded-2xl border border-white/10 p-8 backdrop-blur-xl"
-            style={{ background: 'rgba(255,255,255,0.02)' }}
+            className="rounded-2xl border border-border p-8 backdrop-blur-xl transition-theme"
+            style={{ background: 'hsl(var(--card))' }}
           >
             {/* Logo / icon */}
             <div className="mb-6 flex justify-center">
@@ -209,10 +203,10 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <h2 className="mb-2 text-center text-lg font-semibold text-slate-200">
+            <h2 className="mb-2 text-center text-lg font-semibold text-foreground">
               Welcome back
             </h2>
-            <p className="mb-8 text-center text-sm text-slate-500">
+            <p className="mb-8 text-center text-sm text-muted-foreground">
               Sign in to access your dashboard
             </p>
 
@@ -242,14 +236,14 @@ export default function LoginPage() {
             <div className="text-center">
               <button
                 onClick={handleGuest}
-                className="text-sm text-slate-500 underline decoration-slate-700 underline-offset-4
-                           transition-colors hover:text-slate-300 hover:decoration-slate-500"
+                className="text-sm text-muted-foreground underline decoration-fpso-border underline-offset-4
+                           transition-colors hover:text-fpso-fg hover:decoration-fpso-muted"
               >
                 Continue as Guest
               </button>
             </div>
 
-            <p className="mt-6 text-center text-xs text-slate-600">
+            <p className="mt-6 text-center text-xs text-muted-foreground">
               No registration required — scan Feishu QR to sign in
             </p>
           </div>

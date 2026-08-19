@@ -25,15 +25,15 @@ export default {
         extend: {
             colors: {
                 fpso: {
-                    blue: '#00d4ff',
-                    orange: '#ff9f43',
-                    green: '#10b981',
-                    bg: '#0a0f1e',
-                    card: '#131a2e',
-                    border: '#1e2844',
-                    muted: '#94a3b8',
-                    fg: '#f8fafc',
-                    dim: '#64748b',
+                    blue: 'hsl(var(--primary))',
+                    orange: 'hsl(var(--accent))',
+                    green: 'hsl(var(--success))',
+                    bg: 'hsl(var(--background))',
+                    card: 'hsl(var(--card))',
+                    border: 'hsl(var(--border))',
+                    muted: 'hsl(var(--muted-foreground))',
+                    fg: 'hsl(var(--foreground))',
+                    dim: 'hsl(var(--dim))',
                 },
                 border: 'hsl(var(--border))',
                 borderColor: {

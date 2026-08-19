@@ -5,6 +5,15 @@
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // FOUC 防护：React 加载前按持久化主题设置 class（Safari 隐私模式 localStorage 会抛异常）
+      try {
+        var storedTheme = localStorage.getItem('app-theme');
+        document.documentElement.classList.add(storedTheme === 'light' ? 'light' : 'dark');
+      } catch (e) {
+        document.documentElement.classList.add('dark');
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
