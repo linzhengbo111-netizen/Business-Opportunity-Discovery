@@ -379,6 +379,11 @@
     max-width: 1000px;
   }
 
+  /* 深色地图资产在浅色模式下反色显示 */
+  html.light .map-bg-img {
+    filter: invert(1) hue-rotate(180deg);
+  }
+
   /* 下拉选项深色主题 */
   select option {
     background-color: #131a2e;

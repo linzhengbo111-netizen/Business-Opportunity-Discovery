@@ -123,7 +123,7 @@ export default function LoginPage() {
           {/* Title */}
           <h1 className="mb-4 text-4xl font-bold tracking-tight text-foreground lg:text-5xl">
             Business Opportunity{' '}
-            <span className="bg-gradient-to-r from-emerald-400 to-emerald-300 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-emerald-600 to-emerald-500 dark:from-emerald-400 dark:to-emerald-300 bg-clip-text text-transparent">
               Discovery
             </span>
           </h1>

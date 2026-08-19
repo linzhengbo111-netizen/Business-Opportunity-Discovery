@@ -901,7 +901,7 @@ export default function DashboardPage() {
             <img
               src="/world-map.png"
               alt="世界地图轮廓"
-              className="pointer-events-none absolute inset-0 z-0 h-auto w-full select-none"
+              className="map-bg-img pointer-events-none absolute inset-0 z-0 h-auto w-full select-none"
               style={{ filter: "brightness(2.0) contrast(1.4)" }}
             />
             {loading ? (

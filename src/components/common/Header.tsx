@@ -70,24 +70,15 @@ export default function Header({ rightContent }: { rightContent?: ReactNode }) {
           </Button>
           {!loading && (
             isGuest ? (
-              /* Guest mode: badge + login CTA */
-              <div className="flex items-center gap-3">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-medium text-amber-400">
-                  <span className="relative flex h-1.5 w-1.5">
-                    <span className="absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-amber-400" />
-                  </span>
-                  Guest Mode
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={login}
-                  className="border-fpso-blue/30 text-fpso-blue hover:bg-fpso-blue/10 text-xs"
-                >
-                  Feishu Login
-                </Button>
-              </div>
+              /* Guest mode: login CTA */
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={login}
+                className="border-fpso-blue/30 text-fpso-blue hover:bg-fpso-blue/10 text-xs"
+              >
+                Feishu Login
+              </Button>
             ) : isAuthenticated && user ? (
               /* Authenticated user: avatar dropdown */
               <DropdownMenu>
