@@ -21,7 +21,6 @@ import { PHASES, PHASE_UNKNOWN, phaseBgClass, phaseFromRow } from "@/lib/project
 import BattleCardWrapper from "@/components/dashboard/BattleCard";
 import FollowUpStatus from "@/components/dashboard/FollowUpStatus";
 import { useSubscription } from "@/hooks/useSubscription";
-import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 
@@ -198,7 +197,6 @@ export default function DatabasePage() {
 
   // subscription (follow/unfollow)
   const { isFollowing, toggleFollowProject, isAuthenticated } = useSubscription();
-  const { isGuest } = useAuth();
   const { version, status: connectionStatus } = useProjectRealtime();
   const timelineEventCounts = useTimelineEventCounts(version);
 
@@ -407,8 +405,7 @@ export default function DatabasePage() {
             <label className="text-xs font-medium text-fpso-muted">Confidence</label>
             <select
               value={confidenceFilter}
-              onChange={isGuest ? () => {} : (e) => setConfidenceFilter(e.target.value)}
-              disabled={isGuest}
+              onChange={(e) => setConfidenceFilter(e.target.value)}
               className="h-8 min-w-[120px] rounded-md bg-fpso-bg/70 px-2.5 py-1 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50 border border-fpso-border disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <option value="High & Medium">High &amp; Medium</option>
@@ -675,8 +672,8 @@ export default function DatabasePage() {
               )}
             </div>
 
-            {/* follow / unfollow button — hidden for guests */}
-            {isAuthenticated && !isGuest && (
+            {/* follow / unfollow button */}
+            {isAuthenticated && (
               <div className="mb-4">
                 <Button
                   variant={isFollowing(selected.name) ? 'default' : 'outline'}
@@ -693,15 +690,13 @@ export default function DatabasePage() {
               </div>
             )}
 
-            {/* Follow-up Status (S7) — hidden for guests */}
-            {!isGuest && (
-              <section className="mb-6">
-                <FollowUpStatus
-                  projectId={selected.name}
-                  projectName={selected.name}
-                />
-              </section>
-            )}
+            {/* Follow-up Status (S7) */}
+            <section className="mb-6">
+              <FollowUpStatus
+                projectId={selected.name}
+                projectName={selected.name}
+              />
+            </section>
 
             {/* summary */}
             <section className="mb-6">
@@ -925,19 +920,17 @@ export default function DatabasePage() {
                     <span className="font-semibold text-fpso-blue">Action: </span>
                     {scoreResult.recommendedAction}
                   </p>
-                  {/* Battle Card button — hidden for guests */}
-                  {!isGuest && (
-                    <button
-                      type="button"
-                      onClick={() => setBattleCardProject(selected)}
-                      className="mb-3 inline-flex items-center gap-1.5 rounded-md border border-fpso-green/20 bg-fpso-green/5 px-3 py-1.5 text-xs font-medium text-fpso-green hover:bg-fpso-green/10 hover:border-fpso-green/30 transition-colors"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      生成作战卡
-                    </button>
-                  )}
+                  {/* Battle Card button */}
+                  <button
+                    type="button"
+                    onClick={() => setBattleCardProject(selected)}
+                    className="mb-3 inline-flex items-center gap-1.5 rounded-md border border-fpso-green/20 bg-fpso-green/5 px-3 py-1.5 text-xs font-medium text-fpso-green hover:bg-fpso-green/10 hover:border-fpso-green/30 transition-colors"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    生成作战卡
+                  </button>
                   <details className="group mb-2">
                     <summary className="text-xs font-medium text-fpso-blue hover:text-fpso-blue/80 transition-colors cursor-pointer select-none">
                       Show dimension details

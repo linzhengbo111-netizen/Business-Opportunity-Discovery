@@ -9,7 +9,6 @@ export interface LarkUser {
   open_id: string;
   name: string;
   avatar_url: string;
-  role?: 'user' | 'guest';
 }
 
 interface AuthContextType {
@@ -17,9 +16,7 @@ interface AuthContextType {
   loading: boolean;
   login: () => void;
   logout: () => void;
-  loginAsGuest: () => void;
   isAuthenticated: boolean;
-  isGuest: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -42,8 +39,8 @@ function loadUserFromStorage(): LarkUser | null {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    // Real user: has open_id and name. Guest user: has role === 'guest'.
-    if (parsed && ((parsed.open_id && parsed.name) || parsed.role === 'guest')) return parsed;
+    // Real user: has open_id and name. Legacy guest records (open_id === 'guest') are rejected.
+    if (parsed && parsed.open_id && parsed.name && parsed.open_id !== 'guest') return parsed;
     return null;
   } catch {
     return null;
@@ -90,7 +87,6 @@ async function exchangeCodeForUser(code: string): Promise<LarkUser | null> {
       open_id: data.open_id,
       name: data.name || 'Unknown User',
       avatar_url: data.avatar_url || '',
-      role: 'user',
     };
   } catch (err) {
     clearTimeout(timeoutId);
@@ -160,24 +156,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.location.href = authUrl.toString();
   }, []);
 
-  const loginAsGuest = useCallback(() => {
-    const guestUser: LarkUser = {
-      open_id: 'guest',
-      name: '游客',
-      avatar_url: '',
-      role: 'guest',
-    };
-    setUser(guestUser);
-    saveUserToStorage(guestUser);
-  }, []);
-
   const logout = useCallback(() => {
     setUser(null);
     clearUserFromStorage();
     toast.info('Logged out');
   }, []);
-
-  const isGuest = user?.role === 'guest';
 
   return (
     <AuthContext.Provider
@@ -186,9 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         login,
         logout,
-        loginAsGuest,
         isAuthenticated: user !== null,
-        isGuest,
       }}
     >
       {children}

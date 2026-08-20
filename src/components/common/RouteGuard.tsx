@@ -12,10 +12,8 @@ const SYSTEM_PUBLIC_ROUTES = ['/login', '/403', '/404'];
 
 // Derived from routes.tsx
 const routePublicPaths = routes.filter(r => r.public).map(r => r.path);
-const routeGuestPaths = routes.filter(r => r.guestAccessible).map(r => r.path);
 
 const PUBLIC_ROUTES = [...SYSTEM_PUBLIC_ROUTES, ...routePublicPaths];
-const GUEST_ROUTES = [...PUBLIC_ROUTES, ...routeGuestPaths];
 
 function matchRoute(path: string, patterns: string[]) {
   return patterns.some(pattern => {
@@ -28,7 +26,7 @@ function matchRoute(path: string, patterns: string[]) {
 }
 
 export function RouteGuard({ children }: RouteGuardProps) {
-  const { user, loading, isGuest } = useAuth();
+  const { user, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -36,19 +34,13 @@ export function RouteGuard({ children }: RouteGuardProps) {
     if (loading) return;
 
     const isPublic = matchRoute(location.pathname, PUBLIC_ROUTES);
-    const isGuestAccessible = matchRoute(location.pathname, GUEST_ROUTES);
 
     // Unauthenticated: only public routes
     if (!user && !isPublic) {
       navigate('/login', { state: { from: location.pathname }, replace: true });
       return;
     }
-
-    // Guest: public + guestAccessible routes only
-    if (user && isGuest && !isGuestAccessible) {
-      navigate('/', { replace: true });
-    }
-  }, [user, loading, location.pathname, navigate, isGuest]);
+  }, [user, loading, location.pathname, navigate]);
 
   if (loading) {
     return (

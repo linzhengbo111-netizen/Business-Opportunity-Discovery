@@ -1,7 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import type { ReactNode } from 'react';
-import { Radar, FileText, History, Sun, Moon } from 'lucide-react';
-import { useTheme } from 'next-themes';
+import { Radar, FileText, History } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -18,13 +17,10 @@ function linkClass({ isActive }: { isActive: boolean }) {
 }
 
 export default function Header({ rightContent }: { rightContent?: ReactNode }) {
-  const { user, isAuthenticated, isGuest, login, logout, loading } = useAuth();
-  const { theme, setTheme } = useTheme();
-  // 默认深色：theme 为 undefined（挂载前）时按 dark 处理
-  const isLight = theme === 'light';
+  const { user, isAuthenticated, login, logout, loading } = useAuth();
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-fpso-bg/70 backdrop-blur-md transition-theme">
+    <header className="sticky top-0 z-50 w-full border-b border-white/5 bg-fpso-bg/70 backdrop-blur-md">
       <div className="relative mx-auto flex h-16 max-w-7xl items-center px-6">
         {/* left: title */}
         <div className="z-10 flex-shrink-0">
@@ -56,30 +52,10 @@ export default function Header({ rightContent }: { rightContent?: ReactNode }) {
           </NavLink>
         </nav>
 
-        {/* right: theme toggle + user controls + external rightContent */}
+        {/* right: user controls + external rightContent */}
         <div className="z-10 ml-auto flex flex-shrink-0 items-center gap-4 overflow-hidden">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setTheme(isLight ? 'dark' : 'light')}
-            className="h-9 w-9 shrink-0 text-fpso-muted hover:bg-fpso-blue/10 hover:text-fpso-blue"
-            title={isLight ? '切换到深色模式' : '切换到浅色模式'}
-            aria-label={isLight ? '切换到深色模式' : '切换到浅色模式'}
-          >
-            {isLight ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
-          </Button>
           {!loading && (
-            isGuest ? (
-              /* Guest mode: login CTA */
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={login}
-                className="border-fpso-blue/30 text-fpso-blue hover:bg-fpso-blue/10 text-xs"
-              >
-                Feishu Login
-              </Button>
-            ) : isAuthenticated && user ? (
+            isAuthenticated && user ? (
               /* Authenticated user: avatar dropdown */
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

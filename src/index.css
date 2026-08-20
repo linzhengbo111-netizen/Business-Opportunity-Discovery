@@ -50,86 +50,6 @@
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 222 32% 19%;
     --sidebar-ring: 189 100% 50%;
-
-    /* 补充色（fpso.dim 映射） */
-    --dim: 215 16% 47%; /* #64748b */
-
-    /* 进度条未点亮段、登录页网格线（.light 下覆盖） */
-    --phase-unlit: 222 32% 19%; /* #1e2844 */
-    --grid-line: rgba(255, 255, 255, 0.05);
-
-    /* 发光/悬停强度控制 — html.light 下覆盖减弱 */
-    --neon-shadow: 0 0 8px rgba(0, 212, 255, 0.45), 0 0 18px rgba(0, 212, 255, 0.25);
-    --pulse-ring: rgba(0, 212, 255, 0.6);
-    --pulse-ring-outer: rgba(0, 212, 255, 0.35);
-    --pulse-hover: rgba(0, 212, 255, 0.9), rgba(0, 212, 255, 0.5), rgba(0, 212, 255, 0.25);
-    --pulse-core: rgba(0, 212, 255, 0.5);
-    --pulse-core-strong: rgba(0, 212, 255, 0.75);
-    --slice-glow: rgba(0, 212, 255, 0.6);
-    --row-hover: rgba(255, 255, 255, 0.035);
-
-    color-scheme: dark;
-  }
-
-  /* 浅色日间模式 — 高级白灰科技感（覆盖全部颜色变量） */
-  html.light {
-    color-scheme: light;
-
-    --background: 210 40% 96%; /* #f0f4f8 */
-    --foreground: 220 30% 10%; /* #122036 */
-    --card: 0 0% 100%;
-    --card-foreground: 220 30% 10%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 30% 10%;
-    --primary: 196 100% 38%; /* #0090c0 霓虹蓝降亮度防刺眼 */
-    --primary-foreground: 220 45% 7%;
-    --secondary: 210 20% 94%;
-    --secondary-foreground: 220 30% 10%;
-    --muted: 210 20% 94%;
-    --muted-foreground: 220 10% 45%;
-    --accent: 27 100% 55%;
-    --accent-foreground: 220 45% 7%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 220 45% 7%;
-    --border: 210 20% 88%; /* #e2e8f0 */
-    --input: 210 20% 88%;
-    --ring: 196 100% 38%;
-    --success: 158 64% 38%;
-    --success-foreground: 220 45% 7%;
-    --warning: 27 100% 55%;
-    --warning-foreground: 220 45% 7%;
-    --info: 196 100% 38%;
-    --info-foreground: 220 45% 7%;
-
-    --chart-1: 196 100% 38%;
-    --chart-2: 27 100% 55%;
-    --chart-3: 158 64% 38%;
-    --chart-4: 225 60% 45%;
-    --chart-5: 280 55% 50%;
-
-    --sidebar-background: 210 35% 94%;
-    --sidebar-foreground: 220 30% 10%;
-    --sidebar-primary: 196 100% 38%;
-    --sidebar-primary-foreground: 220 45% 7%;
-    --sidebar-accent: 210 20% 92%;
-    --sidebar-accent-foreground: 220 30% 10%;
-    --sidebar-border: 210 20% 88%;
-    --sidebar-ring: 196 100% 38%;
-
-    --dim: 220 10% 45%;
-
-    --phase-unlit: 210 20% 88%;
-    --grid-line: rgba(15, 23, 42, 0.06);
-
-    /* 发光效果大幅减弱，避免浅色下文字模糊/光晕刺眼 */
-    --neon-shadow: none;
-    --pulse-ring: rgba(0, 144, 192, 0.4);
-    --pulse-ring-outer: rgba(0, 144, 192, 0.25);
-    --pulse-hover: rgba(0, 144, 192, 0.35), rgba(0, 144, 192, 0.2);
-    --pulse-core: rgba(0, 144, 192, 0.3);
-    --pulse-core-strong: rgba(0, 144, 192, 0.45);
-    --slice-glow: rgba(0, 144, 192, 0.3);
-    --row-hover: rgba(15, 23, 42, 0.04);
   }
 }
 
@@ -154,16 +74,6 @@
     font-family: "Inter", "Glow Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
 
-  /* 主题切换过渡 — 只过渡颜色属性，避免影响布局与图表 */
-  html,
-  body,
-  .transition-theme {
-    transition:
-      background-color 0.3s ease,
-      border-color 0.3s ease,
-      color 0.3s ease;
-  }
-
   .font-mono {
     font-family: "JetBrains Mono", "Fira Code", "Courier New", monospace;
   }
@@ -173,7 +83,7 @@
   /* 标题霓虹发光效果 */
   .neon-glow {
     color: hsl(var(--primary));
-    text-shadow: var(--neon-shadow);
+    text-shadow: 0 0 8px rgba(0, 212, 255, 0.45), 0 0 18px rgba(0, 212, 255, 0.25);
   }
 
   /* 地图光点 — 双层脉冲 + hover 增强 */
@@ -188,7 +98,7 @@
     top: 50%;
     left: 50%;
     border-radius: 50%;
-    border: 1px solid var(--pulse-ring);
+    border: 1px solid rgba(0, 212, 255, 0.6);
     transform: translate(-50%, -50%);
     pointer-events: none;
   }
@@ -207,14 +117,14 @@
     height: 100%;
     animation: map-ring-outer 2.5s ease-out infinite;
     animation-delay: calc(var(--dot-delay, 0s) + 0.15s);
-    border-color: var(--pulse-ring-outer);
+    border-color: rgba(0, 212, 255, 0.35);
   }
 
   /* hover: 暂停呼吸动画, 放大 1.5 倍, 增强发光 */
   .map-pulse:hover {
     animation-play-state: paused;
     transform: translate(-50%, -50%) scale(1.5);
-    box-shadow: var(--pulse-hover);
+    box-shadow: 0 0 14px rgba(0, 212, 255, 0.9), 0 0 28px rgba(0, 212, 255, 0.5), 0 0 42px rgba(0, 212, 255, 0.25);
     z-index: 20;
     transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
   }
@@ -236,7 +146,7 @@
 
   .chart-slice:hover {
     transform: scale(1.06);
-    filter: drop-shadow(0 0 6px var(--slice-glow));
+    filter: drop-shadow(0 0 6px rgba(0, 212, 255, 0.6));
   }
 
   /* Other 扇区不可交互 */
@@ -252,11 +162,11 @@
   @keyframes map-core-pulse {
     0%, 100% {
       transform: translate(-50%, -50%) scale(1);
-      box-shadow: 0 0 4px var(--pulse-core);
+      box-shadow: 0 0 4px rgba(0, 212, 255, 0.5);
     }
     50% {
       transform: translate(-50%, -50%) scale(1.18);
-      box-shadow: 0 0 10px var(--pulse-core-strong);
+      box-shadow: 0 0 10px rgba(0, 212, 255, 0.75);
     }
   }
 
@@ -319,7 +229,7 @@
   }
 
   .project-row:hover {
-    background-color: var(--row-hover);
+    background-color: rgba(255, 255, 255, 0.035);
     transform: translateX(2px);
   }
 
@@ -351,14 +261,6 @@
     display: none;
   }
 
-  /* 登录页网格背景（线条颜色随主题） */
-  .login-grid {
-    background-image:
-      linear-gradient(var(--grid-line) 1px, transparent 1px),
-      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
-    background-size: 60px 60px;
-  }
-
   /* 采购链标签 */
   .procurement-tag {
     transition: background-color 0.15s;
@@ -379,21 +281,10 @@
     max-width: 1000px;
   }
 
-  /* 深色地图资产在浅色模式下反色显示 */
-  html.light .map-bg-img {
-    filter: invert(1) hue-rotate(180deg);
-  }
-
   /* 下拉选项深色主题 */
   select option {
     background-color: #131a2e;
     color: #f8fafc;
-  }
-
-  /* 浅色下下拉选项 */
-  html.light select option {
-    background-color: #ffffff;
-    color: #0f172a;
   }
 
   /* 自定义下拉箭头 — 替换浏览器原生样式（配合 appearance-none） */

@@ -16,8 +16,6 @@ export interface RouteConfig {
   visible?: boolean;
   /** Accessible without login. Routes without this flag require authentication. */
   public?: boolean;
-  /** Accessible in guest mode. Guests can only visit public routes + guestAccessible routes. */
-  guestAccessible?: boolean;
 }
 
 export const routes: RouteConfig[] = [
@@ -37,19 +35,16 @@ export const routes: RouteConfig[] = [
     name: 'Dashboard',
     path: '/',
     element: <DashboardPage />,
-    guestAccessible: true,
   },
   {
     name: 'Database',
     path: '/database',
     element: <DatabasePage />,
-    guestAccessible: true,
   },
   {
     name: 'BattleCards',
     path: '/battlecards',
     element: <BattleCardsPage />,
-    guestAccessible: true,
   },
   {
     name: 'Review',
@@ -65,6 +60,5 @@ export const routes: RouteConfig[] = [
     name: 'ProjectTimeline',
     path: '/project-timeline',
     element: <ProjectTimelinePage />,
-    guestAccessible: true,
   },
 ];

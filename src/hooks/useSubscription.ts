@@ -77,8 +77,7 @@ export function useSubscription() {
 
   // Fetch user's subscription from Supabase
   const fetchSubscription = useCallback(async () => {
-    // Guests have no subscription rows — skip the round trip entirely.
-    if (!user?.open_id || user?.role === "guest") {
+    if (!user?.open_id) {
       setSubscription(null);
       return;
     }

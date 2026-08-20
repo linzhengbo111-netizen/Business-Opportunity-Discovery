@@ -68,10 +68,23 @@ export default {
 
     // POST /api/feishu/token — exchange OIDC authorization code for user info
     if (url.pathname === '/api/feishu/token' && request.method === 'POST') {
+      // Parse JSON safely; return upstream raw text + HTTP status on failure so
+      // the exact Feishu error (credential / permission / format) is visible.
+      const parseUpstream = async (resp) => {
+        const text = await resp.text();
+        let json = {};
+        try { json = JSON.parse(text); } catch (e) { /* non-JSON upstream */ }
+        return { text: text.slice(0, 500), json };
+      };
+
       try {
         const { code } = await request.json();
         if (!code) {
           return Response.json({ error: 'Missing code parameter' }, { status: 400 });
+        }
+        if (!env.LARK_APP_ID || !env.LARK_APP_SECRET) {
+          console.log('[feishu] missing env: app_id=%s secret=%s', !!env.LARK_APP_ID, !!env.LARK_APP_SECRET);
+          return Response.json({ error: 'LARK_APP_ID/LARK_APP_SECRET not configured in worker' }, { status: 500 });
         }
 
         // Step 1: get tenant_access_token
@@ -86,9 +99,13 @@ export default {
             }),
           }
         );
-        const tenantData = await tenantResp.json();
-        if (tenantData.code !== 0) {
-          return Response.json({ error: tenantData.msg }, { status: 400 });
+        const tenant = await parseUpstream(tenantResp);
+        console.log('[feishu] step1 tenant_token http=%d body=%s', tenantResp.status, tenant.text);
+        if (tenantResp.status !== 200 || tenant.json.code !== 0) {
+          return Response.json(
+            { error: 'Feishu tenant_access_token failed', step: 1, http: tenantResp.status, upstream: tenant.json },
+            { status: 502 }
+          );
         }
 
         // Step 2: exchange authorization code for user_access_token
@@ -98,18 +115,22 @@ export default {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              Authorization: `Bearer ${tenantData.tenant_access_token}`,
+              Authorization: `Bearer ${tenant.json.tenant_access_token}`,
             },
             body: JSON.stringify({ grant_type: 'authorization_code', code }),
           }
         );
-        const oidcData = await oidcResp.json();
-        if (oidcData.code !== 0) {
-          return Response.json({ error: oidcData.msg }, { status: 400 });
+        const oidc = await parseUpstream(oidcResp);
+        console.log('[feishu] step2 oidc http=%d body=%s', oidcResp.status, oidc.text);
+        if (oidcResp.status !== 200 || oidc.json.code !== 0) {
+          return Response.json(
+            { error: 'Feishu OIDC token exchange failed', step: 2, http: oidcResp.status, upstream: oidc.json },
+            { status: 502 }
+          );
         }
-        const userAccessToken = oidcData.data?.access_token;
+        const userAccessToken = oidc.json.data?.access_token;
         if (!userAccessToken) {
-          return Response.json({ error: 'No access_token in response' }, { status: 400 });
+          return Response.json({ error: 'No access_token in response', step: 2, upstream: oidc.json }, { status: 502 });
         }
 
         // Step 3: get user info
@@ -119,18 +140,26 @@ export default {
             headers: { Authorization: `Bearer ${userAccessToken}` },
           }
         );
-        const userData = await userResp.json();
-        if (userData.code !== 0) {
-          return Response.json({ error: userData.msg }, { status: 400 });
+        const userInfo = await parseUpstream(userResp);
+        console.log('[feishu] step3 user_info http=%d body=%s', userResp.status, userInfo.text);
+        if (userResp.status !== 200 || userInfo.json.code !== 0) {
+          return Response.json(
+            { error: 'Feishu user_info failed', step: 3, http: userResp.status, upstream: userInfo.json },
+            { status: 502 }
+          );
         }
 
         return Response.json({
-          open_id: userData.data?.open_id || '',
-          name: userData.data?.name || 'Unknown',
-          avatar_url: userData.data?.avatar_url || '',
+          open_id: userInfo.json.data?.open_id || '',
+          name: userInfo.json.data?.name || 'Unknown',
+          avatar_url: userInfo.json.data?.avatar_url || '',
         });
       } catch (err) {
-        return Response.json({ error: 'Internal server error' }, { status: 500 });
+        console.log('[feishu] exception: %s', String((err && err.stack) || err));
+        return Response.json(
+          { error: 'Internal server error', detail: String(err) },
+          { status: 500 }
+        );
       }
     }
 

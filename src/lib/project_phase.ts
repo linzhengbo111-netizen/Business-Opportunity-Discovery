@@ -194,7 +194,7 @@ export const PHASE_SEGMENTS = [
   { label: "Delivery", color: "#10b981" },
 ] as const;
 
-export const PHASE_UNLIT = "var(--phase-unlit)";
+export const PHASE_UNLIT = "#1e2844";
 
 /* ------------------------------------------------------------------ */
 /* Legacy compatibility — reads old 4-value status data safely         */

@@ -36,7 +36,7 @@ const FEATURES = [
 ];
 
 export default function LoginPage() {
-  const { login, loginAsGuest, isAuthenticated, loading } = useAuth();
+  const { login, isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: string })?.from || '/';
@@ -85,14 +85,9 @@ export default function LoginPage() {
     login();
   }, [login, from]);
 
-  const handleGuest = useCallback(() => {
-    loginAsGuest();
-    navigate('/', { replace: true });
-  }, [loginAsGuest, navigate]);
-
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen" style={{ background: 'hsl(var(--background))' }}>
+      <div className="flex items-center justify-center min-h-screen" style={{ background: '#0a0f1e' }}>
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-400" />
       </div>
     );
@@ -101,9 +96,15 @@ export default function LoginPage() {
   if (isAuthenticated) return null;
 
   return (
-    <div className="relative flex min-h-screen flex-col lg:flex-row transition-theme" style={{ background: 'hsl(var(--background))' }}>
+    <div className="relative flex min-h-screen flex-col lg:flex-row" style={{ background: '#0a0f1e' }}>
       {/* Grid background */}
-      <div className="login-grid pointer-events-none absolute inset-0 opacity-[0.03]" />
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage: `linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px)`,
+          backgroundSize: '60px 60px',
+        }}
+      />
       {/* Ambient glow blobs */}
       <div className="pointer-events-none absolute left-0 top-0 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-500/5 blur-[120px]" />
       <div className="pointer-events-none absolute bottom-0 right-0 h-[500px] w-[500px] translate-x-1/3 translate-y-1/3 rounded-full bg-blue-500/5 blur-[120px]" />
@@ -123,7 +124,7 @@ export default function LoginPage() {
           {/* Title */}
           <h1 className="mb-4 text-4xl font-bold tracking-tight text-foreground lg:text-5xl">
             Business Opportunity{' '}
-            <span className="bg-gradient-to-r from-emerald-600 to-emerald-500 dark:from-emerald-400 dark:to-emerald-300 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-emerald-400 to-emerald-300 bg-clip-text text-transparent">
               Discovery
             </span>
           </h1>
@@ -177,8 +178,8 @@ export default function LoginPage() {
         <div className="w-full max-w-sm">
           {/* Card */}
           <div
-            className="rounded-2xl border border-border p-8 backdrop-blur-xl transition-theme"
-            style={{ background: 'hsl(var(--card))' }}
+            className="rounded-2xl border border-border p-8 backdrop-blur-xl"
+            style={{ background: 'rgba(255,255,255,0.02)' }}
           >
             {/* Logo / icon */}
             <div className="mb-6 flex justify-center">
@@ -231,17 +232,6 @@ export default function LoginPage() {
               </svg>
               Feishu Login
             </button>
-
-            {/* Guest mode link */}
-            <div className="text-center">
-              <button
-                onClick={handleGuest}
-                className="text-sm text-muted-foreground underline decoration-fpso-border underline-offset-4
-                           transition-colors hover:text-fpso-fg hover:decoration-fpso-muted"
-              >
-                Continue as Guest
-              </button>
-            </div>
 
             <p className="mt-6 text-center text-xs text-muted-foreground">
               No registration required — scan Feishu QR to sign in
