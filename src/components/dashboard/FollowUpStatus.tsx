@@ -11,6 +11,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useFollowUp, FOLLOW_UP_STATUS_LABELS, FOLLOW_UP_STATUS_COLORS, type FollowUpStatus, type FollowUp, type FollowUpCorrections } from "@/hooks/useFollowUp";
+import { useRequireLogin } from "@/hooks/useRequireLogin";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -50,6 +51,7 @@ export default function FollowUpStatus({
   compact = false,
 }: FollowUpStatusProps) {
   const { followUp, getFollowUp, loading, isAuthenticated } = useFollowUp();
+  const requireLogin = useRequireLogin();
 
   const [current, setCurrent] = useState<FollowUp | null>(initialFollowUp ?? null);
   const [fetched, setFetched] = useState(!!initialFollowUp);
@@ -79,13 +81,14 @@ export default function FollowUpStatus({
 
   // Populate form when editing starts
   const startEdit = useCallback((status: FollowUpStatus) => {
+    if (!requireLogin()) return;
     setPendingStatus(status);
     setNotes(current?.notes ?? "");
     setActualMaterial((current?.corrections as FollowUpCorrections | null)?.actualMaterial ?? "");
     setActualProcurementDate((current?.corrections as FollowUpCorrections | null)?.actualProcurementDate ?? "");
     setAdditionalNotes((current?.corrections as FollowUpCorrections | null)?.additionalNotes ?? "");
     setEditing(true);
-  }, [current]);
+  }, [current, requireLogin]);
 
   const cancelEdit = useCallback(() => {
     setEditing(false);
@@ -114,8 +117,6 @@ export default function FollowUpStatus({
   // Helper: check if a status matches current
   const isActive = (s: FollowUpStatus) => current?.status === s;
 
-  if (!isAuthenticated) return null;
-
   if (compact) {
     // Compact mode: just show the current status badge
     if (!current) return null;
@@ -140,6 +141,12 @@ export default function FollowUpStatus({
         )}
       </div>
 
+      {!isAuthenticated && (
+        <p className="text-[11px] text-fpso-dim">
+          Log in with Feishu to save follow-up status.
+        </p>
+      )}
+
       {/* Status buttons */}
       <div className="flex flex-wrap gap-1.5">
         {ALL_STATUSES.map((s) => (
@@ -148,6 +155,7 @@ export default function FollowUpStatus({
             type="button"
             disabled={loading || saving}
             onClick={() => {
+              if (!requireLogin()) return;
               if (isActive(s) && !editing) {
                 // Re-clicking active status opens edit
                 startEdit(s);

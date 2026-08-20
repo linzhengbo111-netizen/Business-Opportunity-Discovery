@@ -21,6 +21,7 @@ import { PHASES, PHASE_UNKNOWN, phaseBgClass, phaseFromRow } from "@/lib/project
 import BattleCardWrapper from "@/components/dashboard/BattleCard";
 import FollowUpStatus from "@/components/dashboard/FollowUpStatus";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useRequireLogin } from "@/hooks/useRequireLogin";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 
@@ -196,7 +197,8 @@ export default function DatabasePage() {
   const [battleCardProject, setBattleCardProject] = useState<Project | null>(null);
 
   // subscription (follow/unfollow)
-  const { isFollowing, toggleFollowProject, isAuthenticated } = useSubscription();
+  const { isFollowing, toggleFollowProject } = useSubscription();
+  const requireLogin = useRequireLogin();
   const { version, status: connectionStatus } = useProjectRealtime();
   const timelineEventCounts = useTimelineEventCounts(version);
 
@@ -672,23 +674,24 @@ export default function DatabasePage() {
               )}
             </div>
 
-            {/* follow / unfollow button */}
-            {isAuthenticated && (
-              <div className="mb-4">
-                <Button
-                  variant={isFollowing(selected.name) ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => toggleFollowProject(selected.name)}
-                  className={
-                    isFollowing(selected.name)
-                      ? 'bg-fpso-blue hover:bg-fpso-blue/80 text-primary-foreground text-xs'
-                      : 'border-fpso-blue/30 text-fpso-blue hover:bg-fpso-blue/10 text-xs'
-                  }
-                >
-                  {isFollowing(selected.name) ? '★ Following' : '☆ Follow'}
-                </Button>
-              </div>
-            )}
+            {/* follow / unfollow button — login required on click */}
+            <div className="mb-4">
+              <Button
+                variant={isFollowing(selected.name) ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => {
+                  if (!requireLogin()) return;
+                  toggleFollowProject(selected.name);
+                }}
+                className={
+                  isFollowing(selected.name)
+                    ? 'bg-fpso-blue hover:bg-fpso-blue/80 text-primary-foreground text-xs'
+                    : 'border-fpso-blue/30 text-fpso-blue hover:bg-fpso-blue/10 text-xs'
+                }
+              >
+                {isFollowing(selected.name) ? '★ Following' : '☆ Follow'}
+              </Button>
+            </div>
 
             {/* Follow-up Status (S7) */}
             <section className="mb-6">

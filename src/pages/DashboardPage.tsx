@@ -18,6 +18,7 @@ import { supabase, fetchAllRows } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
 import { useTimelineEventCounts } from "@/hooks/useTimelineEventCounts";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useRequireLogin } from "@/hooks/useRequireLogin";
 import { matchMaterials, specsFromRow, hasAnySpecs, parseRecommendation, parseCorrosiveMedia, getCorrosiveMediaTags, getCorrosiveMediaDetails } from "@/lib/material_matcher";
 import { exportOpportunityList } from "@/lib/export_opportunities";
 import { filterMatureProjects, hasTimelineData } from "@/lib/project_maturity";
@@ -308,7 +309,8 @@ export default function DashboardPage() {
   const [timelineLoading, setTimelineLoading] = useState(false);
   const { version, status: connectionStatus } = useProjectRealtime();
   const timelineEventCounts = useTimelineEventCounts(version);
-  const { isFollowing, toggleFollowProject, isAuthenticated } = useSubscription();
+  const { isFollowing, toggleFollowProject } = useSubscription();
+  const requireLogin = useRequireLogin();
 
   // ---- 从 Supabase 获取项目数据 ----
   useEffect(() => {
@@ -730,6 +732,7 @@ export default function DashboardPage() {
 
   /** Handle CSV export of factory-qualified projects in current view. */
   function handleExport() {
+    if (!requireLogin()) return;
     exportOpportunityList(filteredProjects, window.location.origin);
   }
 
@@ -1412,23 +1415,24 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              {/* follow / unfollow button */}
-              {isAuthenticated && (
-                <div>
-                  <Button
-                    variant={isFollowing(selectedProject.name) ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => toggleFollowProject(selectedProject.name)}
-                    className={
-                      isFollowing(selectedProject.name)
-                        ? 'bg-fpso-blue hover:bg-fpso-blue/80 text-white text-xs'
-                        : 'border-fpso-blue/30 text-fpso-blue hover:bg-fpso-blue/10 text-xs'
-                    }
-                  >
-                    {isFollowing(selectedProject.name) ? '★ Following' : '☆ Follow'}
-                  </Button>
-                </div>
-              )}
+              {/* follow / unfollow button — login required on click */}
+              <div>
+                <Button
+                  variant={isFollowing(selectedProject.name) ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    if (!requireLogin()) return;
+                    toggleFollowProject(selectedProject.name);
+                  }}
+                  className={
+                    isFollowing(selectedProject.name)
+                      ? 'bg-fpso-blue hover:bg-fpso-blue/80 text-white text-xs'
+                      : 'border-fpso-blue/30 text-fpso-blue hover:bg-fpso-blue/10 text-xs'
+                  }
+                >
+                  {isFollowing(selectedProject.name) ? '★ Following' : '☆ Follow'}
+                </Button>
+              </div>
 
               {/* Follow-up Status (S7) */}
               <div className="mb-5">

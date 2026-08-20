@@ -22,6 +22,7 @@ import { scoreOpportunity, scoreBadgeClass } from "@/lib/opportunity_scorer";
 import { generateBattleCard, type BattleCard } from "@/lib/battle_card";
 import { exportOpportunityList } from "@/lib/export_opportunities";
 import BattleCardWrapper from "@/components/dashboard/BattleCard";
+import { useRequireLogin } from "@/hooks/useRequireLogin";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -112,6 +113,7 @@ export default function BattleCardsPage() {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const { version, status: connectionStatus } = useProjectRealtime();
   const timelineEventCounts = useTimelineEventCounts(version);
+  const requireLogin = useRequireLogin();
 
   // ---- 从 Supabase 获取项目数据（projects 表，空则兜底 sampleProjects）----
   useEffect(() => {
@@ -165,6 +167,7 @@ export default function BattleCardsPage() {
   }, [projects, timelineEventCounts]);
 
   const handleExport = () => {
+    if (!requireLogin()) return;
     exportOpportunityList(
       abCards.map((item) => item.project),
       window.location.origin,

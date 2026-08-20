@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '@/components/common/Header';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription, INDUSTRY_OPTIONS } from '@/hooks/useSubscription';
+import { useRequireLogin } from '@/hooks/useRequireLogin';
 import { useFollowUp, FOLLOW_UP_STATUS_LABELS, FOLLOW_UP_STATUS_COLORS, type FollowUp, type FollowUpStatus } from '@/hooks/useFollowUp';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,8 +15,9 @@ import { toast } from 'sonner';
 import { isLLMConfigured } from '@/lib/llm_client';
 
 export default function SettingsPage() {
-  const { user, isAuthenticated, login } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const requireLogin = useRequireLogin();
   const {
     subscription,
     loading,
@@ -89,6 +91,7 @@ export default function SettingsPage() {
   };
 
   const handleSave = async () => {
+    if (!requireLogin()) return;
     setSaving(true);
     await saveSubscription({
       subscribed_industries: selectedIndustries,
@@ -97,29 +100,6 @@ export default function SettingsPage() {
     });
     setSaving(false);
   };
-
-  // ---- Not logged in ----
-  if (!isAuthenticated) {
-    return (
-      <>
-        <Header />
-        <main className="flex flex-col flex-grow items-center justify-center gap-6 px-6">
-          <h1 className="text-2xl font-semibold tracking-tight text-fpso-fg">
-            Settings
-          </h1>
-          <p className="text-fpso-muted text-sm">
-            Please log in with Feishu to manage subscription settings.
-          </p>
-          <Button
-            onClick={login}
-            className="bg-fpso-blue hover:bg-fpso-blue/80 text-primary-foreground"
-          >
-            Login with Feishu
-          </Button>
-        </main>
-      </>
-    );
-  }
 
   // ---- Logged in ----
   return (
@@ -131,7 +111,11 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="text-fpso-fg">Profile</CardTitle>
             <CardDescription>
-              Logged in as <span className="text-fpso-blue font-medium">{user?.name}</span>
+              {isAuthenticated && user ? (
+                <>Logged in as <span className="text-fpso-blue font-medium">{user.name}</span></>
+              ) : (
+                <>Not logged in — use the Feishu login button (top right) to save subscriptions and follow-ups.</>
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent>
