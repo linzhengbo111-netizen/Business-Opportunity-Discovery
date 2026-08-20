@@ -296,7 +296,8 @@ export default function DashboardPage() {
     () => new Set([...PHASES, PHASE_UNKNOWN]),
   );
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
-  const [showAllProjects, setShowAllProjects] = useState(false);
+  // Default: show all projects (mature filter off until user opts in via sidebar).
+  const [showAllProjects, setShowAllProjects] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [milestoneMap, setMilestoneMap] = useState<Map<string, { label: string; year: string }>>(new Map());
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -472,7 +473,7 @@ export default function DashboardPage() {
       // Search shows every matching project — maturity filter not applied.
       result = result.filter((p) => projectMatchesSearch(p, searchQuery));
     } else {
-      // Maturity filter: default shows mature opportunities only.
+      // Maturity filter: applied only when showAllProjects is false (user opted into mature-only view).
       result = filterMatureProjects(result, timelineEventCounts, showAllProjects);
     }
     return result;

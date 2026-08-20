@@ -41,7 +41,7 @@ interface FilterSidebarProps {
   onExport?: () => void;
   /** Number of projects in the current filtered view. */
   filteredCount?: number;
-  /** Show all projects including 待挖掘 (default: mature only). */
+  /** Show all projects including 待挖掘 (true = mature filter off, the default). */
   showAllProjects: boolean;
   onShowAllProjectsChange: (value: boolean) => void;
 }
@@ -265,21 +265,21 @@ export default function FilterSidebar({
               </div>
             )}
 
-            {/* Show-all toggle (bottom of sidebar) */}
+            {/* Mature-only toggle (bottom of sidebar) — off by default, all projects shown */}
             <div className="pt-3 border-t border-border">
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-[11px] font-medium text-fpso-fg leading-snug">
-                    显示全部项目（含待挖掘）
+                    仅显示成熟商机
                   </p>
                   <p className="mt-0.5 text-[10px] leading-relaxed text-fpso-dim">
-                    默认仅展示成熟商机
+                    关闭显示全部项目（含待挖掘）
                   </p>
                 </div>
                 <Switch
-                  checked={showAllProjects}
-                  onCheckedChange={onShowAllProjectsChange}
-                  aria-label="显示全部项目（含待挖掘）"
+                  checked={!showAllProjects}
+                  onCheckedChange={(matureOnly) => onShowAllProjectsChange(!matureOnly)}
+                  aria-label="仅显示成熟商机"
                 />
               </div>
             </div>

@@ -183,7 +183,8 @@ export default function DatabasePage() {
   const [phaseFilter, setPhaseFilter] = useState("All");
   const [confidenceFilter, setConfidenceFilter] = useState("High & Medium");
   const [nameSearch, setNameSearch] = useState("");
-  const [showAllProjects, setShowAllProjects] = useState(false);
+  // Default: show all projects (mature filter off until user opts in).
+  const [showAllProjects, setShowAllProjects] = useState(true);
 
   // pagination
   const [page, setPage] = useState(1);
@@ -277,7 +278,7 @@ export default function DatabasePage() {
       // maturity filter not applied while searching.
       list = list.filter((p) => projectMatchesSearch(p, nameSearch));
     } else {
-      // Maturity filter: default shows mature opportunities only.
+      // Maturity filter: applied only when showAllProjects is false (user opted into mature-only view).
       list = filterMatureProjects(list, timelineEventCounts, showAllProjects);
     }
 
@@ -430,18 +431,18 @@ export default function DatabasePage() {
             />
           </div>
 
-          {/* show-all toggle */}
+          {/* mature-only toggle — off by default, all projects shown */}
           <div className="ml-auto flex items-center gap-2">
             <label
               htmlFor="show-all-toggle"
               className="text-xs font-medium text-fpso-muted cursor-pointer"
             >
-              显示全部项目（含待挖掘）
+              仅显示成熟商机
             </label>
             <Switch
               id="show-all-toggle"
-              checked={showAllProjects}
-              onCheckedChange={setShowAllProjects}
+              checked={!showAllProjects}
+              onCheckedChange={(matureOnly) => setShowAllProjects(!matureOnly)}
             />
           </div>
         </section>
