@@ -41,10 +41,14 @@ export interface LLMOptions {
 export async function isLLMConfigured(): Promise<boolean> {
   try {
     const res = await fetch("/api/llm/status");
-    if (!res.ok) return false;
+    if (!res.ok) {
+      console.warn(`[llm] GET /api/llm/status failed: HTTP ${res.status}`);
+      return false;
+    }
     const json = (await res.json()) as { configured?: boolean };
     return json?.configured === true;
-  } catch {
+  } catch (err) {
+    console.warn("[llm] GET /api/llm/status unreachable:", err);
     return false;
   }
 }
@@ -83,15 +87,23 @@ export async function callLLM(
       signal: controller.signal,
     });
 
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.warn(`[llm] POST /api/llm failed: HTTP ${res.status}`);
+      return null;
+    }
 
     const json = (await res.json()) as {
       choices?: { message?: { content?: unknown } }[];
     };
     const content = json?.choices?.[0]?.message?.content;
-    return typeof content === "string" ? content : null;
-  } catch {
+    if (typeof content !== "string") {
+      console.warn("[llm] POST /api/llm: malformed response body");
+      return null;
+    }
+    return content;
+  } catch (err) {
     // Network error, timeout, worker down, non-JSON body — all degrade to rules
+    console.warn("[llm] POST /api/llm failed:", err);
     return null;
   } finally {
     clearTimeout(timer);

@@ -306,62 +306,121 @@ function coerceItemList(
   return items;
 }
 
-/** Shape-check the LLM object; null means fall back to rules. */
+/** Shape-check the LLM object; null means fall back to rules.
+ *  Lenient: keep the AI result as long as ANY field carries content —
+ *  only an entirely empty object is rejected. */
 function validateAIResult(obj: Record<string, unknown>): Omit<PushAnalysis, "source"> | null {
-  const pw = obj.procurement_window;
-  if (!pw || typeof pw !== "object" || Array.isArray(pw)) return null;
-  const pwObj = pw as Record<string, unknown>;
+  const pwRaw = obj.procurement_window;
+  const pwObj =
+    pwRaw && typeof pwRaw === "object" && !Array.isArray(pwRaw)
+      ? (pwRaw as Record<string, unknown>)
+      : null;
 
-  const range = String(pwObj.range ?? "").trim();
-  if (!range || range.length > 120) return null;
-
-  const rawConf = String(pwObj.confidence ?? "").trim().toLowerCase();
+  const range = pwObj ? String(pwObj.range ?? "").trim().slice(0, 120) : "";
+  const rawConf = pwObj ? String(pwObj.confidence ?? "").trim().toLowerCase() : "";
   const confidence: PushProcurementWindow["confidence"] =
     rawConf === "high" || rawConf === "low" ? rawConf : "medium";
-  const reasoning = String(pwObj.reasoning ?? "").trim().slice(0, 400);
+  const reasoning = pwObj ? String(pwObj.reasoning ?? "").trim().slice(0, 400) : "";
 
   const materials = coerceItemList(obj.recommended_materials, "grade")
     .slice(0, MAX_MATERIALS) as unknown as PushMaterial[];
   const products = coerceItemList(obj.recommended_products, "product")
     .slice(0, MAX_PRODUCTS) as unknown as PushProduct[];
-  if (materials.length === 0 && products.length === 0) return null;
+
+  const actionSuggestion = String(obj.action_suggestion ?? "").trim().slice(0, 200);
+  const aiSummary = String(obj.ai_summary ?? "").trim().slice(0, 600);
+
+  const hasAny =
+    range !== "" ||
+    reasoning !== "" ||
+    aiSummary !== "" ||
+    materials.length > 0 ||
+    products.length > 0;
+  if (!hasAny) return null;
 
   return {
     procurement_window: { range, confidence, reasoning },
     recommended_materials: materials,
     recommended_products: products,
-    action_suggestion: String(obj.action_suggestion ?? "").trim().slice(0, 200),
-    ai_summary: String(obj.ai_summary ?? "").trim().slice(0, 600),
+    action_suggestion: actionSuggestion,
+    ai_summary: aiSummary,
   };
 }
 
 // ---------------------------------------------------------------------------
-// LLM config check (memoized) & main entry
+// LLM config check (retrying) & main entry
 // ---------------------------------------------------------------------------
 
-let configuredPromise: Promise<boolean> | null = null;
+/** Failed config checks are retried by the next caller after this long. */
+const CONFIG_RETRY_MS = 30_000;
 
-/** Whether the worker has an LLM key — checked once per session. */
+let configState: { configured: boolean; checkedAt: number } | null = null;
+let configInFlight: Promise<boolean> | null = null;
+
+/**
+ * Whether the worker has an LLM key. A successful check is cached for the
+ * session; a failed check is NOT permanent — the next caller after
+ * CONFIG_RETRY_MS re-checks instead of locking the whole session to rules.
+ */
 function llmConfigured(): Promise<boolean> {
-  if (!configuredPromise) {
-    configuredPromise = isLLMConfigured().catch(() => false);
+  if (configInFlight) return configInFlight;
+  const now = Date.now();
+  if (configState && (configState.configured || now - configState.checkedAt < CONFIG_RETRY_MS)) {
+    return Promise.resolve(configState.configured);
   }
-  return configuredPromise;
+  configInFlight = isLLMConfigured()
+    .then((ok) => {
+      configState = { configured: ok, checkedAt: Date.now() };
+      return ok;
+    })
+    .catch(() => {
+      configState = { configured: false, checkedAt: Date.now() };
+      return false;
+    })
+    .finally(() => {
+      configInFlight = null;
+    });
+  return configInFlight;
 }
 
-const cache = new Map<string, Promise<PushAnalysis>>();
+/** Failed analyses block retries for this long (call-storm guard only). */
+const FAILURE_COOLDOWN_MS = 30_000;
+
+/** Successful results, cached per project name forever (session-scoped). */
+const successCache = new Map<string, PushAnalysis>();
+/** In-flight calls, shared so concurrent components make one LLM call. */
+const inflightCache = new Map<string, Promise<PushAnalysis>>();
+/** Project name -> cooldown expiry (ms). Failures are NOT cached, only delayed. */
+const failureCooldown = new Map<string, number>();
 
 /**
  * AI-personalized push analysis for one project, same input and output
- * shape as crawler analyze_for_push(). Cached per project name; never throws.
+ * shape as crawler analyze_for_push(). Never throws.
+ *
+ * Success is cached per project name permanently. Failures (timeout, HTTP
+ * error, malformed/invalid JSON, unconfigured worker) are NOT cached — after
+ * a short cooldown the next caller retries the LLM automatically.
  */
 export function analyzePush(project: Project): Promise<PushAnalysis> {
-  const hit = cache.get(project.name);
-  if (hit) return hit;
+  const cached = successCache.get(project.name);
+  if (cached) return Promise.resolve(cached);
 
+  const inFlight = inflightCache.get(project.name);
+  if (inFlight) return inFlight;
+
+  const cooldown = failureCooldown.get(project.name);
+  if (cooldown && cooldown > Date.now()) {
+    return Promise.resolve(rulesFallback(project));
+  }
+
+  let failed = false;
   const run = (async (): Promise<PushAnalysis> => {
     try {
-      if (!(await llmConfigured())) return rulesFallback(project);
+      if (!(await llmConfigured())) {
+        console.warn(`[push] LLM not configured — rules fallback for "${project.name}"`);
+        failed = true;
+        return rulesFallback(project);
+      }
       const events = await fetchProjectEvents(project);
       const today = new Date().toISOString().slice(0, 10);
       const messages: ChatMessage[] = [
@@ -380,17 +439,40 @@ export function analyzePush(project: Project): Promise<PushAnalysis> {
         maxTokens: 1400,
         jsonMode: true,
       });
-      if (!content) return rulesFallback(project);
+      if (!content) {
+        console.warn(`[push] LLM returned no content for "${project.name}" — rules fallback`);
+        failed = true;
+        return rulesFallback(project);
+      }
       const obj = parseJSONObject(content);
-      if (!obj) return rulesFallback(project);
+      if (!obj) {
+        console.warn(
+          `[push] LLM JSON unparseable for "${project.name}": ${content.slice(0, 120)}`,
+        );
+        failed = true;
+        return rulesFallback(project);
+      }
       const result = validateAIResult(obj);
-      if (!result) return rulesFallback(project);
-      return { source: "ai", ...result };
-    } catch {
+      if (!result) {
+        console.warn(`[push] LLM result empty/invalid for "${project.name}" — rules fallback`);
+        failed = true;
+        return rulesFallback(project);
+      }
+      const ai: PushAnalysis = { source: "ai", ...result };
+      successCache.set(project.name, ai);
+      return ai;
+    } catch (err) {
+      console.warn(`[push] LLM analysis failed for "${project.name}":`, err);
+      failed = true;
       return rulesFallback(project);
+    } finally {
+      inflightCache.delete(project.name);
+      if (failed) {
+        failureCooldown.set(project.name, Date.now() + FAILURE_COOLDOWN_MS);
+      }
     }
   })();
 
-  cache.set(project.name, run);
+  inflightCache.set(project.name, run);
   return run;
 }

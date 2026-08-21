@@ -10,7 +10,7 @@ import { useRef, useCallback, useState, useEffect } from "react";
 import { generateBattleCard, type BattleCard } from "@/lib/battle_card";
 import type { Project } from "@/data/projects";
 import { useFollowUp, FOLLOW_UP_STATUS_LABELS, type FollowUp } from "@/hooks/useFollowUp";
-import { usePushAnalysis } from "@/hooks/usePushAnalysis";
+import { usePushAnalysisState } from "@/hooks/usePushAnalysis";
 import { type AISource } from "@/lib/ai_analyst";
 import type { PushAnalysis } from "@/lib/push_analyst";
 import OutreachModal from "@/components/dashboard/OutreachModal";
@@ -161,9 +161,11 @@ interface BattleCardViewProps {
   /** AI-personalized analysis (same as the Feishu push) — replaces the rule
    *  results when available, rule engine stays as fallback. */
   analysis?: PushAnalysis | null;
+  /** True while the LLM call is in flight — shows a loading banner. */
+  analysisLoading?: boolean;
 }
 
-function BattleCardView({ card, innerRef, followUp, timelineSummary, analysis }: BattleCardViewProps) {
+function BattleCardView({ card, innerRef, followUp, timelineSummary, analysis, analysisLoading }: BattleCardViewProps) {
   const showBanner = followUp && (followUp.status === "invalid" || followUp.status === "closed");
   return (
     <div
@@ -205,6 +207,13 @@ function BattleCardView({ card, innerRef, followUp, timelineSummary, analysis }:
           </span>
         </div>
       </div>
+
+      {/* ---- AI loading banner ---- */}
+      {analysisLoading && (
+        <div className="border-b border-border bg-amber-400/5 px-5 py-2 text-center text-xs font-medium text-amber-400 animate-pulse">
+          AI 分析中… 结果返回后自动替换
+        </div>
+      )}
 
       {/* ---- body ---- */}
       <div className="grid grid-cols-2 gap-0">
@@ -356,7 +365,7 @@ function BattleCardView({ card, innerRef, followUp, timelineSummary, analysis }:
 
           {/* when to contact — AI 时间窗优先，规则引擎兜底 */}
           {(() => {
-            const useAi = analysis?.source === "ai";
+            const useAi = analysis?.source === "ai" && !!analysis.procurement_window.range;
             return (
               <div>
                 <SectionHeader source={useAi ? "ai" : undefined}>When to Contact · 何时联系</SectionHeader>
@@ -450,8 +459,8 @@ export default function BattleCardWrapper({ project, baseUrl, timelineSummary }:
 
   const card = generateBattleCard(project, baseUrl);
 
-  // AI 个性化分析（同飞书推送）— 规则结果先显示，AI 返回后替换
-  const analysis = usePushAnalysis(project);
+  // AI 个性化分析（同飞书推送）— LLM 请求中显示加载态，返回后替换规则结果
+  const { analysis, loading: analysisLoading } = usePushAnalysisState(project);
 
   // Fetch follow-up status on mount
   useEffect(() => {
@@ -485,6 +494,7 @@ export default function BattleCardWrapper({ project, baseUrl, timelineSummary }:
         followUp={followUp}
         timelineSummary={timelineSummary}
         analysis={analysis}
+        analysisLoading={analysisLoading}
       />
 
       {/* Action buttons */}

@@ -30,7 +30,7 @@ import {
   phaseProgressIndex, phaseLabel, phaseFromRow,
 } from "@/lib/project_phase";
 import { analyzeProjectScenario, assessOpportunity, type AIResult, type ScenarioAnalysis, type OpportunityAssessment } from "@/lib/ai_analyst";
-import { usePushAnalysis } from "@/hooks/usePushAnalysis";
+import { usePushAnalysis, usePushAnalysisState } from "@/hooks/usePushAnalysis";
 import PushAnalysisPanel, { PushSourceBadge } from "@/components/dashboard/PushAnalysisPanel";
 import BattleCardWrapper from "@/components/dashboard/BattleCard";
 import OutreachModal from "@/components/dashboard/OutreachModal";
@@ -323,7 +323,7 @@ function DashboardProjectCard({
     return () => observer.disconnect();
   }, []);
 
-  const analysis = usePushAnalysis(project, inView);
+  const { analysis, loading } = usePushAnalysisState(project, inView);
 
   return (
     <motion.div
@@ -470,8 +470,15 @@ function DashboardProjectCard({
                 </div>
               )}
 
-                  {/* Row 5: AI 个性化商机分析 — 规则结果先显示，AI 返回后替换 */}
-                  {analysis && (analysis.procurement_window.range !== "待补充" || analysis.recommended_materials.length > 0 || analysis.recommended_products.length > 0) && (
+                  {/* Row 5: AI 个性化商机分析 — LLM 请求中显示加载态，AI 返回后替换 */}
+                  {loading ? (
+                    <div className="mt-2 ml-4 flex flex-wrap items-center gap-1.5">
+                      <span className="text-[9px] font-semibold uppercase tracking-wider text-fpso-dim/60 mr-0.5">商机分析</span>
+                      <span className="inline-flex items-center rounded bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400 animate-pulse">
+                        AI 分析中…
+                      </span>
+                    </div>
+                  ) : analysis && (analysis.procurement_window.range !== "待补充" || analysis.recommended_materials.length > 0 || analysis.recommended_products.length > 0) && (
                     <div className="mt-2 ml-4 flex flex-wrap items-center gap-1.5">
                       <span className="text-[9px] font-semibold uppercase tracking-wider text-fpso-dim/60 mr-0.5">商机分析</span>
                       {analysis.procurement_window.range !== "待补充" && (

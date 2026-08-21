@@ -21,7 +21,7 @@ import { parseCorrosiveMedia } from "@/lib/material_matcher";
 import { scoreOpportunity, scoreBadgeClass } from "@/lib/opportunity_scorer";
 import { generateBattleCard, type BattleCard } from "@/lib/battle_card";
 import { exportOpportunityList } from "@/lib/export_opportunities";
-import { usePushAnalysis } from "@/hooks/usePushAnalysis";
+import { usePushAnalysisState } from "@/hooks/usePushAnalysis";
 import { PushSourceBadge } from "@/components/dashboard/PushAnalysisPanel";
 import BattleCardWrapper from "@/components/dashboard/BattleCard";
 import { useRequireLogin } from "@/hooks/useRequireLogin";
@@ -144,7 +144,7 @@ function BattleSummaryCard({
     return () => observer.disconnect();
   }, []);
 
-  const analysis = usePushAnalysis(project, inView);
+  const { analysis, loading } = usePushAnalysisState(project, inView);
 
   const products =
     analysis && analysis.recommended_products.length > 0
@@ -158,6 +158,13 @@ function BattleSummaryCard({
     analysis?.procurement_window.range && analysis.procurement_window.range !== "待补充"
       ? analysis.procurement_window.range
       : card.whenToContact;
+
+  /** Amber "AI 分析中…" placeholder shown while the LLM call is in flight. */
+  const analyzing = (
+    <span className="inline-flex items-center rounded bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400 animate-pulse">
+      AI 分析中…
+    </span>
+  );
 
   return (
     <button
@@ -181,21 +188,21 @@ function BattleSummaryCard({
         {card.country}
       </p>
 
-      {/* summary rows — AI 结果优先，规则引擎兜底 */}
+      {/* summary rows — AI 结果优先，规则引擎兜底；LLM 请求中显示加载态 */}
       <div className="space-y-2 text-sm">
         <p className="flex items-start gap-2 text-fpso-fg/80">
           <Package className="mt-0.5 h-4 w-4 flex-shrink-0 text-fpso-blue/70" />
-          <span><span className="text-fpso-muted">推荐产品:</span> {products}</span>
+          <span><span className="text-fpso-muted">推荐产品:</span> {loading ? "AI 分析中…" : products}</span>
         </p>
         <p className="flex items-start gap-2 text-fpso-fg/80">
           <Layers className="mt-0.5 h-4 w-4 flex-shrink-0 text-fpso-blue/70" />
-          <span><span className="text-fpso-muted">推荐材质:</span> {materials}</span>
+          <span><span className="text-fpso-muted">推荐材质:</span> {loading ? "AI 分析中…" : materials}</span>
         </p>
         <p className="flex items-start gap-2 text-fpso-fg/80">
           <CalendarDays className="mt-0.5 h-4 w-4 flex-shrink-0 text-fpso-blue/70" />
           <span className="flex flex-wrap items-center gap-1.5">
-            <span><span className="text-fpso-muted">采购时间窗:</span> {windowText}</span>
-            {analysis && <PushSourceBadge source={analysis.source} />}
+            <span><span className="text-fpso-muted">采购时间窗:</span> {loading ? "AI 分析中…" : windowText}</span>
+            {loading ? analyzing : analysis && <PushSourceBadge source={analysis.source} />}
           </span>
         </p>
         <p className="flex items-start gap-2 text-fpso-fg/80">
