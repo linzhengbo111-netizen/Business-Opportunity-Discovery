@@ -10,14 +10,9 @@ import { useRef, useCallback, useState, useEffect } from "react";
 import { generateBattleCard, type BattleCard } from "@/lib/battle_card";
 import type { Project } from "@/data/projects";
 import { useFollowUp, FOLLOW_UP_STATUS_LABELS, type FollowUp } from "@/hooks/useFollowUp";
-import {
-  recommendProducts,
-  suggestNextActions,
-  type AIResult,
-  type AISource,
-  type ProductRecommendation,
-  type NextActionSuggestions,
-} from "@/lib/ai_analyst";
+import { usePushAnalysis } from "@/hooks/usePushAnalysis";
+import { type AISource } from "@/lib/ai_analyst";
+import type { PushAnalysis } from "@/lib/push_analyst";
 import OutreachModal from "@/components/dashboard/OutreachModal";
 
 // ---------------------------------------------------------------------------
@@ -163,13 +158,12 @@ interface BattleCardViewProps {
   followUp?: FollowUp | null;
   /** Timeline digest passed in by the page — 待补充 shown when absent. */
   timelineSummary?: string;
-  /** AI product recommendation — shown instead of rule results when source === "ai". */
-  aiProducts?: AIResult<ProductRecommendation> | null;
-  /** AI next-action suggestions — shown instead of rule results when source === "ai". */
-  aiActions?: AIResult<NextActionSuggestions> | null;
+  /** AI-personalized analysis (same as the Feishu push) — replaces the rule
+   *  results when available, rule engine stays as fallback. */
+  analysis?: PushAnalysis | null;
 }
 
-function BattleCardView({ card, innerRef, followUp, timelineSummary, aiProducts, aiActions }: BattleCardViewProps) {
+function BattleCardView({ card, innerRef, followUp, timelineSummary, analysis }: BattleCardViewProps) {
   const showBanner = followUp && (followUp.status === "invalid" || followUp.status === "closed");
   return (
     <div
@@ -225,18 +219,30 @@ function BattleCardView({ card, innerRef, followUp, timelineSummary, aiProducts,
             </p>
           </div>
 
-          {/* what to push — AI result takes priority when available */}
+          {/* what to push — AI 结果优先，规则引擎兜底 */}
           {(() => {
-            const useAi = aiProducts?.source === "ai" && aiProducts.data.products.length > 0;
-            const items = useAi ? aiProducts!.data.products : card.whatToPush;
+            const useAi = analysis && analysis.recommended_products.length > 0;
             return (
               <div>
-                <SectionHeader source={useAi ? "ai" : "rules"}>What to Push · 推荐产品</SectionHeader>
-                {items.length === 0 ? (
+                <SectionHeader source={useAi ? analysis!.source : "rules"}>What to Push · 推荐产品</SectionHeader>
+                {useAi ? (
+                  <div className="space-y-1">
+                    {analysis!.recommended_products.map((p) => (
+                      <div key={p.product} className="flex items-start gap-1.5">
+                        <span className="inline-flex flex-shrink-0 items-center rounded bg-fpso-blue/10 px-2 py-0.5 text-xs font-medium text-fpso-blue border border-fpso-blue/15">
+                          {p.product}
+                        </span>
+                        {p.reason && (
+                          <span className="text-[10px] leading-relaxed text-fpso-dim">{p.reason}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : card.whatToPush.length === 0 ? (
                   <EmptyState />
                 ) : (
                   <div className="flex flex-wrap gap-1.5">
-                    {items.map((item) => (
+                    {card.whatToPush.map((item) => (
                       <span
                         key={item}
                         className="inline-flex items-center rounded bg-fpso-blue/10 px-2 py-0.5 text-xs font-medium text-fpso-blue border border-fpso-blue/15"
@@ -246,33 +252,46 @@ function BattleCardView({ card, innerRef, followUp, timelineSummary, aiProducts,
                     ))}
                   </div>
                 )}
-                {useAi && aiProducts!.data.reasoning && (
-                  <p className="mt-1.5 text-[10px] leading-relaxed text-fpso-dim italic">
-                    {aiProducts!.data.reasoning}
-                  </p>
-                )}
               </div>
             );
           })()}
 
-          {/* material grades */}
-          <div>
-            <SectionHeader>Material Grades · 推荐牌号</SectionHeader>
-            {card.materialGrades.length === 0 ? (
-              <EmptyState />
-            ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {card.materialGrades.map((g) => (
-                  <span
-                    key={g}
-                    className="inline-flex items-center rounded bg-fpso-green/10 px-2 py-0.5 text-xs font-mono font-medium text-fpso-green border border-fpso-green/15"
-                  >
-                    {g}
-                  </span>
-                ))}
+          {/* material grades — AI 结果优先，规则引擎兜底 */}
+          {(() => {
+            const useAi = analysis && analysis.recommended_materials.length > 0;
+            return (
+              <div>
+                <SectionHeader source={useAi ? analysis!.source : undefined}>Material Grades · 推荐牌号</SectionHeader>
+                {useAi ? (
+                  <div className="space-y-1">
+                    {analysis!.recommended_materials.map((m) => (
+                      <div key={m.grade} className="flex items-start gap-1.5">
+                        <span className="inline-flex flex-shrink-0 items-center rounded bg-fpso-green/10 px-2 py-0.5 text-xs font-mono font-medium text-fpso-green border border-fpso-green/15">
+                          {m.grade}
+                        </span>
+                        {m.reason && (
+                          <span className="text-[10px] leading-relaxed text-fpso-dim">{m.reason}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : card.materialGrades.length === 0 ? (
+                  <EmptyState />
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {card.materialGrades.map((g) => (
+                      <span
+                        key={g}
+                        className="inline-flex items-center rounded bg-fpso-green/10 px-2 py-0.5 text-xs font-mono font-medium text-fpso-green border border-fpso-green/15"
+                      >
+                        {g}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            );
+          })()}
 
           {/* timeline summary — basic cards still show a digest when available */}
           <div>
@@ -285,6 +304,14 @@ function BattleCardView({ card, innerRef, followUp, timelineSummary, aiProducts,
               </span>
             )}
           </div>
+
+          {/* AI 分析摘要 — 与飞书推送卡片一致，仅 AI 成功时展示 */}
+          {analysis?.source === "ai" && analysis.ai_summary && (
+            <div>
+              <SectionHeader source="ai">AI 分析摘要</SectionHeader>
+              <p className="text-xs leading-relaxed text-fpso-fg/90">{analysis.ai_summary}</p>
+            </div>
+          )}
         </div>
 
         {/* ---- right column ---- */}
@@ -327,35 +354,44 @@ function BattleCardView({ card, innerRef, followUp, timelineSummary, aiProducts,
             </div>
           </div>
 
-          {/* when to contact */}
-          <div>
-            <SectionHeader>When to Contact · 何时联系</SectionHeader>
-            <div className="rounded-md bg-fpso-blue/5 border border-fpso-blue/10 px-2.5 py-1.5">
-              <p className="text-xs text-fpso-blue/90 leading-relaxed">
-                {card.whenToContact}
-              </p>
-            </div>
-          </div>
-
-          {/* next action — AI result takes priority when available */}
+          {/* when to contact — AI 时间窗优先，规则引擎兜底 */}
           {(() => {
-            const useAi = aiActions?.source === "ai" && aiActions.data.actions.length > 0;
+            const useAi = analysis?.source === "ai";
             return (
               <div>
-                <SectionHeader source={useAi ? "ai" : "rules"}>Next Action · 下一步</SectionHeader>
+                <SectionHeader source={useAi ? "ai" : undefined}>When to Contact · 何时联系</SectionHeader>
+                <div className="rounded-md bg-fpso-blue/5 border border-fpso-blue/10 px-2.5 py-1.5">
+                  {useAi ? (
+                    <>
+                      <p className="text-xs text-fpso-blue/90 font-semibold leading-relaxed">
+                        采购时间窗 {analysis!.procurement_window.range}
+                      </p>
+                      {analysis!.procurement_window.reasoning && (
+                        <p className="mt-1 text-[10px] leading-relaxed text-fpso-blue/70 italic">
+                          {analysis!.procurement_window.reasoning}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-xs text-fpso-blue/90 leading-relaxed">
+                      {card.whenToContact}
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* next action — AI 结果优先，规则引擎兜底 */}
+          {(() => {
+            const useAi = analysis?.source === "ai" && !!analysis.action_suggestion;
+            return (
+              <div>
+                <SectionHeader source={useAi ? "ai" : undefined}>Next Action · 下一步</SectionHeader>
                 <div className="rounded-md bg-fpso-green/5 border border-fpso-green/10 px-2.5 py-1.5">
                   <p className="text-xs text-fpso-green font-semibold leading-relaxed">
-                    {useAi ? aiActions!.data.nextStep : card.nextAction}
+                    {useAi ? analysis!.action_suggestion : card.nextAction}
                   </p>
-                  {useAi && aiActions!.data.actions.length > 1 && (
-                    <ul className="mt-1 space-y-0.5">
-                      {aiActions!.data.actions.slice(1).map((a) => (
-                        <li key={a} className="text-[10px] leading-relaxed text-fpso-green/70">
-                          • {a}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
                 </div>
               </div>
             );
@@ -408,33 +444,19 @@ export default function BattleCardWrapper({ project, baseUrl, timelineSummary }:
   const cardRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
   const [followUp, setFollowUp] = useState<FollowUp | null>(null);
-  const [aiProducts, setAiProducts] = useState<AIResult<ProductRecommendation> | null>(null);
-  const [aiActions, setAiActions] = useState<AIResult<NextActionSuggestions> | null>(null);
   const [showOutreach, setShowOutreach] = useState(false);
 
   const { getFollowUp } = useFollowUp();
 
   const card = generateBattleCard(project, baseUrl);
 
+  // AI 个性化分析（同飞书推送）— 规则结果先显示，AI 返回后替换
+  const analysis = usePushAnalysis(project);
+
   // Fetch follow-up status on mount
   useEffect(() => {
     getFollowUp(project.name).then(setFollowUp);
   }, [project.name, getFollowUp]);
-
-  // Fetch AI recommendations — rule results stay visible until the LLM answers
-  useEffect(() => {
-    let cancelled = false;
-    setAiProducts(null);
-    setAiActions(null);
-    Promise.all([recommendProducts(project), suggestNextActions(project)]).then(
-      ([products, actions]) => {
-        if (cancelled) return;
-        setAiProducts(products);
-        setAiActions(actions);
-      },
-    );
-    return () => { cancelled = true; };
-  }, [project.name]);
 
   const filename = `BattleCard_${project.name.replace(/[^a-zA-Z0-9一-鿿]/g, "_")}_${card.generatedAt.slice(0, 10)}.png`;
 
@@ -462,8 +484,7 @@ export default function BattleCardWrapper({ project, baseUrl, timelineSummary }:
         innerRef={cardRef}
         followUp={followUp}
         timelineSummary={timelineSummary}
-        aiProducts={aiProducts}
-        aiActions={aiActions}
+        analysis={analysis}
       />
 
       {/* Action buttons */}

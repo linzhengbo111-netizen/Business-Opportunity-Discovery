@@ -4,7 +4,7 @@
  * 数据源：Supabase projects + candidate_events 合并显示
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
@@ -19,7 +19,7 @@ import { useProjectRealtime } from "@/hooks/useProjectRealtime";
 import { useTimelineEventCounts } from "@/hooks/useTimelineEventCounts";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useRequireLogin } from "@/hooks/useRequireLogin";
-import { matchMaterials, specsFromRow, hasAnySpecs, parseRecommendation, parseCorrosiveMedia, getCorrosiveMediaTags, getCorrosiveMediaDetails } from "@/lib/material_matcher";
+import { matchMaterials, specsFromRow, hasAnySpecs, parseCorrosiveMedia, getCorrosiveMediaTags, getCorrosiveMediaDetails } from "@/lib/material_matcher";
 import { exportOpportunityList } from "@/lib/export_opportunities";
 import { filterMatureProjects, hasTimelineData } from "@/lib/project_maturity";
 import { projectMatchesSearch } from "@/lib/project_search";
@@ -30,6 +30,8 @@ import {
   phaseProgressIndex, phaseLabel, phaseFromRow,
 } from "@/lib/project_phase";
 import { analyzeProjectScenario, assessOpportunity, type AIResult, type ScenarioAnalysis, type OpportunityAssessment } from "@/lib/ai_analyst";
+import { usePushAnalysis } from "@/hooks/usePushAnalysis";
+import PushAnalysisPanel, { PushSourceBadge } from "@/components/dashboard/PushAnalysisPanel";
 import BattleCardWrapper from "@/components/dashboard/BattleCard";
 import OutreachModal from "@/components/dashboard/OutreachModal";
 import FollowUpStatus from "@/components/dashboard/FollowUpStatus";
@@ -284,6 +286,276 @@ function mapCandidateToProject(row: Record<string, unknown>): Project {
   };
 }
 
+
+/** A single dashboard project row — its own component so each card can
+ *  lazy-load the AI analysis only when scrolled into view (one LLM call per
+ *  project, not one per rendered project at page load). */
+function DashboardProjectCard({
+  project,
+  onOpen,
+  milestoneMap,
+  timelineEventCounts,
+  showAllProjects,
+}: {
+  project: Project;
+  onOpen: (p: Project) => void;
+  milestoneMap: Map<string, { label: string; year: string }>;
+  timelineEventCounts: Map<string, number>;
+  showAllProjects: boolean;
+}) {
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  const [inView, setInView] = useState(false);
+
+  // AI 分析仅在卡片进入视口后触发 — 规则引擎结果先行显示，AI 返回后替换
+  useEffect(() => {
+    const el = rowRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setInView(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "300px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const analysis = usePushAnalysis(project, inView);
+
+  return (
+    <motion.div
+      ref={rowRef}
+      layout
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      onClick={() => onOpen(project)}
+      className={`project-row group cursor-pointer border-b border-white/5 border-l-4 px-5 py-5 last:border-b-0 transition-all hover:bg-fpso-blue/[0.04] hover:border-white/10 ${phaseBorderLClass(project.phase)}`}
+    >
+              {/* Row 1: status dot + name + country + source */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                  <span
+                    className={`mt-0.5 h-2 w-2 flex-shrink-0 rounded-full ${phaseDotClass(project.phase)}`}
+                    style={{ boxShadow: `0 0 6px currentColor` }}
+                  />
+                  <h3 className="truncate text-sm font-semibold text-fpso-fg group-hover:text-white transition-colors">
+                    {project.name}
+                  </h3>
+                  <span className="inline-flex flex-shrink-0 items-center gap-1 rounded bg-fpso-bg/80 px-1.5 py-0.5 text-[11px] text-fpso-muted ring-1 ring-fpso-border/50">
+                    {project.flag && <span className="text-xs leading-none">{project.flag}</span>}
+                    <span className="max-w-[100px] truncate">{project.country}</span>
+                  </span>
+                </div>
+
+                <div className="flex flex-shrink-0 items-center gap-2">
+                  {project.source.url ? (
+                    <a
+                      href={project.source.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="external-link inline-flex items-center gap-1 text-[11px] text-fpso-blue/70 hover:text-fpso-blue transition-colors"
+                    >
+                      <span className="max-w-[120px] truncate">{project.source.name}</span>
+                      <span className="text-[0.8em] leading-none">↗</span>
+                    </a>
+                  ) : (
+                    <span className="text-[11px] text-fpso-dim">{project.source.name || "—"}</span>
+                  )}
+                  <span className="text-[10px] text-fpso-dim font-mono tabular-nums">{project.source.date}</span>
+                  {(() => {
+                    const candidates = [project.source.date, project.createdAt].filter(Boolean) as string[];
+                    const latest = candidates.sort().pop()?.slice(0, 10);
+                    if (!latest || latest === project.source.date?.slice(0, 10)) return null;
+                    return (
+                      <span className="text-[10px] text-fpso-muted font-mono tabular-nums">
+                        Updated: {latest}
+                      </span>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Row 2: badges + tech specs */}
+              <div className="mt-2.5 ml-4 flex flex-wrap items-center gap-1.5">
+                {/* Industry badge */}
+                {(project.industry ?? "FPSO") && (
+                  <span className="inline-flex items-center rounded bg-fpso-blue/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-fpso-blue ring-1 ring-fpso-blue/15">
+                    {project.industry}
+                  </span>
+                )}
+                {/* Confidence badge */}
+                {project.confidence && (
+                  <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${confidenceBadgeClass(project.confidence)}`}>
+                    {project.confidence}
+                  </span>
+                )}
+                {/* Opportunity Score badge */}
+                {(() => {
+                  const scoreResult = scoreOpportunity(project);
+                  return (
+                    <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${scoreBadgeClass(scoreResult.grade)}`}>
+                      {scoreResult.grade}{scoreResult.totalScore}
+                    </span>
+                  );
+                })()}
+                {/* Phase text */}
+                <span className={`text-[11px] font-medium ${phaseColorClass(project.phase)}`}>
+                  {phaseLabel(project.phase)}
+                </span>
+                {/* 待挖掘 badge: timeline has no linked events */}
+                {showAllProjects && !hasTimelineData(project, timelineEventCounts) && (
+                  <span
+                    className="inline-flex items-center rounded bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-400 ring-1 ring-amber-400/20"
+                    title="暂无足够商机数据，已加入待挖掘池"
+                  >
+                    待挖掘
+                  </span>
+                )}
+                {/* Separator */}
+                {(project.waterDepthM != null || project.oilCapacityBpd != null || project.gasCapacityMmcmd != null) && (
+                  <span className="mx-0.5 h-3 w-px bg-fpso-border/50 flex-shrink-0" />
+                )}
+                {/* Tech specs */}
+                {project.waterDepthM != null && (
+                  <span className="inline-flex items-center gap-1 text-[10px] text-fpso-dim font-mono" title="Water Depth">
+                    <Anchor className="h-3 w-3 text-fpso-dim/60 flex-shrink-0" />
+                    {project.waterDepthM.toLocaleString()}m
+                  </span>
+                )}
+                {project.oilCapacityBpd != null && (
+                  <span className="inline-flex items-center gap-1 text-[10px] text-fpso-dim font-mono" title="Oil Capacity">
+                    <Gauge className="h-3 w-3 text-fpso-dim/60 flex-shrink-0" />
+                    {project.oilCapacityBpd.toLocaleString()} bpd
+                  </span>
+                )}
+                {project.gasCapacityMmcmd != null && (
+                  <span className="inline-flex items-center gap-1 text-[10px] text-fpso-dim font-mono" title="Gas Capacity">
+                    <Waves className="h-3 w-3 text-fpso-dim/60 flex-shrink-0" />
+                    {project.gasCapacityMmcmd.toLocaleString()} MMcmd
+                  </span>
+                )}
+                {/* Hull type */}
+                {project.hullType && (
+                  <span className="inline-flex items-center gap-1 text-[10px] text-fpso-dim font-mono">
+                    <span className="text-fpso-dim/60">{project.hullType}</span>
+                  </span>
+                )}
+              </div>
+
+              {/* Row 3: summary */}
+              {project.summary && (
+                <p className="mt-2 ml-4 line-clamp-1 text-[11px] leading-relaxed text-fpso-muted/80">
+                  {project.summary}
+                </p>
+              )}
+
+              {/* Row 4: procurement chain tags */}
+              {project.procurementChain && (
+                <div className="mt-2 ml-4 flex flex-wrap items-center gap-1">
+                  <span className="text-[9px] font-semibold uppercase tracking-wider text-fpso-dim/60 mr-0.5">Procurement</span>
+                  {project.procurementChain.split(/,\s*/).filter(Boolean).map((entity) => (
+                    <span
+                      key={entity}
+                      className="inline-flex items-center rounded bg-fpso-green/[0.07] px-1.5 py-0.5 text-[10px] font-medium text-fpso-green/80 ring-1 ring-fpso-green/10 procurement-tag"
+                    >
+                      {entity}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+                  {/* Row 5: AI 个性化商机分析 — 规则结果先显示，AI 返回后替换 */}
+                  {analysis && (analysis.procurement_window.range !== "待补充" || analysis.recommended_materials.length > 0 || analysis.recommended_products.length > 0) && (
+                    <div className="mt-2 ml-4 flex flex-wrap items-center gap-1.5">
+                      <span className="text-[9px] font-semibold uppercase tracking-wider text-fpso-dim/60 mr-0.5">商机分析</span>
+                      {analysis.procurement_window.range !== "待补充" && (
+                        <span
+                          title={analysis.procurement_window.reasoning}
+                          className="inline-flex items-center rounded bg-fpso-blue/10 px-1.5 py-0.5 text-[10px] font-medium text-fpso-blue ring-1 ring-fpso-blue/10"
+                        >
+                          采购时间窗 {analysis.procurement_window.range}
+                        </span>
+                      )}
+                      {analysis.recommended_materials.slice(0, 3).map((m) => (
+                        <span
+                          key={m.grade}
+                          title={m.reason}
+                          className="inline-flex items-center rounded bg-fpso-green/[0.07] px-1.5 py-0.5 text-[10px] font-mono font-medium text-fpso-green/80 ring-1 ring-fpso-green/10"
+                        >
+                          {m.grade}
+                        </span>
+                      ))}
+                      {analysis.recommended_products.slice(0, 3).map((p) => (
+                        <span
+                          key={p.product}
+                          title={p.reason}
+                          className="inline-flex items-center rounded bg-fpso-orange/10 px-1.5 py-0.5 text-[10px] font-medium text-fpso-orange/80 ring-1 ring-fpso-orange/10"
+                        >
+                          {p.product}
+                        </span>
+                      ))}
+                      <PushSourceBadge source={analysis.source} />
+                    </div>
+                  )}
+              {/* Phase progress bar — 9 lifecycle segments */}
+              {(() => {
+                const progress = phaseProgressIndex(project.phase);
+                return (
+                  <div className="mt-2.5 ml-4 flex gap-1" style={{ height: 4 }}>
+                    {PHASE_SEGMENTS.map((seg, i) => (
+                      <div
+                        key={seg.label}
+                        title={`${seg.label}${i < progress ? " ✓" : ""}`}
+                        className="rounded-full transition-colors duration-500"
+                        style={{
+                          flex: 1,
+                          backgroundColor: i < progress ? seg.color : PHASE_UNLIT,
+                        }}
+                      />
+                    ))}
+                  </div>
+                );
+              })()}
+
+              {/* Next milestone + corrosive media tags */}
+              {(() => {
+                const canonicalId = normalizeProjectName(project.name);
+                const ms = canonicalId ? milestoneMap.get(canonicalId) : undefined;
+                const cmTags = getCorrosiveMediaTags(project.corrosiveMedia);
+                if (!ms && cmTags.length === 0) {
+                  return (
+                    <p className="mt-1 ml-4 text-[10px] text-fpso-muted/50">暂无里程碑</p>
+                  );
+                }
+                return (
+                  <div className="mt-1 ml-4 flex items-center gap-2 flex-wrap">
+                    {ms ? (
+                      <p className="text-[10px] text-fpso-blue/70">
+                        Next: {ms.label}{ms.year ? ` ${ms.year}` : ""}
+                      </p>
+                    ) : (
+                      <p className="text-[10px] text-fpso-muted/50">暂无里程碑</p>
+                    )}
+                    {cmTags.map((tag) => (
+                      <span
+                        key={tag.key}
+                        className={`inline-flex items-center text-[10px] px-1.5 py-0.5 rounded border ${tag.className}`}
+                      >
+                        {tag.label}
+                      </span>
+                    ))}
+                  </div>
+                );
+              })()}
+    </motion.div>
+  );
+}
 export default function DashboardPage() {
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -308,6 +580,8 @@ export default function DashboardPage() {
   const [aiAssessment, setAiAssessment] = useState<AIResult<OpportunityAssessment> | null>(null);
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(false);
+  // AI 个性化分析（同飞书推送）— 规则引擎结果立即显示，AI 返回后更新
+  const pushAnalysis = usePushAnalysis(selectedProject);
   const { version, status: connectionStatus } = useProjectRealtime();
   const timelineEventCounts = useTimelineEventCounts(version);
   const { isFollowing, toggleFollowProject } = useSubscription();
@@ -1104,201 +1378,14 @@ export default function DashboardPage() {
               </div>
             ) : (
               filteredProjects.map((project) => (
-                <motion.div
+                <DashboardProjectCard
                   key={project.name}
-                  layout
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.3, ease: "easeOut" }}
-                  onClick={() => setSelectedProject(project)}
-                  className={`project-row group cursor-pointer border-b border-white/5 border-l-4 px-5 py-5 last:border-b-0 transition-all hover:bg-fpso-blue/[0.04] hover:border-white/10 ${phaseBorderLClass(project.phase)}`}
-                >
-                  {/* Row 1: status dot + name + country + source */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                      <span
-                        className={`mt-0.5 h-2 w-2 flex-shrink-0 rounded-full ${phaseDotClass(project.phase)}`}
-                        style={{ boxShadow: `0 0 6px currentColor` }}
-                      />
-                      <h3 className="truncate text-sm font-semibold text-fpso-fg group-hover:text-white transition-colors">
-                        {project.name}
-                      </h3>
-                      <span className="inline-flex flex-shrink-0 items-center gap-1 rounded bg-fpso-bg/80 px-1.5 py-0.5 text-[11px] text-fpso-muted ring-1 ring-fpso-border/50">
-                        {project.flag && <span className="text-xs leading-none">{project.flag}</span>}
-                        <span className="max-w-[100px] truncate">{project.country}</span>
-                      </span>
-                    </div>
-
-                    <div className="flex flex-shrink-0 items-center gap-2">
-                      {project.source.url ? (
-                        <a
-                          href={project.source.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="external-link inline-flex items-center gap-1 text-[11px] text-fpso-blue/70 hover:text-fpso-blue transition-colors"
-                        >
-                          <span className="max-w-[120px] truncate">{project.source.name}</span>
-                          <span className="text-[0.8em] leading-none">↗</span>
-                        </a>
-                      ) : (
-                        <span className="text-[11px] text-fpso-dim">{project.source.name || "—"}</span>
-                      )}
-                      <span className="text-[10px] text-fpso-dim font-mono tabular-nums">{project.source.date}</span>
-                      {(() => {
-                        const candidates = [project.source.date, project.createdAt].filter(Boolean) as string[];
-                        const latest = candidates.sort().pop()?.slice(0, 10);
-                        if (!latest || latest === project.source.date?.slice(0, 10)) return null;
-                        return (
-                          <span className="text-[10px] text-fpso-muted font-mono tabular-nums">
-                            Updated: {latest}
-                          </span>
-                        );
-                      })()}
-                    </div>
-                  </div>
-
-                  {/* Row 2: badges + tech specs */}
-                  <div className="mt-2.5 ml-4 flex flex-wrap items-center gap-1.5">
-                    {/* Industry badge */}
-                    {(project.industry ?? "FPSO") && (
-                      <span className="inline-flex items-center rounded bg-fpso-blue/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-fpso-blue ring-1 ring-fpso-blue/15">
-                        {project.industry}
-                      </span>
-                    )}
-                    {/* Confidence badge */}
-                    {project.confidence && (
-                      <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${confidenceBadgeClass(project.confidence)}`}>
-                        {project.confidence}
-                      </span>
-                    )}
-                    {/* Opportunity Score badge */}
-                    {(() => {
-                      const scoreResult = scoreOpportunity(project);
-                      return (
-                        <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${scoreBadgeClass(scoreResult.grade)}`}>
-                          {scoreResult.grade}{scoreResult.totalScore}
-                        </span>
-                      );
-                    })()}
-                    {/* Phase text */}
-                    <span className={`text-[11px] font-medium ${phaseColorClass(project.phase)}`}>
-                      {phaseLabel(project.phase)}
-                    </span>
-                    {/* 待挖掘 badge: timeline has no linked events */}
-                    {showAllProjects && !hasTimelineData(project, timelineEventCounts) && (
-                      <span
-                        className="inline-flex items-center rounded bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-400 ring-1 ring-amber-400/20"
-                        title="暂无足够商机数据，已加入待挖掘池"
-                      >
-                        待挖掘
-                      </span>
-                    )}
-                    {/* Separator */}
-                    {(project.waterDepthM != null || project.oilCapacityBpd != null || project.gasCapacityMmcmd != null) && (
-                      <span className="mx-0.5 h-3 w-px bg-fpso-border/50 flex-shrink-0" />
-                    )}
-                    {/* Tech specs */}
-                    {project.waterDepthM != null && (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-fpso-dim font-mono" title="Water Depth">
-                        <Anchor className="h-3 w-3 text-fpso-dim/60 flex-shrink-0" />
-                        {project.waterDepthM.toLocaleString()}m
-                      </span>
-                    )}
-                    {project.oilCapacityBpd != null && (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-fpso-dim font-mono" title="Oil Capacity">
-                        <Gauge className="h-3 w-3 text-fpso-dim/60 flex-shrink-0" />
-                        {project.oilCapacityBpd.toLocaleString()} bpd
-                      </span>
-                    )}
-                    {project.gasCapacityMmcmd != null && (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-fpso-dim font-mono" title="Gas Capacity">
-                        <Waves className="h-3 w-3 text-fpso-dim/60 flex-shrink-0" />
-                        {project.gasCapacityMmcmd.toLocaleString()} MMcmd
-                      </span>
-                    )}
-                    {/* Hull type */}
-                    {project.hullType && (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-fpso-dim font-mono">
-                        <span className="text-fpso-dim/60">{project.hullType}</span>
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Row 3: summary */}
-                  {project.summary && (
-                    <p className="mt-2 ml-4 line-clamp-1 text-[11px] leading-relaxed text-fpso-muted/80">
-                      {project.summary}
-                    </p>
-                  )}
-
-                  {/* Row 4: procurement chain tags */}
-                  {project.procurementChain && (
-                    <div className="mt-2 ml-4 flex flex-wrap items-center gap-1">
-                      <span className="text-[9px] font-semibold uppercase tracking-wider text-fpso-dim/60 mr-0.5">Procurement</span>
-                      {project.procurementChain.split(/,\s*/).filter(Boolean).map((entity) => (
-                        <span
-                          key={entity}
-                          className="inline-flex items-center rounded bg-fpso-green/[0.07] px-1.5 py-0.5 text-[10px] font-medium text-fpso-green/80 ring-1 ring-fpso-green/10 procurement-tag"
-                        >
-                          {entity}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Phase progress bar — 9 lifecycle segments */}
-                  {(() => {
-                    const progress = phaseProgressIndex(project.phase);
-                    return (
-                      <div className="mt-2.5 ml-4 flex gap-1" style={{ height: 4 }}>
-                        {PHASE_SEGMENTS.map((seg, i) => (
-                          <div
-                            key={seg.label}
-                            title={`${seg.label}${i < progress ? " ✓" : ""}`}
-                            className="rounded-full transition-colors duration-500"
-                            style={{
-                              flex: 1,
-                              backgroundColor: i < progress ? seg.color : PHASE_UNLIT,
-                            }}
-                          />
-                        ))}
-                      </div>
-                    );
-                  })()}
-
-                  {/* Next milestone + corrosive media tags */}
-                  {(() => {
-                    const canonicalId = normalizeProjectName(project.name);
-                    const ms = canonicalId ? milestoneMap.get(canonicalId) : undefined;
-                    const cmTags = getCorrosiveMediaTags(project.corrosiveMedia);
-                    if (!ms && cmTags.length === 0) {
-                      return (
-                        <p className="mt-1 ml-4 text-[10px] text-fpso-muted/50">暂无里程碑</p>
-                      );
-                    }
-                    return (
-                      <div className="mt-1 ml-4 flex items-center gap-2 flex-wrap">
-                        {ms ? (
-                          <p className="text-[10px] text-fpso-blue/70">
-                            Next: {ms.label}{ms.year ? ` ${ms.year}` : ""}
-                          </p>
-                        ) : (
-                          <p className="text-[10px] text-fpso-muted/50">暂无里程碑</p>
-                        )}
-                        {cmTags.map((tag) => (
-                          <span
-                            key={tag.key}
-                            className={`inline-flex items-center text-[10px] px-1.5 py-0.5 rounded border ${tag.className}`}
-                          >
-                            {tag.label}
-                          </span>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                </motion.div>
+                  project={project}
+                  onOpen={setSelectedProject}
+                  milestoneMap={milestoneMap}
+                  timelineEventCounts={timelineEventCounts}
+                  showAllProjects={showAllProjects}
+                />
               ))
             )}
           </div>
@@ -1328,9 +1415,7 @@ export default function DashboardPage() {
           operatorName: selectedProject.operatorName,
           basin: selectedProject.basin,
         };
-        const rec = parseRecommendation(selectedProject.recommendationJson);
         const showSpecs = hasAnySpecs(specs);
-        const showRec = rec !== null;
 
         return (
         <div
@@ -1500,9 +1585,6 @@ export default function DashboardPage() {
                 <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-fpso-dim">
                   Technical Specs &amp; Material Matching
                 </h4>
-                {!showSpecs && !showRec && (
-                  <span className="text-fpso-dim italic">暂无数据</span>
-                )}
                 {(() => {
                   if (!showSpecs) return null;
                   return (
@@ -1584,57 +1666,10 @@ export default function DashboardPage() {
                     </div>
                   );
                 })()}
-                  {showRec && (
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs text-fpso-muted">Grades:</span>
-                        {rec.grades.map((g) => (
-                          <span
-                            key={g.grade}
-                            className={`rounded px-2 py-0.5 text-xs font-medium ${
-                              g.in_factory_scope
-                                ? "bg-fpso-blue/10 text-fpso-blue"
-                                : "bg-red-500/10 text-red-400 line-through"
-                            }`}
-                          >
-                            {g.grade}
-                            {g.in_factory_scope ? "" : " (not producible)"}
-                          </span>
-                        ))}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs text-fpso-muted">Applications:</span>
-                        {rec.applications.map((a) => (
-                          <span key={a} className="rounded bg-fpso-orange/10 px-2 py-0.5 text-xs font-medium text-fpso-orange">
-                            {a}
-                          </span>
-                        ))}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-fpso-muted">Confidence:</span>
-                        <span className={`rounded px-2 py-0.5 text-xs font-medium ${
-                          rec.confidence === "high" ? "bg-fpso-green/15 text-fpso-green" :
-                          rec.confidence === "medium" ? "bg-fpso-orange/15 text-fpso-orange" :
-                          "bg-fpso-muted/15 text-fpso-muted"
-                        }`}>
-                          {rec.confidence}
-                        </span>
-                      </div>
-                      {(() => {
-                        const hasCorrosiveReasoning = /H₂S|CO₂|sour|NACE|corrosive|H2S|chloride|Cl⁻/i.test(rec.reasoning);
-                        if (hasCorrosiveReasoning) {
-                          return (
-                            <blockquote className="border-l-2 border-fpso-orange/40 pl-3 text-xs leading-relaxed text-fpso-orange/80 italic mt-2">
-                              {rec.reasoning}
-                            </blockquote>
-                          );
-                        }
-                        return (
-                          <p className="text-xs leading-relaxed text-fpso-dim italic">{rec.reasoning}</p>
-                        );
-                      })()}
-                    </div>
-                  )}
+                  <div className="mt-2">
+                    {/* AI 个性化分析（同飞书推送）— 每条推荐附理由，规则兜底 */}
+                    <PushAnalysisPanel analysis={pushAnalysis} />
+                  </div>
               </div>
 
               {/* Opportunity Score (S5) */}
@@ -1672,6 +1707,20 @@ export default function DashboardPage() {
                       <span className="font-semibold text-fpso-blue">Action: </span>
                       {scoreResult.recommendedAction}
                     </p>
+                    {/* AI 采购时间窗推理依据 — AI 成功时在评分区下展示引用块 */}
+                    {pushAnalysis?.source === "ai" && pushAnalysis.procurement_window.reasoning && (
+                      <div className="mb-3">
+                        <div className="mb-1 flex items-center gap-2">
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-fpso-dim">
+                            采购时间窗推理依据
+                          </span>
+                          <PushSourceBadge source="ai" />
+                        </div>
+                        <blockquote className="border-l-2 border-fpso-green/40 pl-3 text-xs leading-relaxed text-fpso-green/80 italic">
+                          {pushAnalysis.procurement_window.reasoning}
+                        </blockquote>
+                      </div>
+                    )}
                     {/* AI 机会判断（仅 AI 成功时展示，规则结果已在上方展示） */}
                     {aiAssessment?.source === "ai" && (
                       <div className="mb-3 rounded-md border border-fpso-green/15 bg-fpso-green/[0.05] p-2.5">

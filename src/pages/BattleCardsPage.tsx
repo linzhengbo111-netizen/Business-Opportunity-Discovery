@@ -6,7 +6,7 @@
  * Fetch 逻辑与 Dashboard 保持一致：projects 表 + sampleProjects 兜底，断网不白屏。
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
 import type { Project } from "@/data/projects";
@@ -21,6 +21,8 @@ import { parseCorrosiveMedia } from "@/lib/material_matcher";
 import { scoreOpportunity, scoreBadgeClass } from "@/lib/opportunity_scorer";
 import { generateBattleCard, type BattleCard } from "@/lib/battle_card";
 import { exportOpportunityList } from "@/lib/export_opportunities";
+import { usePushAnalysis } from "@/hooks/usePushAnalysis";
+import { PushSourceBadge } from "@/components/dashboard/PushAnalysisPanel";
 import BattleCardWrapper from "@/components/dashboard/BattleCard";
 import { useRequireLogin } from "@/hooks/useRequireLogin";
 import { Button } from "@/components/ui/button";
@@ -105,6 +107,108 @@ interface ScoredCard {
   card: BattleCard;
   score: number;
   grade: "A" | "B" | "C" | "D";
+}
+
+/** One summary card in the grid — own component so the AI analysis only
+ *  fires when the card scrolls into view (one LLM call per project). */
+function BattleSummaryCard({
+  project,
+  card,
+  score,
+  grade,
+  onOpen,
+}: {
+  project: Project;
+  card: BattleCard;
+  score: number;
+  grade: "A" | "B" | "C" | "D";
+  onOpen: (p: Project) => void;
+}) {
+  const cardRef = useRef<HTMLButtonElement | null>(null);
+  const [inView, setInView] = useState(false);
+
+  // AI 分析仅在卡片进入视口后触发 — 规则引擎结果先行显示，AI 返回后替换
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setInView(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "300px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const analysis = usePushAnalysis(project, inView);
+
+  const products =
+    analysis && analysis.recommended_products.length > 0
+      ? analysis.recommended_products.map((p) => p.product).join("、")
+      : card.whatToPush.join("、");
+  const materials =
+    analysis && analysis.recommended_materials.length > 0
+      ? analysis.recommended_materials.map((m) => m.grade).join("、")
+      : card.materialGrades.join("、");
+  const windowText =
+    analysis?.procurement_window.range && analysis.procurement_window.range !== "待补充"
+      ? analysis.procurement_window.range
+      : card.whenToContact;
+
+  return (
+    <button
+      ref={cardRef}
+      type="button"
+      onClick={() => onOpen(project)}
+      className="group rounded-xl border border-white/5 bg-fpso-card/60 p-5 text-left backdrop-blur-md transition-all hover:border-fpso-blue/30 hover:shadow-lg hover:shadow-fpso-blue/5"
+    >
+      {/* name + grade */}
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <h2 className="text-base font-semibold leading-snug text-fpso-fg group-hover:text-fpso-blue">
+          {card.projectName}
+        </h2>
+        <span className={`inline-flex flex-shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold ${scoreBadgeClass(grade)}`}>
+          {grade} · {score}
+        </span>
+      </div>
+
+      <p className="mb-4 flex items-center gap-1.5 text-xs text-fpso-muted">
+        <MapPin className="h-3.5 w-3.5" />
+        {card.country}
+      </p>
+
+      {/* summary rows — AI 结果优先，规则引擎兜底 */}
+      <div className="space-y-2 text-sm">
+        <p className="flex items-start gap-2 text-fpso-fg/80">
+          <Package className="mt-0.5 h-4 w-4 flex-shrink-0 text-fpso-blue/70" />
+          <span><span className="text-fpso-muted">推荐产品:</span> {products}</span>
+        </p>
+        <p className="flex items-start gap-2 text-fpso-fg/80">
+          <Layers className="mt-0.5 h-4 w-4 flex-shrink-0 text-fpso-blue/70" />
+          <span><span className="text-fpso-muted">推荐材质:</span> {materials}</span>
+        </p>
+        <p className="flex items-start gap-2 text-fpso-fg/80">
+          <CalendarDays className="mt-0.5 h-4 w-4 flex-shrink-0 text-fpso-blue/70" />
+          <span className="flex flex-wrap items-center gap-1.5">
+            <span><span className="text-fpso-muted">采购时间窗:</span> {windowText}</span>
+            {analysis && <PushSourceBadge source={analysis.source} />}
+          </span>
+        </p>
+        <p className="flex items-start gap-2 text-fpso-fg/80">
+          <User className="mt-0.5 h-4 w-4 flex-shrink-0 text-fpso-blue/70" />
+          <span><span className="text-fpso-muted">联系谁:</span> {card.whoToContact.recommendedRole}</span>
+        </p>
+        <p className="flex items-start gap-2 text-fpso-fg/80">
+          <ArrowRight className="mt-0.5 h-4 w-4 flex-shrink-0 text-fpso-blue/70" />
+          <span><span className="text-fpso-muted">下一步:</span> {card.nextAction}</span>
+        </p>
+      </div>
+    </button>
+  );
 }
 
 export default function BattleCardsPage() {
@@ -217,51 +321,14 @@ export default function BattleCardsPage() {
           /* card grid */
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {abCards.map(({ project, card, score, grade }) => (
-              <button
+              <BattleSummaryCard
                 key={project.name}
-                type="button"
-                onClick={() => setSelectedProject(project)}
-                className="group rounded-xl border border-white/5 bg-fpso-card/60 p-5 text-left backdrop-blur-md transition-all hover:border-fpso-blue/30 hover:shadow-lg hover:shadow-fpso-blue/5"
-              >
-                {/* name + grade */}
-                <div className="mb-3 flex items-start justify-between gap-3">
-                  <h2 className="text-base font-semibold leading-snug text-fpso-fg group-hover:text-fpso-blue">
-                    {card.projectName}
-                  </h2>
-                  <span className={`inline-flex flex-shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold ${scoreBadgeClass(grade)}`}>
-                    {grade} · {score}
-                  </span>
-                </div>
-
-                <p className="mb-4 flex items-center gap-1.5 text-xs text-fpso-muted">
-                  <MapPin className="h-3.5 w-3.5" />
-                  {card.country}
-                </p>
-
-                {/* summary rows */}
-                <div className="space-y-2 text-sm">
-                  <p className="flex items-start gap-2 text-fpso-fg/80">
-                    <Package className="mt-0.5 h-4 w-4 flex-shrink-0 text-fpso-blue/70" />
-                    <span><span className="text-fpso-muted">推荐产品:</span> {card.whatToPush.join("、")}</span>
-                  </p>
-                  <p className="flex items-start gap-2 text-fpso-fg/80">
-                    <Layers className="mt-0.5 h-4 w-4 flex-shrink-0 text-fpso-blue/70" />
-                    <span><span className="text-fpso-muted">推荐材质:</span> {card.materialGrades.join("、")}</span>
-                  </p>
-                  <p className="flex items-start gap-2 text-fpso-fg/80">
-                    <CalendarDays className="mt-0.5 h-4 w-4 flex-shrink-0 text-fpso-blue/70" />
-                    <span><span className="text-fpso-muted">采购时间窗:</span> {card.whenToContact}</span>
-                  </p>
-                  <p className="flex items-start gap-2 text-fpso-fg/80">
-                    <User className="mt-0.5 h-4 w-4 flex-shrink-0 text-fpso-blue/70" />
-                    <span><span className="text-fpso-muted">联系谁:</span> {card.whoToContact.recommendedRole}</span>
-                  </p>
-                  <p className="flex items-start gap-2 text-fpso-fg/80">
-                    <ArrowRight className="mt-0.5 h-4 w-4 flex-shrink-0 text-fpso-blue/70" />
-                    <span><span className="text-fpso-muted">下一步:</span> {card.nextAction}</span>
-                  </p>
-                </div>
-              </button>
+                project={project}
+                card={card}
+                score={score}
+                grade={grade}
+                onOpen={setSelectedProject}
+              />
             ))}
           </div>
         )}

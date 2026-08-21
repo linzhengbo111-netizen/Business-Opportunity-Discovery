@@ -15,9 +15,11 @@ import { useProjectRealtime } from "@/hooks/useProjectRealtime";
 import { useTimelineEventCounts } from "@/hooks/useTimelineEventCounts";
 import { filterMatureProjects, hasTimelineData } from "@/lib/project_maturity";
 import { projectMatchesSearch } from "@/lib/project_search";
-import { hasAnySpecs, parseRecommendation, parseCorrosiveMedia, getCorrosiveMediaTags, getCorrosiveMediaDetails } from "@/lib/material_matcher";
+import { hasAnySpecs, parseCorrosiveMedia, getCorrosiveMediaTags, getCorrosiveMediaDetails } from "@/lib/material_matcher";
 import { scoreOpportunity, scoreBadgeClass } from "@/lib/opportunity_scorer";
 import { PHASES, PHASE_UNKNOWN, phaseBgClass, phaseFromRow } from "@/lib/project_phase";
+import { usePushAnalysis } from "@/hooks/usePushAnalysis";
+import PushAnalysisPanel, { PushSourceBadge } from "@/components/dashboard/PushAnalysisPanel";
 import BattleCardWrapper from "@/components/dashboard/BattleCard";
 import FollowUpStatus from "@/components/dashboard/FollowUpStatus";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -196,6 +198,8 @@ export default function DatabasePage() {
   // detail panel
   const [selected, setSelected] = useState<Project | null>(null);
   const [battleCardProject, setBattleCardProject] = useState<Project | null>(null);
+  // AI 个性化分析（同飞书推送）— 规则引擎结果立即显示，AI 返回后更新
+  const pushAnalysis = usePushAnalysis(selected);
 
   // subscription (follow/unfollow)
   const { isFollowing, toggleFollowProject } = useSubscription();
@@ -753,17 +757,12 @@ export default function DatabasePage() {
                 operatorName: selected.operatorName,
                 basin: selected.basin,
               };
-              const rec = parseRecommendation(selected.recommendationJson);
               const showSpecs = hasAnySpecs(specs);
-              const showRec = rec !== null;
               return (
                 <section className="mb-6">
                   <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-fpso-dim">
                     Technical Specs &amp; Material Matching
                   </h4>
-                  {!showSpecs && !showRec && (
-                    <span className="text-fpso-dim italic">暂无数据</span>
-                  )}
                   {/* Technical parameters table */}
                   {showSpecs && (
                     <div className="mb-3 overflow-hidden rounded-md border border-white/5">
@@ -843,50 +842,10 @@ export default function DatabasePage() {
                       </table>
                     </div>
                   )}
-                  {/* Material recommendation */}
-                  {showRec && (
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs text-fpso-muted">Grades:</span>
-                        {rec.grades.map((g) => (
-                          <span key={g.grade} className="rounded bg-fpso-blue/10 px-2 py-0.5 text-xs font-medium text-fpso-blue">
-                            {g.grade}
-                          </span>
-                        ))}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs text-fpso-muted">Applications:</span>
-                        {rec.applications.map((a) => (
-                          <span key={a} className="rounded bg-fpso-orange/10 px-2 py-0.5 text-xs font-medium text-fpso-orange">
-                            {a}
-                          </span>
-                        ))}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-fpso-muted">Confidence:</span>
-                        <span className={`rounded px-2 py-0.5 text-xs font-medium ${
-                          rec.confidence === "high" ? "bg-fpso-green/15 text-fpso-green" :
-                          rec.confidence === "medium" ? "bg-fpso-orange/15 text-fpso-orange" :
-                          "bg-fpso-muted/15 text-fpso-muted"
-                        }`}>
-                          {rec.confidence}
-                        </span>
-                      </div>
-                      {(() => {
-                        const hasCorrosiveReasoning = /H₂S|CO₂|sour|NACE|corrosive|H2S|chloride|Cl⁻/i.test(rec.reasoning);
-                        if (hasCorrosiveReasoning) {
-                          return (
-                            <blockquote className="border-l-2 border-fpso-orange/40 pl-3 text-xs leading-relaxed text-fpso-orange/80 italic mt-2">
-                              {rec.reasoning}
-                            </blockquote>
-                          );
-                        }
-                        return (
-                          <p className="text-xs leading-relaxed text-fpso-dim italic">{rec.reasoning}</p>
-                        );
-                      })()}
-                    </div>
-                  )}
+                  {/* AI 个性化分析（同飞书推送）— 每条推荐附理由，规则兜底 */}
+                  <div className="mt-2">
+                    <PushAnalysisPanel analysis={pushAnalysis} />
+                  </div>
                 </section>
               );
             })()}
@@ -924,6 +883,20 @@ export default function DatabasePage() {
                     <span className="font-semibold text-fpso-blue">Action: </span>
                     {scoreResult.recommendedAction}
                   </p>
+                  {/* AI 采购时间窗推理依据 — AI 成功时在评分区下展示引用块 */}
+                  {pushAnalysis?.source === "ai" && pushAnalysis.procurement_window.reasoning && (
+                    <div className="mb-3">
+                      <div className="mb-1 flex items-center gap-2">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-fpso-dim">
+                          采购时间窗推理依据
+                        </span>
+                        <PushSourceBadge source="ai" />
+                      </div>
+                      <blockquote className="border-l-2 border-fpso-green/40 pl-3 text-xs leading-relaxed text-fpso-green/80 italic">
+                        {pushAnalysis.procurement_window.reasoning}
+                      </blockquote>
+                    </div>
+                  )}
                   {/* Battle Card button */}
                   <button
                     type="button"
