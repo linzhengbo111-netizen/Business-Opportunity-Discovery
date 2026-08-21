@@ -89,7 +89,7 @@ def _build_card_message(
     status: str,
     summary: str,
     project_id: str,
-    app_url: str = "https://business-opportunity-discovery.pages.dev",
+    app_url: str = "https://business-opportunity-discovery.linzhengbo111.workers.dev",
     is_update: bool = False,
 ) -> dict:
     """Build a Feishu card message for a project.
