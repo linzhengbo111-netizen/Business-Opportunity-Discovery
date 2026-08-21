@@ -230,6 +230,40 @@ def _build_card_message(
             },
         })
 
+    # Project identity: field/operator/basin + technical specs. Field name and
+    # operator are what make an FPSO project unique, so this sits at the top.
+    # Missing fields are omitted entirely.
+    loc_items: list[tuple[str, str]] = []
+    if project.get("field_name"):
+        loc_items.append(("油田/气田", str(project["field_name"])))
+    if project.get("operator_name"):
+        loc_items.append(("运营商", str(project["operator_name"])))
+    if project.get("basin"):
+        loc_items.append(("盆地", str(project["basin"])))
+    if project.get("water_depth_m"):
+        loc_items.append(("水深", f"{project['water_depth_m']:,} m"))
+    if project.get("oil_capacity_bpd"):
+        loc_items.append(("石油产能", f"{project['oil_capacity_bpd']:,} bpd"))
+    if project.get("gas_capacity_mmcmd"):
+        loc_items.append(("天然气产能", f"{project['gas_capacity_mmcmd']:,} MMcmd"))
+    if project.get("hull_type"):
+        loc_items.append(("船体类型", str(project["hull_type"])))
+
+    if loc_items:
+        elements.append({
+            "tag": "div",
+            "text": {"tag": "lark_md", "content": "📍 **项目定位**"},
+        })
+        loc_fields = []
+        for i, (label, value) in enumerate(loc_items):
+            # Two-column grid; an odd trailing field spans the full row.
+            is_short = not (i == len(loc_items) - 1 and len(loc_items) % 2 == 1)
+            loc_fields.append({
+                "is_short": is_short,
+                "text": {"tag": "lark_md", "content": f"**{label}：** {value}"},
+            })
+        elements.append({"tag": "div", "fields": loc_fields})
+
     if summary:
         content = summary[:240]
         if len(summary) > 240:
@@ -258,10 +292,6 @@ def _build_card_message(
             {
                 "is_short": True,
                 "text": {"tag": "lark_md", "content": f"**采购时间窗（预估）：** {window}"},
-            },
-            {
-                "is_short": False,
-                "text": {"tag": "lark_md", "content": f"**EPC/承包商：** {chain}"},
             },
         ],
     })
@@ -305,16 +335,30 @@ def _build_card_message(
         ],
     })
 
-    if source_url or source_name:
-        if source_url and source_name:
-            source_text = f"来源：{source_name} · [原文链接]({source_url})"
-        elif source_url:
-            source_text = f"[原文链接]({source_url})"
-        else:
-            source_text = f"来源：{source_name}"
+    # Contact path block at the bottom: who to reach and where the info
+    # comes from. No invented emails/phones/names — only real DB fields.
+    contact_lines: list[str] = []
+    has_chain = bool(chain and chain != "待补充")
+    if has_chain:
+        contact_lines.append(f"**EPC/承包商：** {chain}")
+    if source_name:
+        contact_lines.append(f"**来源：** {source_name}")
+    if source_url:
+        contact_lines.append(f"[查看原文链接]({source_url})")
+    if has_chain:
+        companies = "、".join(c.strip() for c in chain.split(",") if c.strip())
+        contact_lines.append(
+            f"建议通过 {companies} 官网的供应商/采购入口建立联系"
+        )
+
+    if contact_lines:
+        elements.append({"tag": "hr"})
         elements.append({
-            "tag": "note",
-            "elements": [{"tag": "lark_md", "content": source_text}],
+            "tag": "div",
+            "text": {
+                "tag": "lark_md",
+                "content": "📞 **联系路径**\n" + "\n".join(contact_lines),
+            },
         })
 
     return {
