@@ -106,16 +106,27 @@ _LEGACY_PHASE = {
 }
 
 
+def normalize_phase(phase: str) -> str:
+    """Normalize a phase/status value to the canonical 9-phase taxonomy.
+
+    Legacy status values (pre migration-025) are mapped to their canonical
+    phase. Returns '' when the value is empty/unknown.
+    """
+    raw = (phase or "").strip()
+    if not raw:
+        return ""
+    return _LEGACY_PHASE.get(raw.lower(), raw)
+
+
 def _procurement_window(phase: str) -> str:
     """Estimate procurement window from project phase.
 
     Phase-based only (no timeline events available in notifier context).
     Returns 待补充 when phase is unknown.
     """
-    raw = (phase or "").strip()
-    if not raw:
+    norm = normalize_phase(phase).lower()
+    if not norm:
         return "待补充"
-    norm = _LEGACY_PHASE.get(raw.lower(), raw).lower()
     return _PHASE_WINDOW.get(norm, "待补充")
 
 
@@ -500,6 +511,27 @@ def notify_subscribers(supabase, new_projects: list[dict]) -> dict:
     if not new_projects:
         log.info("No new projects to notify about")
         return {"notified": 0, "skipped": 0, "errors": 0}
+
+    # ---- Phase gate: only push projects that are still in an active phase ----
+    # Delivery/Commissioning are finished; no new procurement opportunities.
+    # NULL/Unknown phases are kept — unknown still needs human judgement.
+    _EXCLUDED_PHASES = {"delivery", "commissioning"}
+    filtered_projects = []
+    for p in new_projects:
+        phase = normalize_phase(p.get("phase") or p.get("status") or "")
+        if phase.lower() in _EXCLUDED_PHASES:
+            log.info(
+                "  SKIP PUSH (finished phase=%s): %s",
+                phase, (p.get("name") or "")[:60],
+            )
+            continue
+        filtered_projects.append(p)
+
+    if not filtered_projects:
+        log.info("No active-phase projects after phase filter — nothing to push")
+        return {"notified": 0, "skipped": 0, "errors": 0}
+
+    new_projects = filtered_projects
 
     log.info("=" * 54)
     log.info("NOTIFIER: checking subscriptions for %d project(s)", len(new_projects))

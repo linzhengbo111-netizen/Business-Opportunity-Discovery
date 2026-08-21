@@ -58,7 +58,7 @@ from adapters.media_common import (  # noqa: E402
 )
 
 from enricher import enrich_project, compute_enrichment_diff  # noqa: E402
-from notifier import notify_subscribers  # noqa: E402
+from notifier import notify_subscribers, normalize_phase  # noqa: E402
 from ai_event_extractor import (  # noqa: E402
     run_ai_extraction,
     fetch_pending_reanalyzable,
@@ -1254,10 +1254,20 @@ def auto_ingest_to_projects(supabase, skip_enrich=False):
                 log.debug("  Scoring failed for %s", effective_name[:60], exc_info=True)
 
             if existing.data:
+                # Push only when the phase actually changed. Summary/tech-spec
+                # updates must NOT re-trigger a push for the same project.
+                new_phase = normalize_phase(project_data.get("phase") or "")
+                phase_changed = normalize_phase(existing_phase) != new_phase
                 project_table.update(project_data).eq("name", effective_name).execute()
                 updated_count += 1
-                notified_projects.append(project_data)
-                log.info("  UPDATED: %s (confidence=%s)", effective_name[:60], confidence)
+                if phase_changed:
+                    notified_projects.append(project_data)
+                    log.info("  UPDATED (phase change %s → %s, notify): %s",
+                             normalize_phase(existing_phase) or "-", new_phase or "-",
+                             effective_name[:60])
+                else:
+                    log.info("  UPDATED (no phase change, no notify): %s",
+                             effective_name[:60])
             else:
                 project_table.insert(project_data).execute()
                 new_count += 1
