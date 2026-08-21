@@ -82,77 +82,254 @@ def _get_tenant_access_token() -> str | None:
         return None
 
 
+# Phase → procurement window estimate. Mirrors the TS engine's
+# estimateProcurementWindow (src/lib/material_matcher.ts) phase rules, so card
+# values stay consistent with the frontend's displayed estimates.
+_PHASE_WINDOW = {
+    "procurement": "0-3 个月",
+    "epc award": "2-4 个月",
+    "construction": "3-6 个月",
+    "approval": "6-12 个月",
+    "design": "12-18 个月",
+    "planning": "12 个月以上",
+    "concept": "12 个月以上",
+    "commissioning": "时间未定",
+    "delivery": "时间未定",
+}
+
+# Legacy status values (pre migration-025) tolerated by the scorer.
+_LEGACY_PHASE = {
+    "delivered": "Delivery",
+    "completed": "Delivery",
+    "under construction": "Construction",
+    "planned": "Planning",
+}
+
+
+def _procurement_window(phase: str) -> str:
+    """Estimate procurement window from project phase.
+
+    Phase-based only (no timeline events available in notifier context).
+    Returns 待补充 when phase is unknown.
+    """
+    raw = (phase or "").strip()
+    if not raw:
+        return "待补充"
+    norm = _LEGACY_PHASE.get(raw.lower(), raw).lower()
+    return _PHASE_WINDOW.get(norm, "待补充")
+
+
+def _parse_recommendation(project: dict) -> dict:
+    """Parse recommendation_json (JSONB may arrive as dict or str)."""
+    rec = project.get("recommendation_json")
+    if isinstance(rec, str):
+        try:
+            rec = json.loads(rec)
+        except Exception:
+            rec = None
+    return rec if isinstance(rec, dict) else {}
+
+
+def _recommended_grades(project: dict, rec: dict) -> list[str]:
+    """Recommended stainless grades: recommendation_json.grades first,
+    fall back to the legacy stainless_steel text field."""
+    grades: list[str] = []
+    for g in rec.get("grades") or []:
+        if isinstance(g, dict):
+            name = g.get("grade") or g.get("name") or ""
+        else:
+            name = str(g)
+        name = name.strip()
+        if name and name not in grades:
+            grades.append(name)
+    if not grades:
+        for g in (project.get("stainless_steel") or "").split(","):
+            g = g.strip()
+            if g and g not in grades:
+                grades.append(g)
+    return grades
+
+
+def _recommended_applications(project: dict, rec: dict) -> list[str]:
+    """Recommended products/applications: recommendation_json.applications
+    first, fall back to the legacy application text field."""
+    apps: list[str] = []
+    for a in rec.get("applications") or []:
+        a = str(a).strip()
+        if a and a not in apps:
+            apps.append(a)
+    if not apps:
+        for a in (project.get("application") or "").split(","):
+            a = a.strip()
+            if a and a not in apps:
+                apps.append(a)
+    return apps
+
+
+def _score_dict(project: dict) -> dict | None:
+    """Parse opportunity_score (JSONB may arrive as dict or str)."""
+    score = project.get("opportunity_score")
+    if isinstance(score, str):
+        try:
+            score = json.loads(score)
+        except Exception:
+            score = None
+    return score if isinstance(score, dict) else None
+
+
 def _build_card_message(
-    project_name: str,
-    country: str,
-    industry: str,
-    status: str,
-    summary: str,
-    project_id: str,
+    project: dict,
     app_url: str = "https://business-opportunity-discovery.linzhengbo111.workers.dev",
     is_update: bool = False,
 ) -> dict:
-    """Build a Feishu card message for a project.
+    """Build a Feishu card message showing the project's core profile directly.
+
+    All values come from real project fields; missing short fields show
+    待补充, missing long lists are omitted entirely.
 
     Args:
+        project: project dict from Supabase (name, country, phase, summary,
+            procurement_chain, stainless_steel, application,
+            recommendation_json, opportunity_score, source_url, source_name).
         is_update: if True, prepend [Update] tag and use red-tinted header.
     """
-    tag = "Update" if is_update else "New"
     header_color = "red" if is_update else "blue"
     title_prefix = "[Update] " if is_update else ""
 
-    card = {
+    name = (project.get("name") or "未命名项目")[:60]
+    summary = (project.get("summary") or "").strip()
+    country = (project.get("country") or "").strip() or "待补充"
+    phase = (project.get("phase") or project.get("status") or "").strip() or "待补充"
+    window = _procurement_window(phase)
+    chain = (project.get("procurement_chain") or "").strip() or "待补充"
+    source_url = (project.get("source_url") or "").strip()
+    source_name = (project.get("source_name") or "").strip()
+
+    rec = _parse_recommendation(project)
+    grades = _recommended_grades(project, rec)
+    apps = _recommended_applications(project, rec)
+
+    score_info = _score_dict(project)
+    if score_info and score_info.get("totalScore") is not None and score_info.get("grade"):
+        score_text = f"{score_info['totalScore']} 分 · {score_info['grade']} 级"
+    else:
+        score_text = "待补充"
+    action = (score_info or {}).get("recommendedAction") or ""
+
+    elements: list[dict] = []
+
+    if is_update:
+        elements.append({
+            "tag": "div",
+            "text": {
+                "tag": "lark_md",
+                "content": (
+                    "🔔 **项目更新** — 检测到新事件 "
+                    f"({datetime.now(timezone.utc).strftime('%Y-%m-%d')})"
+                ),
+            },
+        })
+
+    if summary:
+        content = summary[:240]
+        if len(summary) > 240:
+            content += "..."
+        elements.append({
+            "tag": "div",
+            "text": {"tag": "lark_md", "content": content},
+        })
+
+    # Two-column field grid: country/phase, score/window; EPC full width.
+    elements.append({
+        "tag": "div",
+        "fields": [
+            {
+                "is_short": True,
+                "text": {"tag": "lark_md", "content": f"**国家：** {country}"},
+            },
+            {
+                "is_short": True,
+                "text": {"tag": "lark_md", "content": f"**阶段：** {phase}"},
+            },
+            {
+                "is_short": True,
+                "text": {"tag": "lark_md", "content": f"**机会评分：** {score_text}"},
+            },
+            {
+                "is_short": True,
+                "text": {"tag": "lark_md", "content": f"**采购时间窗（预估）：** {window}"},
+            },
+            {
+                "is_short": False,
+                "text": {"tag": "lark_md", "content": f"**EPC/承包商：** {chain}"},
+            },
+        ],
+    })
+
+    if apps:
+        elements.append({
+            "tag": "div",
+            "text": {
+                "tag": "lark_md",
+                "content": f"**推荐产品：** {'、'.join(apps[:12])}",
+            },
+        })
+
+    if grades:
+        elements.append({
+            "tag": "div",
+            "text": {
+                "tag": "lark_md",
+                "content": f"**推荐不锈钢牌号：** {'、'.join(grades[:12])}",
+            },
+        })
+
+    if action:
+        elements.append({
+            "tag": "div",
+            "text": {
+                "tag": "lark_md",
+                "content": f"**下一步行动：** {action}",
+            },
+        })
+
+    elements.append({
+        "tag": "action",
+        "actions": [
+            {
+                "tag": "button",
+                "text": {"tag": "plain_text", "content": "View Details"},
+                "type": "primary",
+                "url": f"{app_url}/database?project={name}",
+            }
+        ],
+    })
+
+    if source_url or source_name:
+        if source_url and source_name:
+            source_text = f"来源：{source_name} · [原文链接]({source_url})"
+        elif source_url:
+            source_text = f"[原文链接]({source_url})"
+        else:
+            source_text = f"来源：{source_name}"
+        elements.append({
+            "tag": "note",
+            "elements": [{"tag": "lark_md", "content": source_text}],
+        })
+
+    return {
         "msg_type": "interactive",
         "card": {
             "header": {
                 "title": {
                     "tag": "plain_text",
-                    "content": f"{title_prefix}{project_name}",
+                    "content": f"{title_prefix}{name}",
                 },
                 "template": header_color,
             },
-            "elements": [
-                {
-                    "tag": "div",
-                    "text": {
-                        "tag": "lark_md",
-                        "content": (
-                            f"**Country:** {country or 'N/A'}\n"
-                            f"**Industry:** {industry or 'N/A'}\n"
-                            f"**Status:** {status or 'N/A'}\n\n"
-                            f"{summary[:300]}{'...' if len(summary or '') > 300 else ''}"
-                        ),
-                    },
-                },
-                {
-                    "tag": "action",
-                    "actions": [
-                        {
-                            "tag": "button",
-                            "text": {"tag": "plain_text", "content": "View Details"},
-                            "type": "primary",
-                            "url": f"{app_url}/database?project={project_name}",
-                        }
-                    ],
-                },
-            ],
+            "elements": elements,
         },
     }
-
-    # Add update tag as a note at top
-    if is_update:
-        card["card"]["elements"].insert(
-            0,
-            {
-                "tag": "div",
-                "text": {
-                    "tag": "lark_md",
-                    "content": f"🔔 **Project Update** — new event detected ({datetime.now(timezone.utc).strftime('%Y-%m-%d')})",
-                },
-            },
-        )
-
-    return card
 
 
 def _send_via_webhook(webhook_url: str, card: dict) -> bool:
@@ -336,15 +513,7 @@ def notify_subscribers(supabase, new_projects: list[dict]) -> dict:
                 user_open_id, project_name, is_update,
             )
 
-            card = _build_card_message(
-                project_name=project.get("name", ""),
-                country=project.get("country", ""),
-                industry=project.get("industry", ""),
-                status=project.get("phase") or project.get("status", ""),
-                summary=project.get("summary", ""),
-                project_id=project.get("name", ""),
-                is_update=is_update,
-            )
+            card = _build_card_message(project, is_update=is_update)
 
             # Send: prefer webhook, fallback to direct message API
             sent = False
