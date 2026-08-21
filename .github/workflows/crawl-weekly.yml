@@ -16,6 +16,9 @@ jobs:
       SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       LARK_APP_ID: ${{ secrets.LARK_APP_ID }}
       LARK_APP_SECRET: ${{ secrets.LARK_APP_SECRET }}
+      # AI push analysis goes through the deployed worker /api/llm proxy —
+      # the LLM API key stays server-side, no repo secret needed.
+      LLM_PROXY_URL: https://business-opportunity-discovery.linzhengbo111.workers.dev
 
     steps:
       - name: Checkout

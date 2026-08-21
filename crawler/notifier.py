@@ -21,6 +21,8 @@ from datetime import datetime, timezone
 
 import requests
 
+from ai_push_analyst import analyze_for_push, fetch_project_events
+
 log = logging.getLogger("fpso-notifier")
 
 # ---- Feishu API endpoints ----
@@ -188,8 +190,12 @@ def _score_dict(project: dict) -> dict | None:
     return score if isinstance(score, dict) else None
 
 
+_CONFIDENCE_ZH = {"high": "高", "medium": "中", "low": "低"}
+
+
 def _build_card_message(
     project: dict,
+    analysis: dict | None = None,
     app_url: str = "https://business-opportunity-discovery.linzhengbo111.workers.dev",
     is_update: bool = False,
 ) -> dict:
@@ -198,23 +204,40 @@ def _build_card_message(
     All values come from real project fields; missing short fields show
     待补充, missing long lists are omitted entirely.
 
+    When `analysis` (from ai_push_analyst.analyze_for_push) has
+    source == 'ai', the procurement window / materials / products rows show
+    the AI's personalized judgement with per-item reasons plus an
+    'AI 分析摘要' row. Otherwise the pre-AI rule-engine display is kept.
+
     Args:
         project: project dict from Supabase (name, country, phase, summary,
             procurement_chain, stainless_steel, application,
             recommendation_json, opportunity_score, source_url, source_name).
+        analysis: analyze_for_push() result dict, or None to force the
+            rule-engine display.
         is_update: if True, prepend [Update] tag and use red-tinted header.
     """
     header_color = "red" if is_update else "blue"
     title_prefix = "[Update] " if is_update else ""
 
+    ai = analysis if (analysis or {}).get("source") == "ai" else None
+
     name = (project.get("name") or "未命名项目")[:60]
     summary = (project.get("summary") or "").strip()
     country = (project.get("country") or "").strip() or "待补充"
     phase = (project.get("phase") or project.get("status") or "").strip() or "待补充"
-    window = _procurement_window(phase)
     chain = (project.get("procurement_chain") or "").strip() or "待补充"
     source_url = (project.get("source_url") or "").strip()
     source_name = (project.get("source_name") or "").strip()
+
+    # AI procurement window; falls back to the phase-based rule estimate.
+    pw = ((analysis or {}).get("procurement_window") or {}) if ai else {}
+    window = (pw.get("range") or "").strip() or _procurement_window(phase)
+    if ai:
+        conf_zh = _CONFIDENCE_ZH.get((pw.get("confidence") or "medium").lower(), "中")
+        window_text = f"{window}（置信度 {conf_zh}）"
+    else:
+        window_text = window
 
     rec = _parse_recommendation(project)
     grades = _recommended_grades(project, rec)
@@ -226,6 +249,12 @@ def _build_card_message(
     else:
         score_text = "待补充"
     action = (score_info or {}).get("recommendedAction") or ""
+
+    # AI per-item lists; the rule-engine lists are shown when AI is absent.
+    ai_materials = ai.get("recommended_materials") or [] if ai else []
+    ai_products = ai.get("recommended_products") or [] if ai else []
+    ai_action = (ai.get("action_suggestion") or "").strip() if ai else ""
+    ai_summary = (ai.get("ai_summary") or "").strip() if ai else ""
 
     elements: list[dict] = []
 
@@ -302,12 +331,31 @@ def _build_card_message(
             },
             {
                 "is_short": True,
-                "text": {"tag": "lark_md", "content": f"**采购时间窗（预估）：** {window}"},
+                "text": {"tag": "lark_md", "content": f"**采购时间窗（预估）：** {window_text}"},
             },
         ],
     })
 
-    if apps:
+    # AI window reasoning: the concrete evidence the range was derived from.
+    if ai and pw.get("reasoning"):
+        elements.append({
+            "tag": "div",
+            "text": {
+                "tag": "lark_md",
+                "content": f"**时间窗依据：** {pw['reasoning']}",
+            },
+        })
+
+    if ai_products:
+        lines = [f"• **{p['product']}** — {p['reason']}" for p in ai_products]
+        elements.append({
+            "tag": "div",
+            "text": {
+                "tag": "lark_md",
+                "content": "**推荐产品：**\n" + "\n".join(lines),
+            },
+        })
+    elif apps:
         elements.append({
             "tag": "div",
             "text": {
@@ -316,7 +364,16 @@ def _build_card_message(
             },
         })
 
-    if grades:
+    if ai_materials:
+        lines = [f"• **{m['grade']}** — {m['reason']}" for m in ai_materials]
+        elements.append({
+            "tag": "div",
+            "text": {
+                "tag": "lark_md",
+                "content": "**推荐不锈钢牌号：**\n" + "\n".join(lines),
+            },
+        })
+    elif grades:
         elements.append({
             "tag": "div",
             "text": {
@@ -325,12 +382,21 @@ def _build_card_message(
             },
         })
 
-    if action:
+    if ai and ai_summary:
         elements.append({
             "tag": "div",
             "text": {
                 "tag": "lark_md",
-                "content": f"**下一步行动：** {action}",
+                "content": f"🤖 **AI 分析摘要**\n{ai_summary}",
+            },
+        })
+
+    if ai_action or action:
+        elements.append({
+            "tag": "div",
+            "text": {
+                "tag": "lark_md",
+                "content": f"**下一步行动：** {ai_action or action}",
             },
         })
 
@@ -564,6 +630,10 @@ def notify_subscribers(supabase, new_projects: list[dict]) -> dict:
     skipped = 0
     errors = 0
 
+    # AI analysis is per-project; cache so a project matching multiple
+    # subscribers triggers only one LLM call.
+    analysis_cache: dict[str, dict] = {}
+
     for sub in all_subs:
         user_open_id = sub.get("user_open_id", "")
         sub_industries = sub.get("subscribed_industries") or []
@@ -589,7 +659,16 @@ def notify_subscribers(supabase, new_projects: list[dict]) -> dict:
                 user_open_id, project_name, is_update,
             )
 
-            card = _build_card_message(project, is_update=is_update)
+            # AI-personalized analysis, cached per project (one LLM call).
+            pkey = str(project.get("id") or project.get("name") or project_name)
+            analysis = analysis_cache.get(pkey)
+            if analysis is None:
+                analysis = analyze_for_push(
+                    project, fetch_project_events(supabase, project)
+                )
+                analysis_cache[pkey] = analysis
+
+            card = _build_card_message(project, analysis=analysis, is_update=is_update)
 
             # Send: prefer webhook, fallback to direct message API
             sent = False
