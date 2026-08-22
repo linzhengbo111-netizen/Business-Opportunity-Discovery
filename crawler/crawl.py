@@ -1213,6 +1213,25 @@ def auto_ingest_to_projects(supabase, skip_enrich=False):
                          effective_name[:60], merged_source_date)
                 continue
 
+            # ---- Confidence guard: Delivery/Commissioning stay 'low' ----
+            # Migration 016 downgraded delivered projects, but later auto-ingest
+            # runs from P0 sources overwrote confidence back to 'high'. A
+            # delivered/commissioning vessel is built — no procurement
+            # opportunity — so P0 sources must NOT override the downgrade.
+            if merged_phase in ("Delivery", "Commissioning") \
+                    or existing_phase in ("Delivery", "Commissioning"):
+                if confidence != "low":
+                    log.info("  Confidence guard: forcing low for %s (phase=%s)",
+                             effective_name[:60], merged_phase or existing_phase)
+                    confidence = "low"
+                    project_data["confidence"] = "low"
+                # Never regress a terminal phase from a newer, weaker candidate.
+                if existing_phase in ("Delivery", "Commissioning") \
+                        and project_data.get("phase") not in ("Delivery", "Commissioning"):
+                    log.info("  Phase guard: keeping %s (candidate suggested %s)",
+                             existing_phase, project_data.get("phase"))
+                    project_data["phase"] = existing_phase
+
             # ---- Enrich: search public sources for missing technical specs ----
             # Only runs when project has searchable keywords (name, operator, field, etc.)
             # and is missing at least one tech-spec field. Best-effort: errors are logged
