@@ -747,7 +747,14 @@ export default function DashboardPage() {
       );
     }
     if (selectedPhases.size > 0) {
+      const beforePhaseFilter = result;
       result = result.filter((p) => selectedPhases.has(phaseLabel(p.phase)));
+      // 置顶项目豁免阶段筛选：即使其阶段未勾选也强制保留，
+      // 其余项目照常遵守阶段筛选。
+      const pinnedExcluded = beforePhaseFilter.filter(
+        (p) => !result.includes(p) && priorityProjectRankByName(p.name) >= 0,
+      );
+      result = [...result, ...pinnedExcluded];
     }
     const searchActive = searchQuery.trim().length > 0;
     if (searchActive) {
