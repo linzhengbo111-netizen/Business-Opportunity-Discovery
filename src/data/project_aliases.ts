@@ -16,6 +16,8 @@
  *   const id = normalizeProjectName('Payara Dev Project');  // → 'guyana-payara'
  */
 
+import { PRIORITY_PROJECT_NAMES } from "./projects";
+
 export interface ProjectAliasEntry {
   /** 推荐的显示名称（第一个别名） */
   displayName: string;
@@ -1214,4 +1216,53 @@ export function getProjectIdsByCountry(country: string): string[] {
   return Object.entries(PROJECT_ALIASES)
     .filter(([, entry]) => entry.country.toLowerCase() === country.toLowerCase())
     .map(([id]) => id);
+}
+
+/* ------------------------------------------------------------------ */
+/* Priority projects — 三页共用的置顶排序                               */
+/* ------------------------------------------------------------------ */
+
+/** 置顶项目的 canonical id，顺序与 projects.ts 的 PRIORITY_PROJECT_NAMES 对应。 */
+export const PRIORITY_PROJECT_IDS: readonly string[] = PRIORITY_PROJECT_NAMES.map(
+  (name) => {
+    const upper = name.toUpperCase();
+    const id = getAllCanonicalIds().find((cid) => {
+      const entry = PROJECT_ALIASES[cid];
+      if (!entry) return false;
+      return [entry.displayName, ...entry.aliases].some(
+        (a) => a.toUpperCase() === upper,
+      );
+    });
+    if (!id) {
+      throw new Error(`PRIORITY_PROJECT_NAMES 中未在别名库找到: ${name}`);
+    }
+    return id;
+  },
+);
+
+/** 置顶排名：canonical id 命中置顶清单返回 0..N-1，否则 -1。 */
+export function priorityProjectRank(canonicalId: string): number {
+  return PRIORITY_PROJECT_IDS.indexOf(canonicalId);
+}
+
+/** 置顶排名：按项目名（displayName 或任一别名，大小写不敏感）匹配，否则 -1。 */
+export function priorityProjectRankByName(name: string | null | undefined): number {
+  if (!name) return -1;
+  const upper = name.trim().toUpperCase();
+  return PRIORITY_PROJECT_IDS.findIndex((cid) => {
+    const entry = PROJECT_ALIASES[cid];
+    if (!entry) return false;
+    return [entry.displayName, ...entry.aliases].some(
+      (a) => a.toUpperCase() === upper,
+    );
+  });
+}
+
+/** 置顶项目按清单顺序提前，其余保持原有顺序。 */
+export function sortPriorityFirst<T>(items: T[], rankOf: (item: T) => number): T[] {
+  const priority = items
+    .filter((item) => rankOf(item) >= 0)
+    .sort((a, b) => rankOf(a) - rankOf(b));
+  const rest = items.filter((item) => rankOf(item) < 0);
+  return [...priority, ...rest];
 }

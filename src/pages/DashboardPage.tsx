@@ -13,7 +13,7 @@ import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
 import type { Project, MaterialMatchResult } from "@/data/projects";
 import { countryCoordinates, sampleProjects, countryToFlagEmoji, COUNTRY_ALIASES } from "@/data/projects";
-import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
+import { normalizeProjectName, getDisplayName, sortPriorityFirst, priorityProjectRankByName } from "@/data/project_aliases";
 import { supabase, fetchAllRows } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
 import { useTimelineEventCounts } from "@/hooks/useTimelineEventCounts";
@@ -757,7 +757,8 @@ export default function DashboardPage() {
       // Maturity filter: applied only when showAllProjects is false (user opted into mature-only view).
       result = filterMatureProjects(result, timelineEventCounts, showAllProjects);
     }
-    return result;
+    // 置顶项目按 PRIORITY_PROJECT_NAMES 顺序排最前，其余保持原有顺序。
+    return sortPriorityFirst(result, (p) => priorityProjectRankByName(p.name));
   }, [projects, selectedCountry, selectedIndustry, selectedConfidence, selectedPhases, timelineEventCounts, showAllProjects, searchQuery]);
 
   const filteredStats = useMemo(() => getStats(filteredProjects), [filteredProjects]);

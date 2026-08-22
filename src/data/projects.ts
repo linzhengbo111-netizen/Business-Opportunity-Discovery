@@ -4,6 +4,15 @@
  * sampleProjects 作为 Supabase 不可用时的回退数据。
  */
 
+/** 置顶项目 — 商机看板 / 战报中心 / 项目时间线三页共用的优先排序清单。
+ *  按此顺序排在最前；其余项目保持各自原有排序。
+ *  匹配逻辑（含 canonical id 映射）见 project_aliases.ts 的 priority helpers。 */
+export const PRIORITY_PROJECT_NAMES = [
+  "FPSO ALMIRANTE TAMANDARE",
+  "FPSO BACALHAU",
+  "FPSO SEPETIBA",
+] as const;
+
 export interface ProjectSource {
   name: string;
   url: string;

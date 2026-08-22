@@ -15,6 +15,8 @@ import {
   getDisplayName,
   getProjectCountry,
   getAliases,
+  sortPriorityFirst,
+  priorityProjectRank,
 } from "@/data/project_aliases";
 import type { Project } from "@/data/projects";
 import { countryToFlagEmoji, COUNTRY_ALIASES } from "@/data/projects";
@@ -220,8 +222,8 @@ export default function ProjectTimelinePage() {
   }, []);
 
   // Initial selection: URL param wins; otherwise pick the first project
-  // (alphabetically) that has accepted timeline events, so the first
-  // screen is never blank.
+  // in selector order (pinned first, then alphabetical) that has accepted
+  // timeline events, so the first screen is never blank.
   const initialSelectionDone = useRef(false);
   useEffect(() => {
     if (projects.length === 0 || countsLoading || initialSelectionDone.current) return;
@@ -236,8 +238,12 @@ export default function ProjectTimelinePage() {
       setRawProjectName(urlProjectName);
       setSelectedId(""); // will trigger fallback query
     } else {
+      const withEvents = projects.filter(
+        (p) => (eventCounts.get(p.canonicalId) ?? 0) > 0,
+      );
       const firstWithEvents =
-        projects.find((p) => (eventCounts.get(p.canonicalId) ?? 0) > 0) ?? projects[0];
+        sortPriorityFirst(withEvents, (p) => priorityProjectRank(p.canonicalId))[0] ??
+        projects[0];
       setSelectedId(firstWithEvents.canonicalId);
       setSearchParams({ project: firstWithEvents.canonicalId }, { replace: true });
     }
@@ -395,7 +401,9 @@ export default function ProjectTimelinePage() {
   // Split project options by accepted-event coverage: projects with at least
   // one accepted event stay in the main list; zero-event projects collapse
   // into the "待挖掘项目" group so they don't clutter the selector. Both
-  // lists keep the alphabetical order of the registry.
+  // lists keep the alphabetical order of the registry, except pinned
+  // projects: inside the "有事件" group they lead in PRIORITY_PROJECT_NAMES
+  // order regardless of event count or alphabet.
   const projectGroups = useMemo(() => {
     const withEvents: ProjectOption[] = [];
     const withoutEvents: ProjectOption[] = [];
@@ -403,7 +411,10 @@ export default function ProjectTimelinePage() {
       if ((eventCounts.get(p.canonicalId) ?? 0) > 0) withEvents.push(p);
       else withoutEvents.push(p);
     }
-    return { withEvents, withoutEvents };
+    return {
+      withEvents: sortPriorityFirst(withEvents, (p) => priorityProjectRank(p.canonicalId)),
+      withoutEvents,
+    };
   }, [projects, eventCounts]);
 
   // While counts are loading, treat every project as event-having so the

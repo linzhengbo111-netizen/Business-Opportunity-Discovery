@@ -11,7 +11,7 @@ import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
 import type { Project } from "@/data/projects";
 import { sampleProjects, COUNTRY_ALIASES } from "@/data/projects";
-import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
+import { normalizeProjectName, getDisplayName, sortPriorityFirst, priorityProjectRankByName } from "@/data/project_aliases";
 import { supabase } from "@/db/supabase";
 import { phaseFromRow } from "@/lib/project_phase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
@@ -263,7 +263,7 @@ export default function BattleCardsPage() {
   // 战报中心只展示成熟商机（技术参数 + 时间线事件齐备），
   // 潜在项目生成不了有价值的战报。
   const abCards = useMemo<ScoredCard[]>(() => {
-    return filterMatureProjects(projects, timelineEventCounts, false)
+    const scored = filterMatureProjects(projects, timelineEventCounts, false)
       .map((project) => {
         const scoreResult = scoreOpportunity(project);
         return {
@@ -275,6 +275,8 @@ export default function BattleCardsPage() {
       })
       .filter((item) => item.grade === "A" || item.grade === "B")
       .sort((a, b) => b.score - a.score);
+    // 置顶项目按 PRIORITY_PROJECT_NAMES 顺序排最前，其余保持评分降序。
+    return sortPriorityFirst(scored, (item) => priorityProjectRankByName(item.project.name));
   }, [projects, timelineEventCounts]);
 
   const handleExport = () => {
@@ -298,7 +300,7 @@ export default function BattleCardsPage() {
               战报中心
             </h1>
             <p className="mt-1 text-sm text-fpso-muted">
-              A / B 级商机作战卡 · 仅成熟商机 · 按评分降序 · {abCards.length} 个项目
+              A / B 级商机作战卡 · 仅成熟商机 · 置顶项目优先 · 其余按评分降序 · {abCards.length} 个项目
             </p>
           </div>
           <div className="flex items-center gap-3">
