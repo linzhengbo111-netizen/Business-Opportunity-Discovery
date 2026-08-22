@@ -13,10 +13,10 @@ import type { Project } from "@/data/projects";
 import { sampleProjects, COUNTRY_ALIASES } from "@/data/projects";
 import { normalizeProjectName, getDisplayName, sortPriorityFirst, priorityProjectRankByName } from "@/data/project_aliases";
 import { supabase } from "@/db/supabase";
-import { phaseFromRow } from "@/lib/project_phase";
+import { phaseFromRow, PHASE_UNKNOWN } from "@/lib/project_phase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
 import { useTimelineEventCounts } from "@/hooks/useTimelineEventCounts";
-import { filterMatureProjects } from "@/lib/project_maturity";
+import { hasTimelineData } from "@/lib/project_maturity";
 import { parseCorrosiveMedia } from "@/lib/material_matcher";
 import { scoreOpportunity, scoreBadgeClass } from "@/lib/opportunity_scorer";
 import { generateBattleCard, type BattleCard } from "@/lib/battle_card";
@@ -259,11 +259,19 @@ export default function BattleCardsPage() {
     };
   }, [version]);
 
-  // ---- 实时评分 + A/B 过滤 + 按分降序 + 生成作战卡摘要 ----
-  // 战报中心只展示成熟商机（技术参数 + 时间线事件齐备），
-  // 潜在项目生成不了有价值的战报。
+  // ---- 实时评分 + 高质量过滤 + 按分降序 + 生成作战卡摘要 ----
+  // 战报中心展示条件（相对放宽，避免只剩 1 张卡）：
+  //   1. 有 accepted 时间线事件 + 阶段明确（不再要求技术参数齐备）。
+  //   2. 排除 Delivery / Commissioning（已交付项目无新建采购机会）。
+  //   3. 评分 >= 55（A/B 全部 + 高分 C）。UK 噪音项目得分低，自然被挡。
+  //   4. 置顶项目豁免 2/3 两条（演示项目，即使 Delivery 也显示）。
   const abCards = useMemo<ScoredCard[]>(() => {
-    const scored = filterMatureProjects(projects, timelineEventCounts, false)
+    const isPinned = (name: string) => priorityProjectRankByName(name) >= 0;
+    const scored = projects
+      .filter((project) => {
+        const hasPhase = project.phase != null && project.phase !== PHASE_UNKNOWN;
+        return hasPhase && hasTimelineData(project, timelineEventCounts);
+      })
       .map((project) => {
         const scoreResult = scoreOpportunity(project);
         return {
@@ -273,7 +281,12 @@ export default function BattleCardsPage() {
           grade: scoreResult.grade,
         };
       })
-      .filter((item) => item.grade === "A" || item.grade === "B")
+      .filter((item) => {
+        if (isPinned(item.project.name)) return true;
+        const phase = item.project.phase;
+        if (phase === "Delivery" || phase === "Commissioning") return false;
+        return item.score >= 55;
+      })
       .sort((a, b) => b.score - a.score);
     // 置顶项目按 PRIORITY_PROJECT_NAMES 顺序排最前，其余保持评分降序。
     return sortPriorityFirst(scored, (item) => priorityProjectRankByName(item.project.name));
@@ -289,7 +302,7 @@ export default function BattleCardsPage() {
 
   return (
     <div className="min-h-screen bg-fpso-bg text-fpso-fg">
-      <PageMeta title="战报中心 — FPSO Projects" description="A/B 级商机作战卡" />
+      <PageMeta title="战报中心 — FPSO Projects" description="高质量商机作战卡" />
       <Header />
 
       <main className="mx-auto max-w-7xl px-6 py-8">
@@ -300,7 +313,7 @@ export default function BattleCardsPage() {
               战报中心
             </h1>
             <p className="mt-1 text-sm text-fpso-muted">
-              A / B 级商机作战卡 · 仅成熟商机 · 置顶项目优先 · 其余按评分降序 · {abCards.length} 个项目
+              高质量商机作战卡 · 评分 ≥ 55 · 已交付除外 · 置顶项目优先 · 其余按评分降序 · {abCards.length} 个项目
             </p>
           </div>
           <div className="flex items-center gap-3">
