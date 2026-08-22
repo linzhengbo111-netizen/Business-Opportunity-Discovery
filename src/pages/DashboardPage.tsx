@@ -764,8 +764,25 @@ export default function DashboardPage() {
       // Maturity filter: applied only when showAllProjects is false (user opted into mature-only view).
       result = filterMatureProjects(result, timelineEventCounts, showAllProjects);
     }
-    // 置顶项目按 PRIORITY_PROJECT_NAMES 顺序排最前，其余保持原有顺序。
-    return sortPriorityFirst(result, (p) => priorityProjectRankByName(p.name));
+    // 置顶项目按 PRIORITY_PROJECT_NAMES 顺序排最前；其余项目按机会评分
+    // 降序，同分按名称升序，评分异常/不可得沉底（噪音项目自然沉底）。
+    const pinnedFirst = sortPriorityFirst(result, (p) => priorityProjectRankByName(p.name));
+    const pinned = pinnedFirst.filter((p) => priorityProjectRankByName(p.name) >= 0);
+    const rest = pinnedFirst.filter((p) => priorityProjectRankByName(p.name) < 0);
+    // 每个项目只评分一次；评分异常/不可得记 -1 沉底。
+    const restScores = new Map<Project, number>();
+    for (const p of rest) {
+      try {
+        restScores.set(p, scoreOpportunity(p).totalScore);
+      } catch {
+        restScores.set(p, -1);
+      }
+    }
+    rest.sort((a, b) => {
+      const diff = (restScores.get(b) ?? -1) - (restScores.get(a) ?? -1);
+      return diff !== 0 ? diff : a.name.localeCompare(b.name);
+    });
+    return [...pinned, ...rest];
   }, [projects, selectedCountry, selectedIndustry, selectedConfidence, selectedPhases, timelineEventCounts, showAllProjects, searchQuery]);
 
   const filteredStats = useMemo(() => getStats(filteredProjects), [filteredProjects]);
