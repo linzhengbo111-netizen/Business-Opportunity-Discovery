@@ -120,6 +120,14 @@ function toNum(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function matchesProjectQuery(p: ProjectOption, q: string): boolean {
+  return (
+    p.displayName.toLowerCase().includes(q) ||
+    p.country.toLowerCase().includes(q) ||
+    p.canonicalId.toLowerCase().includes(q)
+  );
+}
+
 // ---- Component ----
 
 export default function ProjectTimelinePage() {
@@ -131,6 +139,8 @@ export default function ProjectTimelinePage() {
   const [selectedId, setSelectedId] = useState<string>("");
   const [searchText, setSearchText] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  // "待挖掘项目" collapsed group — expanded only on explicit click.
+  const [minedOpen, setMinedOpen] = useState(false);
 
   // Timeline
   const [events, setEvents] = useState<TimelineEventFull[]>([]);
@@ -382,17 +392,43 @@ export default function ProjectTimelinePage() {
     return events.filter((e) => activeCategories.has(categorizeEvent(e.eventType)));
   }, [events, activeCategories]);
 
-  // Filtered project list for dropdown
-  const filteredProjects = useMemo(() => {
-    if (!searchText.trim()) return projects;
-    const q = searchText.toLowerCase();
-    return projects.filter(
-      (p) =>
-        p.displayName.toLowerCase().includes(q) ||
-        p.country.toLowerCase().includes(q) ||
-        p.canonicalId.toLowerCase().includes(q),
-    );
-  }, [projects, searchText]);
+  // Split project options by accepted-event coverage: projects with at least
+  // one accepted event stay in the main list; zero-event projects collapse
+  // into the "待挖掘项目" group so they don't clutter the selector. Both
+  // lists keep the alphabetical order of the registry.
+  const projectGroups = useMemo(() => {
+    const withEvents: ProjectOption[] = [];
+    const withoutEvents: ProjectOption[] = [];
+    for (const p of projects) {
+      if ((eventCounts.get(p.canonicalId) ?? 0) > 0) withEvents.push(p);
+      else withoutEvents.push(p);
+    }
+    return { withEvents, withoutEvents };
+  }, [projects, eventCounts]);
+
+  // While counts are loading, treat every project as event-having so the
+  // selector doesn't flash the whole registry into the collapsed group.
+  const withEventsList = countsLoading ? projects : projectGroups.withEvents;
+  const withoutEventsList = countsLoading ? [] : projectGroups.withoutEvents;
+
+  // Filtered lists for the dropdown. Search only matches zero-event projects
+  // once the "待挖掘项目" group has been expanded.
+  const filteredWithEvents = useMemo(() => {
+    const q = searchText.trim().toLowerCase();
+    if (!q) return withEventsList;
+    return withEventsList.filter((p) => matchesProjectQuery(p, q));
+  }, [withEventsList, searchText]);
+
+  const filteredWithoutEvents = useMemo(() => {
+    if (!minedOpen) return [];
+    const q = searchText.trim().toLowerCase();
+    if (!q) return withoutEventsList;
+    return withoutEventsList.filter((p) => matchesProjectQuery(p, q));
+  }, [withoutEventsList, minedOpen, searchText]);
+
+  // Collapsed group header is visible when not searching, or once expanded.
+  const showMinedGroup = (!searchText.trim() || minedOpen) && withoutEventsList.length > 0;
+  const showNoMatch = filteredWithEvents.length === 0 && !showMinedGroup;
 
   const toggleExpand = useCallback((id: number) => {
     setExpandedIds((prev) => {
@@ -420,6 +456,7 @@ export default function ProjectTimelinePage() {
     setSearchParams({ project: id }, { replace: true });
     setSearchText("");
     setDropdownOpen(false);
+    setMinedOpen(false);
     setProjectInfo(null);
   };
 
@@ -464,7 +501,12 @@ export default function ProjectTimelinePage() {
                   setSearchText("");
                   setDropdownOpen(true);
                 }}
-                onBlur={() => setTimeout(() => setDropdownOpen(false), 200)}
+                onBlur={() =>
+                  setTimeout(() => {
+                    setDropdownOpen(false);
+                    setMinedOpen(false);
+                  }, 200)
+                }
                 className="flex-1 bg-transparent px-3 py-2.5 text-sm text-fpso-fg outline-none placeholder:text-fpso-dim/50"
               />
               <ChevronDown
@@ -476,34 +518,85 @@ export default function ProjectTimelinePage() {
 
             {dropdownOpen && (
               <div className="absolute z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-white/5 bg-fpso-card/90 backdrop-blur-md shadow-xl">
-                {filteredProjects.length === 0 ? (
+                {showNoMatch ? (
                   <div className="px-4 py-6 text-center text-xs text-fpso-muted">No projects match.</div>
                 ) : (
-                  filteredProjects.map((p) => {
-                    const hasEvents = (eventCounts.get(p.canonicalId) ?? 0) > 0;
-                    return (
-                    <button
-                      key={p.canonicalId}
-                      type="button"
-                      onClick={() => handleSelectProject(p.canonicalId)}
-                      className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-fpso-blue/10 ${
-                        p.canonicalId === selectedId
-                          ? "text-fpso-blue bg-fpso-blue/5"
-                          : hasEvents
-                            ? "text-fpso-fg"
-                            : "text-fpso-dim/70"
-                      }`}
-                    >
-                      <span className="truncate flex-1">{p.displayName}</span>
-                      <span className="text-[11px] text-fpso-dim flex-shrink-0">{p.country}</span>
-                      {!hasEvents && p.canonicalId !== selectedId && (
-                        <span className="rounded bg-fpso-card px-1.5 py-0.5 text-[10px] text-fpso-dim flex-shrink-0">
-                          暂无时间线
-                        </span>
-                      )}
-                    </button>
-                    );
-                  })
+                  <>
+                    {/* Main list: projects with accepted events, current style */}
+                    {filteredWithEvents.map((p) => {
+                      const hasEvents = (eventCounts.get(p.canonicalId) ?? 0) > 0;
+                      return (
+                        <button
+                          key={p.canonicalId}
+                          type="button"
+                          onClick={() => handleSelectProject(p.canonicalId)}
+                          className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-fpso-blue/10 ${
+                            p.canonicalId === selectedId
+                              ? "text-fpso-blue bg-fpso-blue/5"
+                              : hasEvents
+                                ? "text-fpso-fg"
+                                : "text-fpso-dim/70"
+                          }`}
+                        >
+                          <span className="truncate flex-1">{p.displayName}</span>
+                          <span className="text-[11px] text-fpso-dim flex-shrink-0">{p.country}</span>
+                          {!hasEvents && p.canonicalId !== selectedId && (
+                            <span className="rounded bg-fpso-card px-1.5 py-0.5 text-[10px] text-fpso-dim flex-shrink-0">
+                              暂无时间线
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+
+                    {/* Collapsed group: zero-event projects, expanded on click */}
+                    {showMinedGroup && (
+                      <>
+                        {filteredWithEvents.length > 0 && (
+                          <div className="my-1 border-t border-white/5" />
+                        )}
+                        <button
+                          type="button"
+                          // Keep focus on the input so the dropdown stays open
+                          // while toggling the group.
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => setMinedOpen((o) => !o)}
+                          className="flex w-full items-center gap-1.5 px-4 py-2 text-[11px] font-medium text-fpso-dim hover:bg-white/5 hover:text-fpso-muted transition-colors"
+                        >
+                          {minedOpen ? (
+                            <ChevronDown className="h-3.5 w-3.5 flex-shrink-0" />
+                          ) : (
+                            <ChevronRight className="h-3.5 w-3.5 flex-shrink-0" />
+                          )}
+                          <span className="flex-1 text-left">待挖掘项目 ({withoutEventsList.length})</span>
+                          <span className="text-[10px] text-fpso-dim/50 flex-shrink-0">暂无已审核事件</span>
+                        </button>
+
+                        {minedOpen &&
+                          (filteredWithoutEvents.length === 0 ? (
+                            <div className="px-4 py-3 text-center text-xs text-fpso-dim/60">
+                              无匹配项目
+                            </div>
+                          ) : (
+                            filteredWithoutEvents.map((p) => (
+                              <button
+                                key={p.canonicalId}
+                                type="button"
+                                onClick={() => handleSelectProject(p.canonicalId)}
+                                className={`flex w-full items-center gap-3 py-2.5 pl-8 pr-4 text-left text-sm transition-colors hover:bg-white/5 ${
+                                  p.canonicalId === selectedId
+                                    ? "text-fpso-blue bg-fpso-blue/5"
+                                    : "text-fpso-dim/70 hover:text-fpso-muted"
+                                }`}
+                              >
+                                <span className="truncate flex-1">{p.displayName}</span>
+                                <span className="text-[11px] text-fpso-dim flex-shrink-0">{p.country}</span>
+                              </button>
+                            ))
+                          ))}
+                      </>
+                    )}
+                  </>
                 )}
               </div>
             )}
