@@ -4,16 +4,17 @@
  * 从 Dashboard 详情弹窗的 Timeline 标签跳转访问。
  */
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
-import { supabase } from "@/db/supabase";
+import { supabase, fetchAllRows } from "@/db/supabase";
 import { phaseFromRow } from "@/lib/project_phase";
 import {
   getAllCanonicalIds,
   getDisplayName,
   getProjectCountry,
+  getAliases,
 } from "@/data/project_aliases";
 import type { Project } from "@/data/projects";
 import { countryToFlagEmoji, COUNTRY_ALIASES } from "@/data/projects";
@@ -145,6 +146,11 @@ export default function ProjectTimelinePage() {
   // Non-canonical project name (fallback for unmatched projects)
   const [rawProjectName, setRawProjectName] = useState<string>("");
 
+  // Accepted-event counts per canonical id (canonical link + alias name
+  // match). Drives default selection and the "暂无时间线" marks.
+  const [eventCounts, setEventCounts] = useState<Map<string, number>>(new Map());
+  const [countsLoading, setCountsLoading] = useState(true);
+
   // Build project option list from alias registry
   useEffect(() => {
     const ids = getAllCanonicalIds();
@@ -155,22 +161,78 @@ export default function ProjectTimelinePage() {
     }));
     list.sort((a, b) => a.displayName.localeCompare(b.displayName));
     setProjects(list);
+  }, []);
 
-    // Determine initial selection
+  // Fetch accepted-event coverage for the whole registry once, so the
+  // default selection can pick a project that actually has timeline data.
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchCounts() {
+      const { data, error } = await fetchAllRows(
+        "candidate_events",
+        "id, canonical_project_id, project_name_raw, review_status",
+      );
+
+      const map = new Map<string, number>();
+      if (!cancelled && !error && data) {
+        // Timeline shows only accepted events — rejected rows are noise and
+        // pending rows are unreviewed (e.g. 359 duplicate Tartaruga Verde
+        // rows still awaiting review).
+        const accepted = data.filter(
+          (r) => String(r.review_status ?? "").toLowerCase() === "accepted",
+        );
+        const ids = getAllCanonicalIds();
+        const aliasLookup = ids.map((id) => ({
+          id,
+          aliases: [getDisplayName(id), ...getAliases(id)]
+            .map((a) => a.toLowerCase())
+            .filter((a) => a.length >= 4),
+        }));
+        for (const { id, aliases } of aliasLookup) {
+          const cnt = accepted.filter((r) => {
+            if (String(r.canonical_project_id ?? "").trim() === id) return true;
+            const raw = String(r.project_name_raw ?? "").toLowerCase();
+            return aliases.some((al) => raw.includes(al));
+          }).length;
+          if (cnt > 0) map.set(id, cnt);
+        }
+      }
+      if (!cancelled) {
+        setEventCounts(map);
+        setCountsLoading(false);
+      }
+    }
+
+    fetchCounts();
+
+    return () => { cancelled = true; };
+  }, []);
+
+  // Initial selection: URL param wins; otherwise pick the first project
+  // (alphabetically) that has accepted timeline events, so the first
+  // screen is never blank.
+  const initialSelectionDone = useRef(false);
+  useEffect(() => {
+    if (projects.length === 0 || countsLoading || initialSelectionDone.current) return;
+
     const urlProject = searchParams.get("project");
     const urlProjectName = searchParams.get("projectName");
 
-    if (urlProject && ids.includes(urlProject)) {
+    if (urlProject && projects.some((p) => p.canonicalId === urlProject)) {
       setSelectedId(urlProject);
     } else if (urlProjectName) {
       // Fallback: project not in alias registry — use raw name
       setRawProjectName(urlProjectName);
       setSelectedId(""); // will trigger fallback query
-    } else if (list.length > 0) {
-      setSelectedId(list[0].canonicalId);
-      setSearchParams({ project: list[0].canonicalId }, { replace: true });
+    } else {
+      const firstWithEvents =
+        projects.find((p) => (eventCounts.get(p.canonicalId) ?? 0) > 0) ?? projects[0];
+      setSelectedId(firstWithEvents.canonicalId);
+      setSearchParams({ project: firstWithEvents.canonicalId }, { replace: true });
     }
-  }, []);
+    initialSelectionDone.current = true;
+  }, [projects, eventCounts, countsLoading]);
 
   // Determine the effective query target
   const queryTarget = selectedId || rawProjectName;
@@ -188,21 +250,22 @@ export default function ProjectTimelinePage() {
       let result;
 
       if (isCanonical) {
-        // Primary: query by canonical_project_id
+        // Primary: query by canonical_project_id. Only accepted events —
+        // rejected rows are noise (crawler auto_classify) and pending rows
+        // are unreviewed, so neither belongs on a project timeline.
         result = await supabase
           .from("candidate_events")
           .select("id, event_type, publication_date, source_name, source_url, evidence_quote, summary")
           .eq("canonical_project_id", queryTarget)
+          .eq("review_status", "accepted")
           .order("publication_date", { ascending: true });
 
-        // Fallback: if no canonical match, query by display name.
-        // Try full display name first, then the core name (text before
-        // the first parenthesis) — slicing at 40 chars could cut a
-        // multi-word name mid-word and miss every row.
+        // Fallback: if no canonical match, query by project name against
+        // the full alias registry (display name + core name + aliases).
         if ((!result.data || result.data.length === 0) && selectedId) {
           const displayName = getDisplayName(selectedId);
           const coreName = displayName.split("(")[0].trim().replace(/\)$/, "");
-          const candidates = [coreName, displayName].filter(
+          const candidates = [coreName, displayName, ...getAliases(selectedId)].filter(
             (n, i, arr) => n.length >= 4 && arr.indexOf(n) === i,
           );
           for (const name of candidates) {
@@ -210,6 +273,7 @@ export default function ProjectTimelinePage() {
               .from("candidate_events")
               .select("id, event_type, publication_date, source_name, source_url, evidence_quote, summary")
               .ilike("project_name_raw", `%${name}%`)
+              .eq("review_status", "accepted")
               .order("publication_date", { ascending: true });
             if (!fb.error && fb.data && fb.data.length > 0) {
               result = fb;
@@ -224,6 +288,7 @@ export default function ProjectTimelinePage() {
           .from("candidate_events")
           .select("id, event_type, publication_date, source_name, source_url, evidence_quote, summary")
           .ilike("project_name_raw", `%${queryTarget.slice(0, 60)}%`)
+          .eq("review_status", "accepted")
           .order("publication_date", { ascending: true });
       }
 
@@ -414,7 +479,9 @@ export default function ProjectTimelinePage() {
                 {filteredProjects.length === 0 ? (
                   <div className="px-4 py-6 text-center text-xs text-fpso-muted">No projects match.</div>
                 ) : (
-                  filteredProjects.map((p) => (
+                  filteredProjects.map((p) => {
+                    const hasEvents = (eventCounts.get(p.canonicalId) ?? 0) > 0;
+                    return (
                     <button
                       key={p.canonicalId}
                       type="button"
@@ -422,13 +489,21 @@ export default function ProjectTimelinePage() {
                       className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-fpso-blue/10 ${
                         p.canonicalId === selectedId
                           ? "text-fpso-blue bg-fpso-blue/5"
-                          : "text-fpso-fg"
+                          : hasEvents
+                            ? "text-fpso-fg"
+                            : "text-fpso-dim/70"
                       }`}
                     >
                       <span className="truncate flex-1">{p.displayName}</span>
                       <span className="text-[11px] text-fpso-dim flex-shrink-0">{p.country}</span>
+                      {!hasEvents && p.canonicalId !== selectedId && (
+                        <span className="rounded bg-fpso-card px-1.5 py-0.5 text-[10px] text-fpso-dim flex-shrink-0">
+                          暂无时间线
+                        </span>
+                      )}
                     </button>
-                  ))
+                    );
+                  })
                 )}
               </div>
             )}
@@ -473,7 +548,7 @@ export default function ProjectTimelinePage() {
             )}
           </h2>
 
-          {loading ? (
+          {loading || countsLoading ? (
             <div className="flex items-center justify-center py-16">
               <span className="text-sm text-fpso-muted">Loading timeline…</span>
             </div>
@@ -494,14 +569,12 @@ export default function ProjectTimelinePage() {
                 />
               </svg>
               <p className="text-sm text-fpso-muted">
-                {events.length === 0
-                  ? "No milestone events found for this project."
-                  : "No events match the selected filters."}
+                {events.length === 0 ? "该项目暂无时间线事件。" : "没有符合当前筛选条件的事件。"}
               </p>
-              <p className="text-xs text-fpso-dim mt-1">
+              <p className="text-xs text-fpso-dim mt-1 max-w-md leading-relaxed">
                 {events.length === 0
-                  ? "No matching events found in candidate_events. Data may appear after the next crawl."
-                  : "Timeline data is sourced from candidate_events."}
+                  ? "可能是早期阶段项目尚无公开里程碑，或历史已交付/噪音项目未收录事件。时间线仅显示已审核通过（accepted）的事件，未审核或已拒绝的事件不会展示。"
+                  : "时间线数据来自 candidate_events，仅显示已审核通过（accepted）的事件。"}
               </p>
             </div>
           ) : (
