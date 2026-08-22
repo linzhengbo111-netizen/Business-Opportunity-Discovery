@@ -737,6 +737,10 @@ export default function DashboardPage() {
     if (selectedIndustry !== "All Industries") {
       result = result.filter((p) => (p.industry ?? "FPSO") === selectedIndustry);
     }
+    // 置信度筛选前先存快照：置顶项目豁免置信度筛选（三个置顶被强制
+    // low 置信度，默认 High & Medium 会把它们全部排除），筛选后加回。
+    // 只豁免置信度，国家/行业/搜索/成熟度筛选仍然生效。
+    const beforeConfidenceFilter = result;
     if (selectedConfidence === "High & Medium") {
       result = result.filter(
         (p) => (p.confidence ?? "medium") !== "low",
@@ -745,6 +749,12 @@ export default function DashboardPage() {
       result = result.filter(
         (p) => (p.confidence ?? "medium") === selectedConfidence.toLowerCase(),
       );
+    }
+    if (selectedConfidence !== "All") {
+      const pinnedExcluded = beforeConfidenceFilter.filter(
+        (p) => !result.includes(p) && priorityProjectRankByName(p.name) >= 0,
+      );
+      result = [...result, ...pinnedExcluded];
     }
     if (selectedPhases.size > 0) {
       const beforePhaseFilter = result;
