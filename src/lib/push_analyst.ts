@@ -75,10 +75,53 @@ const PHASE_WINDOW: Record<string, string> = {
 const MAX_MATERIALS = 6;
 const MAX_PRODUCTS = 6;
 
-function rulesWindow(phase: string | null | undefined): string {
+function contractAwardDate(events?: PushEvent[]): string {
+  for (const ev of events ?? []) {
+    if ((ev.event_type ?? "").trim().toUpperCase() === "FPSO_CONTRACT_AWARDED") {
+      const d = (ev.publication_date ?? "").trim();
+      if (d) return d.slice(0, 10);
+    }
+  }
+  return "";
+}
+
+function addMonths(d: Date, n: number): Date {
+  return new Date(d.getFullYear(), d.getMonth() + n, d.getDate());
+}
+
+function fmtMonth(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function rulesWindow(
+  phase: string | null | undefined,
+  events?: PushEvent[],
+): { range: string; reasoning: string } {
+  // Contract-award events win over the phase map — mirrors the TS engine's
+  // Rule 1 in estimateProcurementWindow and Python _rules_window.
   const norm = (phase ?? "").trim().toLowerCase();
-  if (!norm) return "待补充";
-  return PHASE_WINDOW[norm] ?? "待补充";
+  const award = contractAwardDate(events);
+  if (award) {
+    const awardD = new Date(award);
+    if (!isNaN(awardD.getTime())) {
+      const start = addMonths(awardD, 2);
+      const end = addMonths(awardD, 4);
+      const rng = `${fmtMonth(start)} ~ ${fmtMonth(end)}`;
+      const suffix =
+        norm === "delivery" || norm === "commissioning"
+          ? "（历史采购窗口，已结束）"
+          : "";
+      return {
+        range: `${rng}${suffix}`,
+        reasoning:
+          `合同于 ${award} 授予（FPSO_CONTRACT_AWARDED 事件），` +
+          `按行业经验，长周期设备采购通常在授标后 2-4 个月启动，` +
+          `预计采购窗口为 ${rng}。`,
+      };
+    }
+  }
+  if (!norm) return { range: "待补充", reasoning: "" };
+  return { range: PHASE_WINDOW[norm] ?? "待补充", reasoning: "" };
 }
 
 function rulesGrades(project: Project): string[] {
@@ -117,14 +160,23 @@ function rulesProducts(project: Project): string[] {
   return apps;
 }
 
-/** Rule-engine result — the same values the pages displayed pre-AI. */
-export function rulesFallback(project: Project): PushAnalysis {
+/**
+ * Rule-engine result — the same values the pages displayed pre-AI.
+ * Pass linked candidate_events so delivered projects with a
+ * FPSO_CONTRACT_AWARDED event get a dated historical window instead
+ * of '时间未定'.
+ */
+export function rulesFallback(
+  project: Project,
+  events?: PushEvent[],
+): PushAnalysis {
+  const { range, reasoning } = rulesWindow(project.phase, events);
   return {
     source: "rules",
     procurement_window: {
-      range: rulesWindow(project.phase),
-      confidence: "low",
-      reasoning: "规则引擎按项目阶段估算，未参考事件原文。",
+      range,
+      confidence: reasoning ? "high" : "low",
+      reasoning: reasoning || "规则引擎按项目阶段估算，未参考事件原文。",
     },
     recommended_materials: rulesGrades(project)
       .slice(0, MAX_MATERIALS)
@@ -414,20 +466,21 @@ export function analyzePush(project: Project): Promise<PushAnalysis> {
   const inFlight = inflightCache.get(project.name);
   if (inFlight) return inFlight;
 
-  const cooldown = failureCooldown.get(project.name);
-  if (cooldown && cooldown > Date.now()) {
-    return Promise.resolve(rulesFallback(project));
-  }
-
   let failed = false;
   const run = (async (): Promise<PushAnalysis> => {
+    // Fetch events before any fallback so the rule path can derive a
+    // dated window from FPSO_CONTRACT_AWARDED events.
+    const events = await fetchProjectEvents(project);
+    const cooldown = failureCooldown.get(project.name);
+    if (cooldown && cooldown > Date.now()) {
+      return rulesFallback(project, events);
+    }
     try {
       if (!(await llmConfigured())) {
         console.warn(`[push] LLM not configured — rules fallback for "${project.name}"`);
         failed = true;
-        return rulesFallback(project);
+        return rulesFallback(project, events);
       }
-      const events = await fetchProjectEvents(project);
       const today = new Date().toISOString().slice(0, 10);
       const messages: ChatMessage[] = [
         {
@@ -448,7 +501,7 @@ export function analyzePush(project: Project): Promise<PushAnalysis> {
       if (!content) {
         console.warn(`[push] LLM returned no content for "${project.name}" — rules fallback`);
         failed = true;
-        return rulesFallback(project);
+        return rulesFallback(project, events);
       }
       const obj = parseJSONObject(content);
       if (!obj) {
@@ -456,13 +509,13 @@ export function analyzePush(project: Project): Promise<PushAnalysis> {
           `[push] LLM JSON unparseable for "${project.name}": ${content.slice(0, 120)}`,
         );
         failed = true;
-        return rulesFallback(project);
+        return rulesFallback(project, events);
       }
       const result = validateAIResult(obj);
       if (!result) {
         console.warn(`[push] LLM result empty/invalid for "${project.name}" — rules fallback`);
         failed = true;
-        return rulesFallback(project);
+        return rulesFallback(project, events);
       }
       const ai: PushAnalysis = { source: "ai", ...result };
       successCache.set(project.name, ai);
@@ -470,7 +523,7 @@ export function analyzePush(project: Project): Promise<PushAnalysis> {
     } catch (err) {
       console.warn(`[push] LLM analysis failed for "${project.name}":`, err);
       failed = true;
-      return rulesFallback(project);
+      return rulesFallback(project, events);
     } finally {
       inflightCache.delete(project.name);
       if (failed) {
@@ -481,4 +534,14 @@ export function analyzePush(project: Project): Promise<PushAnalysis> {
 
   inflightCache.set(project.name, run);
   return run;
+}
+
+/**
+ * Rule-engine-only variant for surfaces that skip the LLM (e.g. cards
+ * below the fold). Fetches events first so the fallback window derives
+ * from FPSO_CONTRACT_AWARDED dates instead of the bare phase map.
+ */
+export async function analyzePushRules(project: Project): Promise<PushAnalysis> {
+  const events = await fetchProjectEvents(project);
+  return rulesFallback(project, events);
 }

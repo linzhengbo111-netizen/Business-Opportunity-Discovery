@@ -29,7 +29,7 @@
 | 文件 | 用途 | 秒搭必须遵守吗 |
 |------|------|:---:|
 | `API_DOCUMENTATION.md` | 定义了所有接口地址、字段名、返回格式、调用方法 | **是** |
-| `mock_data_fpso.json` | 6 条真实项目数据，秒搭开发时用这个本地调试 | **是**（开发阶段） |
+| `mock_data_fpso.json` | 6 条示例项目数据（sample/mock，非真实项目），秒搭开发时用这个本地调试 | **是**（开发阶段） |
 | `FIELD_MAPPING.md` | 每个字段在页面上展示在什么位置、什么形式 | **是** |
 
 ### 发给秒搭时的 prompt 建议
@@ -178,7 +178,7 @@
 ## 7. 文件清单（确认你收到了这些文件）
 
 - [ ] `docs/API_DOCUMENTATION.md` — 接口文档（约 300 行）
-- [ ] `docs/mock_data_fpso.json` — 模拟数据（6 条真实 FPSO 项目）
+- [ ] `docs/mock_data_fpso.json` — 模拟数据（6 条示例 FPSO 项目，sample/mock，非真实项目）
 - [ ] `docs/FIELD_MAPPING.md` — 字段映射表（每个字段的 UI 展示方式）
 
 ---

@@ -12,6 +12,8 @@
  */
 
 import type { Project } from "@/data/projects";
+import { normalizeProjectName } from "@/data/project_aliases";
+import { supabase } from "@/db/supabase";
 import {
   matchMaterials,
   specsFromRow,
@@ -19,6 +21,7 @@ import {
   matchCustomerType,
   estimateProcurementWindow,
   parseRecommendation,
+  type ProcurementTimelineEvent,
 } from "@/lib/material_matcher";
 import { scoreOpportunity } from "@/lib/opportunity_scorer";
 import { generateBattleCard } from "@/lib/battle_card";
@@ -91,6 +94,47 @@ function csvCell(value: string): string {
 }
 
 /**
+ * Fetch candidate_events (event_type + publication_date) for a list of
+ * projects in one query, grouped by canonical project id. Used so the
+ * exported window derives from FPSO_CONTRACT_AWARDED dates where present.
+ */
+async function fetchTimelineEvents(
+  projects: Project[],
+): Promise<Map<string, ProcurementTimelineEvent[]>> {
+  const byCid = new Map<string, ProcurementTimelineEvent[]>();
+  const cids = [
+    ...new Set(
+      projects
+        .map((p) => normalizeProjectName(p.name))
+        .filter((c): c is string => Boolean(c)),
+    ),
+  ];
+  if (cids.length === 0) return byCid;
+
+  try {
+    const { data, error } = await supabase
+      .from("candidate_events")
+      .select("canonical_project_id,event_type,publication_date")
+      .in("canonical_project_id", cids)
+      .order("publication_date", { ascending: false });
+    if (error || !data) return byCid;
+    for (const row of data) {
+      const cid = String(row.canonical_project_id ?? "");
+      if (!cid) continue;
+      const list = byCid.get(cid) ?? [];
+      list.push({
+        eventType: String(row.event_type ?? ""),
+        publicationDate: String(row.publication_date ?? ""),
+      });
+      byCid.set(cid, list);
+    }
+  } catch {
+    // Export must never throw — fall back to phase-based windows.
+  }
+  return byCid;
+}
+
+/**
  * Generate and download a CSV file of factory-qualified opportunities.
  *
  * Only projects where at least one recommended grade is producible
@@ -100,7 +144,10 @@ function csvCell(value: string): string {
  * @param projects - Array of projects (pre-filtered by user's current view).
  * @param baseUrl - Base URL for constructing project detail links.
  */
-export function exportOpportunityList(projects: Project[], baseUrl?: string): void {
+export async function exportOpportunityList(
+  projects: Project[],
+  baseUrl?: string,
+): Promise<void> {
   // Filter: only projects with at least one producible grade
   const qualified = projects.filter(hasProducibleGrade);
 
@@ -141,6 +188,9 @@ export function exportOpportunityList(projects: Project[], baseUrl?: string): vo
   }));
   scored.sort((a, b) => b.score.totalScore - a.score.totalScore);
 
+  // Contract-award events per project for dated procurement windows.
+  const eventsByCid = await fetchTimelineEvents(qualified);
+
   const rows: string[][] = [];
 
   for (const { project, score: scoreResult } of scored) {
@@ -155,7 +205,8 @@ export function exportOpportunityList(projects: Project[], baseUrl?: string): vo
 
     const productNeeds = inferProductNeeds(descriptionText);
     const customerMatch = matchCustomerType(descriptionText);
-    const procurementWindow = estimateProcurementWindow(project);
+    const timelineEvents = eventsByCid.get(normalizeProjectName(project.name) ?? "");
+    const procurementWindow = estimateProcurementWindow(project, timelineEvents);
 
     const productLabels = productNeeds.length > 0
       ? productNeeds.map((p) => `${p.label}(${p.confidence})`).join("; ")

@@ -294,7 +294,7 @@ export default function BattleCardsPage() {
 
   const handleExport = () => {
     if (!requireLogin()) return;
-    exportOpportunityList(
+    void exportOpportunityList(
       abCards.map((item) => item.project),
       window.location.origin,
     );

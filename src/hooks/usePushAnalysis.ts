@@ -12,7 +12,7 @@
 
 import { useEffect, useState } from "react";
 import type { Project } from "@/data/projects";
-import { analyzePush, rulesFallback, type PushAnalysis } from "@/lib/push_analyst";
+import { analyzePush, analyzePushRules, rulesFallback, type PushAnalysis } from "@/lib/push_analyst";
 
 export interface PushAnalysisState {
   /** Current analysis — null while the LLM call is in flight. */
@@ -44,7 +44,10 @@ export function usePushAnalysisState(
     }
     let cancelled = false;
     if (!enabled) {
-      setState({ analysis: rulesFallback(project), loading: false });
+      // Event-aware rule fallback (FPSO_CONTRACT_AWARDED → dated window).
+      analyzePushRules(project).then((a) => {
+        if (!cancelled) setState({ analysis: a, loading: false });
+      });
       return;
     }
     setState({ analysis: null, loading: true });

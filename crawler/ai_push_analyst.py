@@ -90,11 +90,56 @@ def _normalize_phase(phase: str) -> str:
     return _LEGACY_PHASE.get(raw.lower(), raw)
 
 
-def _rules_window(phase: str) -> str:
+def _contract_award_date(events: list[dict] | None) -> str:
+    """First FPSO_CONTRACT_AWARDED publication_date, or ''."""
+    for ev in events or []:
+        if (ev.get("event_type") or "").strip().upper() == "FPSO_CONTRACT_AWARDED":
+            d = (ev.get("publication_date") or "").strip()
+            if d:
+                return d[:10]
+    return ""
+
+
+def _add_months(d: datetime, n: int) -> datetime:
+    m = d.month - 1 + n
+    return d.replace(year=d.year + m // 12, month=m % 12 + 1)
+
+
+def _rules_window(
+    phase: str, events: list[dict] | None = None
+) -> tuple[str, str]:
+    """(range, reasoning) — contract-award events win over phase guess.
+
+    FPSO_CONTRACT_AWARDED + 2-4 months mirrors the TS engine's Rule 1
+    (estimateProcurementWindow in src/lib/material_matcher.ts), so the
+    rule fallback never returns '时间未定' for delivered projects that
+    have award events.
+    """
     norm = _normalize_phase(phase).lower()
+    award = _contract_award_date(events)
+    if award:
+        try:
+            award_d = datetime.strptime(award, "%Y-%m-%d")
+        except ValueError:
+            award_d = None
+        if award_d is not None:
+            start = _add_months(award_d, 2)
+            end = _add_months(award_d, 4)
+            rng = f"{start:%Y-%m} ~ {end:%Y-%m}"
+            suffix = (
+                "（历史采购窗口，已结束）"
+                if norm in ("delivery", "commissioning")
+                else ""
+            )
+            reasoning = (
+                f"合同于 {award} 授予（FPSO_CONTRACT_AWARDED 事件），"
+                f"按行业经验，长周期设备采购通常在授标后 2-4 个月启动，"
+                f"预计采购窗口为 {rng}。"
+            )
+            return f"{rng}{suffix}", reasoning
     if not norm:
-        return "待补充"
-    return _PHASE_WINDOW.get(norm, "待补充")
+        return "待补充", ""
+    return _PHASE_WINDOW.get(norm, "待补充"), ""
 
 
 def _parse_recommendation(project: dict) -> dict:
@@ -154,19 +199,27 @@ def _rules_action(project: dict) -> str:
     return ""
 
 
-def _rules_fallback(project: dict) -> dict:
-    """Rule-engine result, same values the notifier displayed pre-AI."""
+def _rules_fallback(
+    project: dict, events: list[dict] | None = None
+) -> dict:
+    """Rule-engine result, same values the notifier displayed pre-AI.
+
+    Contract-award events (FPSO_CONTRACT_AWARDED) override the phase
+    window map so delivered projects get a dated historical window
+    instead of '时间未定'.
+    """
     phase = (project.get("phase") or project.get("status") or "")
     rec = _parse_recommendation(project)
     grades = _rules_grades(project, rec)
     apps = _rules_apps(project, rec)
+    window_range, window_reasoning = _rules_window(phase, events)
 
     return {
         "source": "rules",
         "procurement_window": {
-            "range": _rules_window(phase),
-            "confidence": "low",
-            "reasoning": "规则引擎按项目阶段估算，未参考事件原文。",
+            "range": window_range,
+            "confidence": "high" if window_reasoning else "low",
+            "reasoning": window_reasoning or "规则引擎按项目阶段估算，未参考事件原文。",
         },
         "recommended_materials": [
             {"grade": g, "reason": "规则引擎：按项目阶段与技术参数匹配"}
@@ -444,19 +497,19 @@ def analyze_for_push(project: dict, events: list[dict] | None = None) -> dict:
     if reply is None:
         log.warning("AI push analysis unavailable for %s — using rules",
                     (project.get("name") or "?")[:40])
-        return _rules_fallback(project)
+        return _rules_fallback(project, events)
 
     obj = _extract_json_object(reply)
     if obj is None:
         log.warning("AI push analysis unparseable JSON for %s — using rules",
                     (project.get("name") or "?")[:40])
-        return _rules_fallback(project)
+        return _rules_fallback(project, events)
 
     result = _validate_ai_result(obj)
     if result is None:
         log.warning("AI push analysis invalid shape for %s — using rules",
                     (project.get("name") or "?")[:40])
-        return _rules_fallback(project)
+        return _rules_fallback(project, events)
 
     result["source"] = "ai"
     log.info("AI push analysis OK for %s (%.1fs): window=%s",

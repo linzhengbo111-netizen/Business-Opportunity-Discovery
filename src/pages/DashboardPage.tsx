@@ -1050,7 +1050,7 @@ export default function DashboardPage() {
   /** Handle CSV export of factory-qualified projects in current view. */
   function handleExport() {
     if (!requireLogin()) return;
-    exportOpportunityList(filteredProjects, window.location.origin);
+    void exportOpportunityList(filteredProjects, window.location.origin);
   }
 
   const todayStr = new Date().toISOString().slice(0, 10);
