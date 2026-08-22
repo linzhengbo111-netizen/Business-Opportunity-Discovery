@@ -84,6 +84,19 @@ REANALYZABLE_TYPES = {"ARTICLE_MENTION", "", None}
 
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
+# ---- Technical parameter extraction (gap-analysis P0-1) -------------------
+# Fields the LLM must try to pull out of the article text alongside events.
+# Numeric sanity bounds mirror crawler/backfill_tech_params.py SANITY —
+# values outside are adapter/LLM junk and get dropped.
+TECH_FIELDS = ("water_depth_m", "oil_capacity_bpd", "gas_capacity_mmcmd",
+               "field_name", "operator_name", "basin", "hull_type")
+TECH_NUMERIC_SANITY = {
+    "water_depth_m": (10, 4000),
+    "oil_capacity_bpd": (500, 3000000),
+    "gas_capacity_mmcmd": (0.1, 500),
+}
+TECH_TEXT_FIELDS = ("field_name", "operator_name", "basin", "hull_type")
+
 
 # ========================================================================
 # Project phase taxonomy (replaces the legacy 4-value status system)
@@ -430,7 +443,11 @@ def _build_prompt(article):
         "Extract ALL FPSO project events explicitly mentioned in this "
         "article. Return a JSON object with this exact shape:",
         '{"events": [{"project_name": "", "event_type": "", '
-        '"publication_date": "", "evidence_quote": "", "summary": ""}]}',
+        '"publication_date": "", "evidence_quote": "", "summary": "", '
+        '"water_depth_m": null, "oil_capacity_bpd": null, '
+        '"gas_capacity_mmcmd": null, "field_name": "", '
+        '"operator_name": "", "basin": "", "hull_type": "", '
+        '"tech_evidence": {}}]}',
         "",
         "Rules:",
         "1. project_name: the FPSO project name explicitly mentioned in the "
@@ -452,7 +469,27 @@ def _build_prompt(article):
         "supports it.",
         "5. summary: one sentence summarizing the event in English, max "
         "50 words. Use the verbatim evidence_quote when possible.",
-        "6. If the article mentions no FPSO project events at all, return "
+        "6. Also extract technical parameters explicitly stated in the "
+        "article for each event. Field semantics and units:",
+        "  - water_depth_m: integer, water depth in meters",
+        "  - oil_capacity_bpd: integer, oil production capacity in "
+        "barrels per day",
+        "  - gas_capacity_mmcmd: number, gas production capacity in "
+        "million cubic meters per day (MMcmd)",
+        "  - field_name: oil/gas field name (string)",
+        "  - operator_name: operator company name (string)",
+        "  - basin: sedimentary basin name (string)",
+        "  - hull_type: hull/mooring type (string, e.g. \"Turret "
+        "moored\", \"Spread moored\", \"FLNG conversion\")",
+        "Leave a field null/absent when the article does not state it. "
+        "Do NOT estimate, convert from similar projects, or use outside "
+        "knowledge. Convert unit variants to the units above (e.g. "
+        "\"2,200 m\" -> 2200, \"220k b/d\" -> 220000).",
+        "7. For every non-null technical field, add a key in tech_evidence "
+        "mapping the field name to a verbatim quote from the Title or "
+        "Summary that supports the value (character-for-character, never "
+        "paraphrased).",
+        "8. If the article mentions no FPSO project events at all, return "
         '{"events": []}.',
     ]
     return "\n".join(lines)
@@ -522,6 +559,37 @@ def _validate_event(raw):
     evidence = str(raw.get("evidence_quote") or "").strip()[:500]
     summary = str(raw.get("summary") or "").strip()[:500]
 
+    # ---- Technical parameters: value + paired verbatim evidence ----
+    # Every field is kept only when the LLM supplies a supporting quote;
+    # _postprocess_events() later verifies the quote is verbatim in the
+    # article and drops fields that fail.
+    tech = {}
+    evidence_map = raw.get("tech_evidence")
+    if not isinstance(evidence_map, dict):
+        evidence_map = {}
+    for field, (lo, hi) in TECH_NUMERIC_SANITY.items():
+        raw_val = raw.get(field)
+        if raw_val is None or (isinstance(raw_val, str)
+                               and not raw_val.strip()):
+            continue
+        try:
+            num = int(float(str(raw_val).replace(",", "")))
+        except (TypeError, ValueError):
+            continue
+        if num < lo or num > hi:
+            continue  # outside plausible range — drop
+        quote = str(evidence_map.get(field) or "").strip()[:500]
+        if quote:
+            tech[field] = (num, quote)
+    for field in TECH_TEXT_FIELDS:
+        raw_val = raw.get(field)
+        if raw_val is None or not str(raw_val).strip():
+            continue
+        val = str(raw_val).strip()[:120]
+        quote = str(evidence_map.get(field) or "").strip()[:500]
+        if quote:
+            tech[field] = (val, quote)
+
     # ARTICLE_MENTION with no project and no summary carries zero signal
     if not project_name and not summary and event_type == "ARTICLE_MENTION":
         return None
@@ -532,6 +600,7 @@ def _validate_event(raw):
         "publication_date": pub_date,
         "evidence_quote": evidence,
         "summary": summary,
+        "tech_params": tech,
     }
 
 
@@ -623,6 +692,19 @@ def _quote_is_verbatim(quote, article):
     return False
 
 
+def _tech_quote_is_verbatim(quote, article):
+    """Weaker verbatim variant for technical values: same substring rule
+    but a shorter minimum — unit-annotated numbers are short by nature
+    (e.g. \"water depth of 2,200 meters\")."""
+    q = _norm_ws(quote)
+    if len(q) < 10:
+        return False
+    for field in ("title", "summary"):
+        if q in _norm_ws(article.get(field) or ""):
+            return True
+    return False
+
+
 # Keyword → event type for upgrading lazy "ARTICLE_MENTION" replies. Only
 # fires when the article text itself contains the keyword, mirroring the
 # adapters' rule engine — never inventing an event the text does not state.
@@ -668,6 +750,14 @@ def _postprocess_events(events, article):
         quote = ev.get("evidence_quote") or ""
         if quote and not _quote_is_verbatim(quote, article):
             ev["evidence_quote"] = ""
+        # Tech params: a field survives only when its paired evidence
+        # quote appears verbatim in the article (anti-hallucination).
+        kept = {}
+        for field, (val, tech_quote) in (ev.get("tech_params")
+                                         or {}).items():
+            if _tech_quote_is_verbatim(tech_quote, article):
+                kept[field] = val
+        ev["tech_params"] = kept
         if ev["event_type"] == "ARTICLE_MENTION":
             ev["event_type"] = _upgrade_event_type(article)
         cleaned.append(ev)
@@ -823,6 +913,8 @@ def run_ai_extraction(supabase, rows, update_existing=True, polite_delay=0.3):
                 update_payload["publication_date"] = first["publication_date"]
             if canonical_id:
                 update_payload["canonical_project_id"] = canonical_id
+            for field, val in (first.get("tech_params") or {}).items():
+                update_payload[field] = val
 
             try:
                 table.update(update_payload).eq("id", cid).execute()
@@ -842,21 +934,24 @@ def run_ai_extraction(supabase, rows, update_existing=True, polite_delay=0.3):
             # Same rule as above: canonical id only from an explicit name.
             ev_canonical = normalize_project_name(ev.get("project_name")) \
                 if ev.get("project_name") else None
+            ins_payload = {
+                "project_name_raw": ev_project,
+                "country": row.get("country", ""),
+                "summary": ev_summary,
+                "source_name": row.get("source_name", ""),
+                "source_url": row.get("source_url", ""),
+                "review_status": "pending",
+                "fetched_at": datetime.now(timezone.utc).isoformat(),
+                "event_type": ev["event_type"],
+                "evidence_quote": ev.get("evidence_quote", ""),
+                "publication_date": ev.get("publication_date", ""),
+                "canonical_project_id": ev_canonical,
+                "procurement_chain": row.get("procurement_chain", ""),
+            }
+            for field, val in (ev.get("tech_params") or {}).items():
+                ins_payload[field] = val
             try:
-                table.insert({
-                    "project_name_raw": ev_project,
-                    "country": row.get("country", ""),
-                    "summary": ev_summary,
-                    "source_name": row.get("source_name", ""),
-                    "source_url": row.get("source_url", ""),
-                    "review_status": "pending",
-                    "fetched_at": datetime.now(timezone.utc).isoformat(),
-                    "event_type": ev["event_type"],
-                    "evidence_quote": ev.get("evidence_quote", ""),
-                    "publication_date": ev.get("publication_date", ""),
-                    "canonical_project_id": ev_canonical,
-                    "procurement_chain": row.get("procurement_chain", ""),
-                }).execute()
+                table.insert(ins_payload).execute()
                 stats["inserted"] += 1
             except Exception as exc:
                 log.warning("  Insert error for extra event (id=%s): %s",
