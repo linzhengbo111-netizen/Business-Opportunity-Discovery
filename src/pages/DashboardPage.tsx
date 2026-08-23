@@ -12,7 +12,7 @@ import {
 import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
 import type { Project, MaterialMatchResult } from "@/data/projects";
-import { countryCoordinates, sampleProjects, countryToFlagEmoji, COUNTRY_ALIASES } from "@/data/projects";
+import { countryCoordinates, sampleProjects, countryToFlagEmoji, COUNTRY_ALIASES, normalizeIndustry } from "@/data/projects";
 import { normalizeProjectName, getDisplayName, sortPriorityFirst, priorityProjectRankByName } from "@/data/project_aliases";
 import { supabase, fetchAllRows } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
@@ -228,7 +228,7 @@ function mapRowToProject(row: Record<string, unknown>): Project {
     },
     stainlessSteel: String(row.stainless_steel ?? ""),
     application: String(row.application ?? ""),
-    industry: String(row.industry ?? "FPSO"),
+    industry: normalizeIndustry(toStr(row.industry)),
     confidence,
     procurementChain: String(row.procurement_chain ?? ""),
     // Technical specs
@@ -883,12 +883,6 @@ export default function DashboardPage() {
       setTimelineEvents([]);
       return;
     }
-    const industry = selectedProject.industry ?? "FPSO";
-    if (industry !== "FPSO") {
-      setTimelineEvents([]);
-      return;
-    }
-
     const projectName = selectedProject.name;
     const canonicalId = normalizeProjectName(projectName);
 
@@ -1026,9 +1020,6 @@ export default function DashboardPage() {
 
   function handleIndustryChange(value: string) {
     setSelectedIndustry(value);
-    if (value !== "All Industries") {
-      navigate(`/database?industry=${encodeURIComponent(value)}`);
-    }
   }
 
   function togglePhase(phase: string) {
@@ -1447,7 +1438,6 @@ export default function DashboardPage() {
 
       {/* 项目详情模态框 */}
       {selectedProject && (() => {
-        const isFpso = (selectedProject.industry ?? "FPSO") === "FPSO";
         const specs = {
           waterDepthM: selectedProject.waterDepthM,
           oilCapacityBpd: selectedProject.oilCapacityBpd,
@@ -1486,9 +1476,8 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            {/* Tab 导航 —— 仅 FPSO 行业显示 Timeline 标签 */}
-            {isFpso && (
-              <div className="flex-shrink-0 flex border-b border-white/5 px-6">
+            {/* Tab 导航 —— Overview / Timeline */}
+            <div className="flex-shrink-0 flex border-b border-white/5 px-6">
                 <button
                   type="button"
                   onClick={() => setModalTab("overview")}
@@ -1517,8 +1506,7 @@ export default function DashboardPage() {
                     <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-fpso-blue" />
                   )}
                 </button>
-              </div>
-            )}
+            </div>
 
             {/* ---- Overview 内容 ---- */}
             {modalTab === "overview" && (
@@ -1971,8 +1959,7 @@ export default function DashboardPage() {
               )}
 
               {/* Link to full timeline page */}
-              {isFpso && (
-                <div className="mt-5 pt-3 border-t border-white/5 text-center">
+              <div className="mt-5 pt-3 border-t border-white/5 text-center">
                   <button
                     type="button"
                     onClick={() => {
@@ -1992,8 +1979,7 @@ export default function DashboardPage() {
                   >
                     查看完整时间线 <span className="text-[0.8em]">→</span>
                   </button>
-                </div>
-              )}
+              </div>
             </div>
             )}
           </div>

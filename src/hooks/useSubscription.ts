@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/db/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { INDUSTRIES } from '@/data/projects';
 
 /* ------------------------------------------------------------------ */
 /*  types                                                              */
@@ -29,18 +30,8 @@ const DEFAULT_SUBSCRIPTION: Omit<Subscription, 'user_open_id'> = {
 /*  available options                                                  */
 /* ------------------------------------------------------------------ */
 
-export const INDUSTRY_OPTIONS = [
-  'FPSO',
-  'Desalination',
-  'LNG',
-  'FLNG',
-  'General Stainless',
-  'Offshore Platform',
-  'Subsea',
-  'Pipeline',
-  'Refinery',
-  'Petrochemical',
-];
+/** 订阅可选行业 — 与 projects.industry 取值域一致（src/data/projects.ts 单一数据源）。 */
+export const INDUSTRY_OPTIONS = [...INDUSTRIES] as const;
 
 /* ------------------------------------------------------------------ */
 /*  hook                                                               */

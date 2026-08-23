@@ -1,15 +1,8 @@
 import { PanelLeftClose, PanelLeftOpen, RotateCcw, Download, X } from "lucide-react";
 import type { Project } from "@/data/projects";
+import { INDUSTRY_OPTIONS, industryLabel } from "@/data/projects";
 import { Switch } from "@/components/ui/switch";
 import { PHASES, PHASE_UNKNOWN, PHASE_HEX } from "@/lib/project_phase";
-
-const INDUSTRY_OPTIONS = [
-  "All Industries",
-  "FPSO",
-  "Desalination",
-  "LNG",
-  "General Stainless",
-] as const;
 
 const CONFIDENCE_OPTIONS = ["High & Medium", "High", "Medium", "Low", "All"] as const;
 
@@ -50,13 +43,6 @@ interface FilterSidebarProps {
 function getCountryFlag(projects: Project[], country: string): string {
   const found = projects.find((p) => p.country.trim() === country.trim() && p.flag);
   return found?.flag ?? "";
-}
-
-/** Industry option display label. */
-function industryLabel(opt: string): string {
-  if (opt === "Desalination") return `${opt} (海水淡化)`;
-  if (opt === "General Stainless") return `${opt} (其他不锈钢)`;
-  return opt;
 }
 
 export default function FilterSidebar({

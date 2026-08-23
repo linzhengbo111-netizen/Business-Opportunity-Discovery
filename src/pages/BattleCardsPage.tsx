@@ -10,7 +10,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
 import type { Project } from "@/data/projects";
-import { sampleProjects, COUNTRY_ALIASES } from "@/data/projects";
+import { sampleProjects, COUNTRY_ALIASES, normalizeIndustry } from "@/data/projects";
 import { normalizeProjectName, getDisplayName, sortPriorityFirst, priorityProjectRankByName } from "@/data/project_aliases";
 import { supabase } from "@/db/supabase";
 import { phaseFromRow, PHASE_UNKNOWN } from "@/lib/project_phase";
@@ -81,7 +81,7 @@ function mapRowToProject(row: Record<string, unknown>): Project {
     },
     stainlessSteel: String(row.stainless_steel ?? ""),
     application: String(row.application ?? ""),
-    industry: String(row.industry ?? "FPSO"),
+    industry: normalizeIndustry(toStr(row.industry)),
     confidence,
     procurementChain: String(row.procurement_chain ?? ""),
     // Technical specs

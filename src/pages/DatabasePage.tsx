@@ -8,7 +8,7 @@ import { useSearchParams } from "react-router-dom";
 import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
 import type { Project } from "@/data/projects";
-import { sampleProjects, COUNTRY_ALIASES } from "@/data/projects";
+import { sampleProjects, COUNTRY_ALIASES, INDUSTRY_OPTIONS, industryLabel, normalizeIndustry } from "@/data/projects";
 import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
 import { supabase, fetchAllRows } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
@@ -99,6 +99,7 @@ function mapRowToProject(row: Record<string, unknown>): Project {
     stainlessSteel: String(row.stainless_steel ?? ""),
     application:    String(row.application ?? ""),
     confidence,
+    industry:       normalizeIndustry(toStr(row.industry)),
     procurementChain: String(row.procurement_chain ?? ""),
     // Technical specs
     waterDepthM: toNum(row.water_depth_m),
@@ -119,13 +120,6 @@ function mapRowToProject(row: Record<string, unknown>): Project {
 
 /** Phase filter options — 9 lifecycle phases + Unknown (10). */
 const PHASE_FILTER_OPTIONS = ["All", ...PHASES, PHASE_UNKNOWN];
-const INDUSTRY_OPTIONS = [
-  "All Industries",
-  "FPSO",
-  "Desalination",
-  "LNG",
-  "General Stainless",
-] as const;
 const PAGE_SIZE = 20;
 const MAX_VISIBLE_PAGES = 5;
 
@@ -363,13 +357,9 @@ export default function DatabasePage() {
               onChange={(e) => setIndustryFilter(e.target.value)}
               className="h-8 min-w-[150px] rounded-md bg-fpso-bg/70 px-2.5 py-1 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50 border border-fpso-border"
             >
-              {INDUSTRY_OPTIONS.map((opt) => {
-                const label =
-                  opt === "Desalination" ? `${opt} (海水淡化)` :
-                  opt === "General Stainless" ? `${opt} (其他不锈钢)` :
-                  opt;
-                return <option key={opt} value={opt}>{label}</option>;
-              })}
+              {INDUSTRY_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>{industryLabel(opt)}</option>
+              ))}
             </select>
           </div>
 

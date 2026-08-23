@@ -19,7 +19,7 @@ import {
   priorityProjectRank,
 } from "@/data/project_aliases";
 import type { Project } from "@/data/projects";
-import { countryToFlagEmoji, COUNTRY_ALIASES } from "@/data/projects";
+import { countryToFlagEmoji, COUNTRY_ALIASES, normalizeIndustry } from "@/data/projects";
 import { Search, ChevronDown, ChevronRight, ExternalLink, Anchor, Waves, Gauge } from "lucide-react";
 
 // ---- Types ----
@@ -120,6 +120,12 @@ function toNum(v: unknown): number | null {
   if (v == null || v === "") return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
+}
+
+function toStr(v: unknown): string | null {
+  if (v == null) return null;
+  const s = String(v).trim();
+  return s === "" ? null : s;
 }
 
 function matchesProjectQuery(p: ProjectOption, q: string): boolean {
@@ -371,7 +377,7 @@ export default function ProjectTimelinePage() {
         },
         stainlessSteel: String(row.stainless_steel ?? ""),
         application: String(row.application ?? ""),
-        industry: String(row.industry ?? "FPSO"),
+        industry: normalizeIndustry(toStr(row.industry)),
         confidence,
         procurementChain: String(row.procurement_chain ?? ""),
         waterDepthM: toNum(row.water_depth_m),

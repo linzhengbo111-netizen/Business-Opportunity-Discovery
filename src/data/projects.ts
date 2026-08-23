@@ -13,6 +13,67 @@ export const PRIORITY_PROJECT_NAMES = [
   "FPSO SEPETIBA",
 ] as const;
 
+/* ------------------------------------------------------------------ */
+/*  行业分类 — 单一数据源                                               */
+/* ------------------------------------------------------------------ */
+
+/** 全部行业垂直领域。projects.industry 列的取值域。
+ *  FilterSidebar / DatabasePage / SettingsPage 订阅均从此处导入，
+ *  不要在页面里再复制一份。 */
+export const INDUSTRIES = [
+  "FPSO",
+  "Desalination",
+  "LNG",
+  "Petrochemical",
+  "Chemical",
+  "Fertilizer",
+  "Pulp & Paper",
+  "Sugar",
+  "Biopharma",
+  "Nuclear",
+  "Geothermal",
+  "Mining",
+  /** 兜底桶 — 不属于以上任何垂直领域的不锈钢商机。 */
+  "General Stainless",
+] as const;
+
+export type Industry = (typeof INDUSTRIES)[number];
+
+/** 行业筛选的"不筛选"哨兵值。 */
+export const ALL_INDUSTRIES = "All Industries";
+
+/** 行业下拉框选项 = 哨兵值 + 全部行业。 */
+export const INDUSTRY_OPTIONS = [ALL_INDUSTRIES, ...INDUSTRIES] as const;
+
+/** 行业中文名。缺失的（FPSO / LNG 等通用缩写）直接显示英文。 */
+const INDUSTRY_ZH: Record<string, string> = {
+  Desalination: "海水淡化",
+  Petrochemical: "石油化工",
+  Chemical: "化工",
+  Fertilizer: "化肥",
+  "Pulp & Paper": "造纸",
+  Sugar: "制糖",
+  Biopharma: "生物制药",
+  Nuclear: "核电",
+  Geothermal: "地热",
+  Mining: "采矿",
+  "General Stainless": "其他不锈钢",
+};
+
+/** 行业下拉框显示文案，例如 `Desalination (海水淡化)`。 */
+export function industryLabel(opt: string): string {
+  const zh = INDUSTRY_ZH[opt];
+  return zh ? `${opt} (${zh})` : opt;
+}
+
+/** 把任意 industry 值归一到已知行业；未知/空值归到 FPSO。
+ *  历史行（industry 为 NULL）在 028 迁移中已回填为 FPSO，此处仅作防御。 */
+export function normalizeIndustry(value: string | null | undefined): string {
+  if (!value) return "FPSO";
+  const hit = INDUSTRIES.find((i) => i.toLowerCase() === value.trim().toLowerCase());
+  return hit ?? value.trim();
+}
+
 export interface ProjectSource {
   name: string;
   url: string;
@@ -179,13 +240,44 @@ export const countryCoordinates: Record<string, CountryCoordinate> = {
   India:     { x: 72, y: 38 },  // ~21°N 78°E — estimated
 
   // ---- 中东 ----
-  Israel: { x: 60, y: 33 },  // ~31°N 35°E — estimated
+  Israel:         { x: 60,   y: 33   },  // ~31°N 35°E — estimated
+  "Saudi Arabia": { x: 62.5, y: 36.7 },  // ~24°N 45°E
+  UAE:            { x: 65,   y: 36.7 },  // ~24°N 54°E
+  Qatar:          { x: 64.2, y: 35.9 },  // ~25°N 51°E
+  Kuwait:         { x: 63.2, y: 33.7 },  // ~29°N 48°E
+  Oman:           { x: 65.8, y: 38.3 },  // ~21°N 57°E
 
   // ---- 北美洲 ----
-  USA: { x: 25, y: 34 },  // ~28°N 90°W — estimated (Gulf of Mexico)
+  USA:    { x: 25,   y: 34   },  // ~28°N 90°W — estimated (Gulf of Mexico)
+  Canada: { x: 20.5, y: 18.8 },  // ~56°N 106°W
+  Mexico: { x: 21.5, y: 36.9 },  // ~24°N 103°W
 
   // ---- 大洋洲 ----
-  Australia: { x: 87, y: 64 },  // ~25°S 133°E — estimated
+  Australia:     { x: 87,   y: 64   },  // ~25°S 133°E — estimated
+  "New Zealand": { x: 98.6, y: 72.7 },  // ~41°S 175°E
+
+  // ---- 行业扩展新增 (028 seed) ----
+  Chile:     { x: 30.4, y: 68.3 },  // ~33°S 71°W  — mining
+  Peru:      { x: 29.2, y: 55.1 },  // ~9°S  75°W  — mining
+  Argentina: { x: 32.3, y: 71.3 },  // ~38°S 64°W  — fertilizer
+  Finland:   { x: 57.1, y: 15.6 },  // ~62°N 26°E  — pulp & paper
+  Sweden:    { x: 55.2, y: 16.6 },  // ~60°N 19°E  — pulp & paper
+  Germany:   { x: 52.9, y: 21.6 },  // ~51°N 10°E  — chemical / biopharma
+  Spain:     { x: 49,   y: 27.5 },  // ~41°N 4°W   — desalination
+  Poland:    { x: 55.3, y: 21.2 },  // ~52°N 19°E  — nuclear
+  Iceland:   { x: 44.7, y: 13.9 },  // ~65°N 19°W  — geothermal
+  Kenya:     { x: 60.5, y: 50   },  // ~0°N  38°E  — geothermal
+  Egypt:     { x: 58.6, y: 35.1 },  // ~27°N 31°E  — desalination / fertilizer
+  Turkey:    { x: 59.8, y: 28.4 },  // ~39°N 35°E  — geothermal
+  Mozambique:     { x: 59.7, y: 60.6 },  // ~19°S 35°E  — LNG
+  "Czech Republic": { x: 54.2, y: 22.2 },  // ~50°N 15°E  — nuclear
+  Denmark:   { x: 52.5, y: 18.9 },  // ~56°N 9°E   — biopharma
+  Japan:     { x: 88.4, y: 29.9 },  // ~36°N 138°E — nuclear
+  "South Korea": { x: 85.5, y: 30.1 },  // ~36°N 128°E — petrochemical
+  Thailand:  { x: 78.1, y: 41.2 },  // ~16°N 101°E — sugar
+  Philippines: { x: 83.8, y: 42.8 },  // ~13°N 122°E — geothermal
+  "South Africa": { x: 56.4, y: 67 },  // ~31°S 23°E — mining
+  Netherlands: { x: 51.5, y: 21.1 },  // ~52°N 5°E  — biopharma
 };
 
 /**
@@ -210,6 +302,11 @@ const COUNTRY_CODE: Record<string, string> = {
   "Turkey": "TR", "UAE": "AE", "UK": "GB", "USA": "US",
   "Vietnam": "VN", "Yemen": "YE",
   "Côte d'Ivoire": "CI", "Ivory Coast": "CI",
+  // 行业扩展新增 (028 seed)
+  "Chile": "CL", "Peru": "PE", "Finland": "FI", "Sweden": "SE",
+  "Germany": "DE", "Spain": "ES", "Poland": "PL", "Iceland": "IS",
+  "Kenya": "KE", "Philippines": "PH", "New Zealand": "NZ",
+  "Czech Republic": "CZ",
 };
 
 /**
