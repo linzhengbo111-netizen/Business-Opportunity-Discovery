@@ -123,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           toast.error('Feishu login failed. Please try again.');
         }
         setLoading(false);
-        // Redirect to saved destination (set by LoginPage), fallback to /
+        // Redirect to saved destination (set by Header / useRequireLogin), fallback to /
         const redirectTo = sessionStorage.getItem('login_redirect_to') || '/';
         sessionStorage.removeItem('login_redirect_to');
         window.location.href = redirectTo;

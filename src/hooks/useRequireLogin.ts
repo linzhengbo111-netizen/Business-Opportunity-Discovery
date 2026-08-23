@@ -1,27 +1,33 @@
 import { useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+
+const SESSION_REDIRECT_KEY = 'login_redirect_to';
 
 /**
  * Optional-login guard for single actions.
  *
  * Anonymous visitors can browse everything. Actions that need a user
  * identity (CSV export, follow-up save, follow project, subscription
- * save) call `requireLogin()` first — it returns `false` and redirects
- * to /login (preserving the return path) when not authenticated.
+ * save) call `requireLogin()` first — when not authenticated it shows a
+ * toast and kicks off the Feishu OAuth flow directly (no /login page);
+ * AuthContext restores the current URL after the callback.
  */
 export function useRequireLogin() {
-  const { isAuthenticated } = useAuth();
-  const navigate = useNavigate();
+  const { isAuthenticated, login } = useAuth();
   const location = useLocation();
 
   const requireLogin = useCallback((): boolean => {
     if (isAuthenticated) return true;
     toast.error('Please log in with Feishu to use this feature');
-    navigate('/login', { state: { from: location.pathname + location.search } });
+    sessionStorage.setItem(
+      SESSION_REDIRECT_KEY,
+      location.pathname + location.search,
+    );
+    login();
     return false;
-  }, [isAuthenticated, navigate, location.pathname, location.search]);
+  }, [isAuthenticated, login, location.pathname, location.search]);
 
   return requireLogin;
 }

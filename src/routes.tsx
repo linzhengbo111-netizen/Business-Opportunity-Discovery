@@ -6,7 +6,6 @@ import SettingsPage from './pages/SettingsPage';
 // IndustryBreakdownPage intentionally kept on disk — route removed, easy to restore later.
 import ProjectTimelinePage from './pages/ProjectTimelinePage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
-import LoginPage from './pages/LoginPage';
 import type { ReactNode } from 'react';
 
 export interface RouteConfig {
@@ -19,12 +18,6 @@ export interface RouteConfig {
 }
 
 export const routes: RouteConfig[] = [
-  {
-    name: 'Login',
-    path: '/login',
-    element: <LoginPage />,
-    public: true,
-  },
   {
     name: 'AuthCallback',
     path: '/auth/callback',

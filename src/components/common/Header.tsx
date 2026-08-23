@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { Radar, FileText, History } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,6 +18,13 @@ function linkClass({ isActive }: { isActive: boolean }) {
 
 export default function Header({ rightContent }: { rightContent?: ReactNode }) {
   const { user, isAuthenticated, login, logout, loading } = useAuth();
+  const location = useLocation();
+
+  // 登录成功后回到当前页面（/auth/callback 回跳用）
+  const handleLogin = () => {
+    sessionStorage.setItem('login_redirect_to', location.pathname + location.search);
+    login();
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-white/5 bg-fpso-bg/70 backdrop-blur-md">
@@ -95,7 +102,7 @@ export default function Header({ rightContent }: { rightContent?: ReactNode }) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={login}
+                onClick={handleLogin}
                 className="border-fpso-blue/30 text-fpso-blue hover:bg-fpso-blue/10 text-xs"
               >
                 Login with Feishu
