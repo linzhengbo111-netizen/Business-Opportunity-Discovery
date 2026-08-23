@@ -73,7 +73,7 @@ export function getIndustryTitle(industry: string): string {
   if (industry === "LNG") return "全球 LNG 项目商机挖掘";
   const zh = INDUSTRY_ZH[industry];
   if (zh && industry !== "General Stainless") return `全球${zh}项目商机挖掘`;
-  return "全球不锈钢商机挖掘";
+  return "全球商机挖掘";
 }
 
 /** 把任意 industry 值归一到已知行业；未知/空值归到 FPSO。
