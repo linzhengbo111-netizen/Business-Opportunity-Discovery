@@ -65,10 +65,15 @@ export default function SettingsPage() {
     navigate(`/database?project=${encodeURIComponent(projectId)}`);
   };
 
-  // Sync local state from subscription once loaded
+  // Sync local state from subscription once loaded.
+  // 过滤已下线的行业（如 General Stainless），避免幽灵选项残留。
   const [synced, setSynced] = useState(false);
   if (subscription && !synced) {
-    setSelectedIndustries(subscription.subscribed_industries || []);
+    setSelectedIndustries(
+      (subscription.subscribed_industries || []).filter((i) =>
+        INDUSTRY_OPTIONS.some((opt) => opt === i),
+      ),
+    );
     setSelectedCountries(subscription.subscribed_countries || []);
     setWebhookUrl(subscription.webhook_url || '');
     setSynced(true);

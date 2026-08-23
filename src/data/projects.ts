@@ -33,8 +33,6 @@ export const INDUSTRIES = [
   "Nuclear",
   "Geothermal",
   "Mining",
-  /** 兜底桶 — 不属于以上任何垂直领域的不锈钢商机。 */
-  "General Stainless",
 ] as const;
 
 export type Industry = (typeof INDUSTRIES)[number];
@@ -57,7 +55,6 @@ const INDUSTRY_ZH: Record<string, string> = {
   Nuclear: "核电",
   Geothermal: "地热",
   Mining: "采矿",
-  "General Stainless": "其他不锈钢",
 };
 
 /** 行业下拉框显示文案，例如 `Desalination (海水淡化)`。 */
@@ -67,12 +64,12 @@ export function industryLabel(opt: string): string {
 }
 
 /** Dashboard 主标题。跟随左侧行业筛选动态变化；
- *  All Industries 与兜底桶显示通用标题。 */
+ *  All Industries 显示通用标题。 */
 export function getIndustryTitle(industry: string): string {
   if (industry === "FPSO") return "全球 FPSO 项目商机挖掘";
   if (industry === "LNG") return "全球 LNG 项目商机挖掘";
   const zh = INDUSTRY_ZH[industry];
-  if (zh && industry !== "General Stainless") return `全球${zh}项目商机挖掘`;
+  if (zh) return `全球${zh}项目商机挖掘`;
   return "全球商机挖掘";
 }
 
