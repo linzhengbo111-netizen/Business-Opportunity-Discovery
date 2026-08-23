@@ -66,6 +66,16 @@ export function industryLabel(opt: string): string {
   return zh ? `${opt} (${zh})` : opt;
 }
 
+/** Dashboard 主标题。跟随左侧行业筛选动态变化；
+ *  All Industries 与兜底桶显示通用标题。 */
+export function getIndustryTitle(industry: string): string {
+  if (industry === "FPSO") return "全球 FPSO 项目商机挖掘";
+  if (industry === "LNG") return "全球 LNG 项目商机挖掘";
+  const zh = INDUSTRY_ZH[industry];
+  if (zh && industry !== "General Stainless") return `全球${zh}项目商机挖掘`;
+  return "全球不锈钢商机挖掘";
+}
+
 /** 把任意 industry 值归一到已知行业；未知/空值归到 FPSO。
  *  历史行（industry 为 NULL）在 028 迁移中已回填为 FPSO，此处仅作防御。 */
 export function normalizeIndustry(value: string | null | undefined): string {

@@ -12,7 +12,7 @@ import {
 import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
 import type { Project, MaterialMatchResult } from "@/data/projects";
-import { countryCoordinates, sampleProjects, countryToFlagEmoji, COUNTRY_ALIASES, normalizeIndustry } from "@/data/projects";
+import { countryCoordinates, sampleProjects, countryToFlagEmoji, COUNTRY_ALIASES, normalizeIndustry, getIndustryTitle } from "@/data/projects";
 import { normalizeProjectName, getDisplayName, sortPriorityFirst, priorityProjectRankByName } from "@/data/project_aliases";
 import { supabase, fetchAllRows } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
@@ -1048,7 +1048,7 @@ export default function DashboardPage() {
 
   return (
     <>
-      <PageMeta title="Business Opportunity Discovery" description="全球 FPSO 项目不锈钢商机挖掘系统" />
+      <PageMeta title={getIndustryTitle(selectedIndustry)} description={`${getIndustryTitle(selectedIndustry)}系统`} />
 
       <Header rightContent={
         <div className="flex flex-shrink-0 items-center gap-2">
@@ -1106,7 +1106,7 @@ export default function DashboardPage() {
         {/* 页面标题 */}
         <section className="mb-8">
           <h1 className="text-2xl font-semibold tracking-tight text-fpso-fg md:text-3xl">
-            全球 FPSO 项目商机挖掘
+            {getIndustryTitle(selectedIndustry)}
           </h1>
         </section>
 
