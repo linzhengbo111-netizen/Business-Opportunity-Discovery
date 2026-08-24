@@ -26,7 +26,7 @@ import { projectMatchesSearch } from "@/lib/project_search";
 import { scoreOpportunity, scoreBadgeClass } from "@/lib/opportunity_scorer";
 import {
   PHASES, PHASE_UNKNOWN, PHASE_HEX, PHASE_SEGMENTS, PHASE_UNLIT,
-  phaseGroup, phaseColorClass, phaseDotClass, phaseBorderLClass,
+  phaseGroup, phaseColorClass, phaseDotClass, phaseBgClass, phaseBorderLClass,
   phaseProgressIndex, phaseLabel, phaseFromRow,
 } from "@/lib/project_phase";
 import { analyzeProjectScenario, assessOpportunity, type AIResult, type ScenarioAnalysis, type OpportunityAssessment } from "@/lib/ai_analyst";
@@ -336,230 +336,243 @@ function DashboardProjectCard({
       onClick={() => onOpen(project)}
       className={`project-row group cursor-pointer border-b border-white/5 border-l-4 px-5 py-5 last:border-b-0 transition-all hover:bg-fpso-blue/[0.04] hover:border-white/10 ${phaseBorderLClass(project.phase)}`}
     >
-              {/* Row 1: status dot + name + country + source */}
-              <div className="flex items-start justify-between gap-3">
+              {/* Row 1: status dot + name + country badge */}
+              <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 flex-1 items-center gap-2.5">
                   <span
-                    className={`mt-0.5 h-2 w-2 flex-shrink-0 rounded-full ${phaseDotClass(project.phase)}`}
+                    className={`h-2 w-2 flex-shrink-0 rounded-full ${phaseDotClass(project.phase)}`}
                     style={{ boxShadow: `0 0 6px currentColor` }}
                   />
                   <h3 className="truncate text-sm font-semibold text-fpso-fg group-hover:text-white transition-colors">
                     {project.name}
                   </h3>
-                  <span className="inline-flex flex-shrink-0 items-center gap-1 rounded bg-fpso-bg/80 px-1.5 py-0.5 text-[11px] text-fpso-muted ring-1 ring-fpso-border/50">
-                    {project.flag && <span className="text-xs leading-none">{project.flag}</span>}
-                    <span className="max-w-[100px] truncate">{project.country}</span>
-                  </span>
                 </div>
+                <span className="inline-flex flex-shrink-0 items-center gap-1 rounded bg-fpso-bg/80 px-1.5 py-0.5 text-[11px] text-fpso-muted ring-1 ring-fpso-border/50">
+                  {project.flag && <span className="text-xs leading-none">{project.flag}</span>}
+                  <span className="max-w-[100px] truncate">{project.country}</span>
+                </span>
+              </div>
 
-                <div className="flex flex-shrink-0 items-center gap-2">
-                  {project.source.url ? (
-                    <a
-                      href={project.source.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="external-link inline-flex items-center gap-1 text-[11px] text-fpso-blue/70 hover:text-fpso-blue transition-colors"
-                    >
-                      <span className="max-w-[120px] truncate">{project.source.name}</span>
-                      <span className="text-[0.8em] leading-none">↗</span>
-                    </a>
-                  ) : (
-                    <span className="text-[11px] text-fpso-dim">{project.source.name || "—"}</span>
+              {/* Rows 2-6 — uniform vertical rhythm, aligned under the name */}
+              <div className="mt-1.5 ml-4 space-y-1.5">
+
+                {/* Row 2: confidence + phase + industry chips */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {/* Confidence badge */}
+                  {project.confidence && (
+                    <span className={`inline-flex items-center rounded border border-current/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${confidenceBadgeClass(project.confidence)}`}>
+                      {project.confidence}
+                    </span>
                   )}
-                  <span className="text-[10px] text-fpso-dim font-mono tabular-nums">{project.source.date}</span>
+                  {/* Phase chip */}
+                  <span className={`inline-flex items-center rounded border border-current/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${phaseBgClass(project.phase)}`}>
+                    {phaseLabel(project.phase)}
+                  </span>
+                  {/* Industry badge */}
+                  {(project.industry ?? "FPSO") && (
+                    <span className="inline-flex items-center rounded border border-fpso-blue/20 bg-fpso-blue/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-fpso-blue">
+                      {project.industry}
+                    </span>
+                  )}
+                  {/* Opportunity Score badge */}
                   {(() => {
-                    const candidates = [project.source.date, project.createdAt].filter(Boolean) as string[];
-                    const latest = candidates.sort().pop()?.slice(0, 10);
-                    if (!latest || latest === project.source.date?.slice(0, 10)) return null;
+                    const scoreResult = scoreOpportunity(project);
                     return (
-                      <span className="text-[10px] text-fpso-muted font-mono tabular-nums">
-                        Updated: {latest}
+                      <span className={`inline-flex items-center rounded border border-current/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${scoreBadgeClass(scoreResult.grade)}`}>
+                        {scoreResult.grade}{scoreResult.totalScore}
                       </span>
                     );
                   })()}
-                </div>
-              </div>
-
-              {/* Row 2: badges + tech specs */}
-              <div className="mt-2.5 ml-4 flex flex-wrap items-center gap-1.5">
-                {/* Industry badge */}
-                {(project.industry ?? "FPSO") && (
-                  <span className="inline-flex items-center rounded bg-fpso-blue/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-fpso-blue ring-1 ring-fpso-blue/15">
-                    {project.industry}
-                  </span>
-                )}
-                {/* Confidence badge */}
-                {project.confidence && (
-                  <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${confidenceBadgeClass(project.confidence)}`}>
-                    {project.confidence}
-                  </span>
-                )}
-                {/* Opportunity Score badge */}
-                {(() => {
-                  const scoreResult = scoreOpportunity(project);
-                  return (
-                    <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${scoreBadgeClass(scoreResult.grade)}`}>
-                      {scoreResult.grade}{scoreResult.totalScore}
-                    </span>
-                  );
-                })()}
-                {/* Phase text */}
-                <span className={`text-[11px] font-medium ${phaseColorClass(project.phase)}`}>
-                  {phaseLabel(project.phase)}
-                </span>
-                {/* 待挖掘 badge: timeline has no linked events */}
-                {showAllProjects && !hasTimelineData(project, timelineEventCounts) && (
-                  <span
-                    className="inline-flex items-center rounded bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-400 ring-1 ring-amber-400/20"
-                    title="暂无足够商机数据，已加入待挖掘池"
-                  >
-                    待挖掘
-                  </span>
-                )}
-                {/* Separator */}
-                {(project.waterDepthM != null || project.oilCapacityBpd != null || project.gasCapacityMmcmd != null) && (
-                  <span className="mx-0.5 h-3 w-px bg-fpso-border/50 flex-shrink-0" />
-                )}
-                {/* Tech specs */}
-                {project.waterDepthM != null && (
-                  <span className="inline-flex items-center gap-1 text-[10px] text-fpso-dim font-mono" title="Water Depth">
-                    <Anchor className="h-3 w-3 text-fpso-dim/60 flex-shrink-0" />
-                    {project.waterDepthM.toLocaleString()}m
-                  </span>
-                )}
-                {project.oilCapacityBpd != null && (
-                  <span className="inline-flex items-center gap-1 text-[10px] text-fpso-dim font-mono" title="Oil Capacity">
-                    <Gauge className="h-3 w-3 text-fpso-dim/60 flex-shrink-0" />
-                    {project.oilCapacityBpd.toLocaleString()} bpd
-                  </span>
-                )}
-                {project.gasCapacityMmcmd != null && (
-                  <span className="inline-flex items-center gap-1 text-[10px] text-fpso-dim font-mono" title="Gas Capacity">
-                    <Waves className="h-3 w-3 text-fpso-dim/60 flex-shrink-0" />
-                    {project.gasCapacityMmcmd.toLocaleString()} MMcmd
-                  </span>
-                )}
-                {/* Hull type */}
-                {project.hullType && (
-                  <span className="inline-flex items-center gap-1 text-[10px] text-fpso-dim font-mono">
-                    <span className="text-fpso-dim/60">{project.hullType}</span>
-                  </span>
-                )}
-              </div>
-
-              {/* Row 3: summary */}
-              {project.summary && (
-                <p className="mt-2 ml-4 line-clamp-1 text-[11px] leading-relaxed text-fpso-muted/80">
-                  {project.summary}
-                </p>
-              )}
-
-              {/* Row 4: procurement chain tags */}
-              {project.procurementChain && (
-                <div className="mt-2 ml-4 flex flex-wrap items-center gap-1">
-                  <span className="text-[9px] font-semibold uppercase tracking-wider text-fpso-dim/60 mr-0.5">Procurement</span>
-                  {project.procurementChain.split(/,\s*/).filter(Boolean).map((entity) => (
+                  {/* 待挖掘 badge: timeline has no linked events */}
+                  {showAllProjects && !hasTimelineData(project, timelineEventCounts) && (
                     <span
-                      key={entity}
-                      className="inline-flex items-center rounded bg-fpso-green/[0.07] px-1.5 py-0.5 text-[10px] font-medium text-fpso-green/80 ring-1 ring-fpso-green/10 procurement-tag"
+                      className="inline-flex items-center rounded border border-amber-400/20 bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-400"
+                      title="暂无足够商机数据，已加入待挖掘池"
                     >
-                      {entity}
+                      待挖掘
                     </span>
-                  ))}
-                </div>
-              )}
-
-                  {/* Row 5: AI 个性化商机分析 — LLM 请求中显示加载态，AI 返回后替换 */}
-                  {loading ? (
-                    <div className="mt-2 ml-4 flex flex-wrap items-center gap-1.5">
-                      <span className="text-[9px] font-semibold uppercase tracking-wider text-fpso-dim/60 mr-0.5">商机分析</span>
-                      <span className="inline-flex items-center rounded bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400 animate-pulse">
-                        AI 分析中…
-                      </span>
-                    </div>
-                  ) : analysis && (analysis.procurement_window.range !== "待补充" || analysis.recommended_materials.length > 0 || analysis.recommended_products.length > 0) && (
-                    <div className="mt-2 ml-4 flex flex-wrap items-center gap-1.5">
-                      <span className="text-[9px] font-semibold uppercase tracking-wider text-fpso-dim/60 mr-0.5">商机分析</span>
-                      {analysis.procurement_window.range !== "待补充" && (
-                        <span
-                          title={analysis.procurement_window.reasoning}
-                          className="inline-flex items-center rounded bg-fpso-blue/10 px-1.5 py-0.5 text-[10px] font-medium text-fpso-blue ring-1 ring-fpso-blue/10"
-                        >
-                          采购时间窗 {analysis.procurement_window.range}
-                        </span>
-                      )}
-                      {analysis.recommended_materials.slice(0, 3).map((m) => (
-                        <span
-                          key={m.grade}
-                          title={m.reason}
-                          className="inline-flex items-center rounded bg-fpso-green/[0.07] px-1.5 py-0.5 text-[10px] font-mono font-medium text-fpso-green/80 ring-1 ring-fpso-green/10"
-                        >
-                          {m.grade}
-                        </span>
-                      ))}
-                      {analysis.recommended_products.slice(0, 3).map((p) => (
-                        <span
-                          key={p.product}
-                          title={p.reason}
-                          className="inline-flex items-center rounded bg-fpso-orange/10 px-1.5 py-0.5 text-[10px] font-medium text-fpso-orange/80 ring-1 ring-fpso-orange/10"
-                        >
-                          {p.product}
-                        </span>
-                      ))}
-                      <PushSourceBadge source={analysis.source} />
-                    </div>
                   )}
-              {/* Phase progress bar — 9 lifecycle segments */}
-              {(() => {
-                const progress = phaseProgressIndex(project.phase);
-                return (
-                  <div className="mt-2.5 ml-4 flex gap-1" style={{ height: 4 }}>
-                    {PHASE_SEGMENTS.map((seg, i) => (
-                      <div
-                        key={seg.label}
-                        title={`${seg.label}${i < progress ? " ✓" : ""}`}
-                        className="rounded-full transition-colors duration-500"
-                        style={{
-                          flex: 1,
-                          backgroundColor: i < progress ? seg.color : PHASE_UNLIT,
-                        }}
-                      />
-                    ))}
-                  </div>
-                );
-              })()}
+                </div>
 
-              {/* Next milestone + corrosive media tags */}
-              {(() => {
-                const canonicalId = normalizeProjectName(project.name);
-                const ms = canonicalId ? milestoneMap.get(canonicalId) : undefined;
-                const cmTags = getCorrosiveMediaTags(project.corrosiveMedia);
-                if (!ms && cmTags.length === 0) {
-                  return (
-                    <p className="mt-1 ml-4 text-[10px] text-fpso-muted/50">暂无里程碑</p>
-                  );
-                }
-                return (
-                  <div className="mt-1 ml-4 flex items-center gap-2 flex-wrap">
-                    {ms ? (
-                      <p className="text-[10px] text-fpso-blue/70">
-                        Next: {ms.label}{ms.year ? ` ${ms.year}` : ""}
-                      </p>
-                    ) : (
-                      <p className="text-[10px] text-fpso-muted/50">暂无里程碑</p>
-                    )}
-                    {cmTags.map((tag) => (
+                {/* Row 3: summary — single line, muted */}
+                {project.summary && (
+                  <p className="line-clamp-1 text-xs leading-relaxed text-fpso-muted">
+                    {project.summary}
+                  </p>
+                )}
+
+                {/* Row 4: key params (icon + mono number) + procurement chain entities */}
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  {project.waterDepthM != null && (
+                    <span className="inline-flex items-center gap-1 text-[10px] text-fpso-dim font-mono" title="Water Depth">
+                      <Anchor className="h-3 w-3 text-fpso-dim/60 flex-shrink-0" />
+                      {project.waterDepthM.toLocaleString()}m
+                    </span>
+                  )}
+                  {project.oilCapacityBpd != null && (
+                    <span className="inline-flex items-center gap-1 text-[10px] text-fpso-dim font-mono" title="Oil Capacity">
+                      <Gauge className="h-3 w-3 text-fpso-dim/60 flex-shrink-0" />
+                      {project.oilCapacityBpd.toLocaleString()} bpd
+                    </span>
+                  )}
+                  {project.gasCapacityMmcmd != null && (
+                    <span className="inline-flex items-center gap-1 text-[10px] text-fpso-dim font-mono" title="Gas Capacity">
+                      <Waves className="h-3 w-3 text-fpso-dim/60 flex-shrink-0" />
+                      {project.gasCapacityMmcmd.toLocaleString()} MMcmd
+                    </span>
+                  )}
+                  {/* Hull type */}
+                  {project.hullType && (
+                    <span className="inline-flex items-center gap-1 text-[10px] text-fpso-dim font-mono">
+                      <span className="text-fpso-dim/60">{project.hullType}</span>
+                    </span>
+                  )}
+                  {/* Operator */}
+                  {project.operatorName && (
+                    <span className="inline-flex items-center gap-1 text-[10px] text-fpso-dim font-mono" title="Operator">
+                      <Building2 className="h-3 w-3 text-fpso-dim/60 flex-shrink-0" />
+                      {project.operatorName}
+                    </span>
+                  )}
+                  {/* Procurement chain entities */}
+                  {project.procurementChain && (
+                    <>
+                      <span className="mx-0.5 h-3 w-px bg-fpso-border/50 flex-shrink-0" />
+                      {project.procurementChain.split(/,\s*/).filter(Boolean).map((entity) => (
+                        <span
+                          key={entity}
+                          className="inline-flex items-center rounded bg-fpso-green/[0.07] px-1.5 py-0.5 text-[10px] font-medium text-fpso-green/80 ring-1 ring-fpso-green/10 procurement-tag"
+                        >
+                          {entity}
+                        </span>
+                      ))}
+                    </>
+                  )}
+                </div>
+
+                {/* Row 5: AI 商机分析 — loading pulse, then chips + source tag */}
+                {loading ? (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[9px] font-semibold uppercase tracking-wider text-fpso-dim/60">商机分析</span>
+                    <span className="inline-flex items-center rounded bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400 animate-pulse ring-1 ring-amber-400/20">
+                      AI 分析中…
+                    </span>
+                  </div>
+                ) : analysis && (analysis.procurement_window.range !== "待补充" || analysis.recommended_materials.length > 0 || analysis.recommended_products.length > 0) && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[9px] font-semibold uppercase tracking-wider text-fpso-dim/60">商机分析</span>
+                    {analysis.procurement_window.range !== "待补充" && (
                       <span
-                        key={tag.key}
-                        className={`inline-flex items-center text-[10px] px-1.5 py-0.5 rounded border ${tag.className}`}
+                        title={analysis.procurement_window.reasoning}
+                        className="inline-flex items-center rounded bg-fpso-blue/10 px-1.5 py-0.5 text-[10px] font-medium text-fpso-blue ring-1 ring-fpso-blue/10"
                       >
-                        {tag.label}
+                        采购时间窗 {analysis.procurement_window.range}
+                      </span>
+                    )}
+                    {analysis.recommended_materials.slice(0, 3).map((m) => (
+                      <span
+                        key={m.grade}
+                        title={m.reason}
+                        className="inline-flex items-center rounded bg-fpso-green/[0.07] px-1.5 py-0.5 text-[10px] font-mono font-medium text-fpso-green/80 ring-1 ring-fpso-green/10"
+                      >
+                        {m.grade}
                       </span>
                     ))}
+                    {analysis.recommended_materials.length > 3 && (
+                      <span className="text-[10px] font-mono text-fpso-green/60">+{analysis.recommended_materials.length - 3}</span>
+                    )}
+                    {analysis.recommended_products.slice(0, 3).map((p) => (
+                      <span
+                        key={p.product}
+                        title={p.reason}
+                        className="inline-flex items-center rounded bg-fpso-orange/10 px-1.5 py-0.5 text-[10px] font-medium text-fpso-orange/80 ring-1 ring-fpso-orange/10"
+                      >
+                        {p.product}
+                      </span>
+                    ))}
+                    {analysis.recommended_products.length > 3 && (
+                      <span className="text-[10px] font-mono text-fpso-orange/60">+{analysis.recommended_products.length - 3}</span>
+                    )}
+                    <PushSourceBadge source={analysis.source} />
                   </div>
-                );
-              })()}
+                )}
+
+                {/* Row 6: source + dates (left) · progress bar + next milestone (right) */}
+                <div className="flex items-center justify-between gap-3 border-t border-white/5 pt-1.5">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    {project.source.url ? (
+                      <a
+                        href={project.source.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="external-link inline-flex items-center gap-1 text-[11px] text-fpso-blue/70 hover:text-fpso-blue transition-colors"
+                      >
+                        <span className="max-w-[120px] truncate">{project.source.name}</span>
+                        <span className="text-[0.8em] leading-none">↗</span>
+                      </a>
+                    ) : (
+                      <span className="text-[11px] text-fpso-dim">{project.source.name || "—"}</span>
+                    )}
+                    <span className="text-[10px] text-fpso-dim font-mono tabular-nums">{project.source.date}</span>
+                    {(() => {
+                      const candidates = [project.source.date, project.createdAt].filter(Boolean) as string[];
+                      const latest = candidates.sort().pop()?.slice(0, 10);
+                      if (!latest || latest === project.source.date?.slice(0, 10)) return null;
+                      return (
+                        <span className="text-[10px] text-fpso-muted font-mono tabular-nums">
+                          Updated: {latest}
+                        </span>
+                      );
+                    })()}
+                  </div>
+
+                  <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-2">
+                    {(() => {
+                      const progress = phaseProgressIndex(project.phase);
+                      return (
+                        <div className="flex w-36 gap-1" style={{ height: 4 }}>
+                          {PHASE_SEGMENTS.map((seg, i) => (
+                            <div
+                              key={seg.label}
+                              title={`${seg.label}${i < progress ? " ✓" : ""}`}
+                              className="rounded-full transition-colors duration-500"
+                              style={{
+                                flex: 1,
+                                backgroundColor: i < progress ? seg.color : PHASE_UNLIT,
+                              }}
+                            />
+                          ))}
+                        </div>
+                      );
+                    })()}
+                    {(() => {
+                      const canonicalId = normalizeProjectName(project.name);
+                      const ms = canonicalId ? milestoneMap.get(canonicalId) : undefined;
+                      const cmTags = getCorrosiveMediaTags(project.corrosiveMedia);
+                      return (
+                        <>
+                          {ms ? (
+                            <p className="text-[10px] text-fpso-blue/70">
+                              Next: {ms.label}{ms.year ? ` ${ms.year}` : ""}
+                            </p>
+                          ) : (
+                            <p className="text-[10px] text-fpso-muted/50">暂无里程碑</p>
+                          )}
+                          {cmTags.map((tag) => (
+                            <span
+                              key={tag.key}
+                              className={`inline-flex items-center text-[10px] px-1.5 py-0.5 rounded border ${tag.className}`}
+                            >
+                              {tag.label}
+                            </span>
+                          ))}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
     </motion.div>
   );
 }
