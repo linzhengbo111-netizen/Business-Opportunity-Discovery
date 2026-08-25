@@ -151,10 +151,10 @@ function getCountryFlag(projects: Project[], country: string): string {
 
 
 
-/** 环形图顺序色 — 青→深蓝单色系渐变，最亮给最大扇区 */
+/** 环形图顺序色 — 天蓝→深蓝单色系渐变，最深给最大扇区 */
 const COUNTRY_CHART_COLORS = [
-  "#00d4ff", "#0ea5e9", "#2563eb", "#1d4ed8",
-  "#1e40af", "#1e3a8a", "#172554",
+  "#0ea5e9", "#0284c7", "#0369a1", "#075985",
+  "#0c4a6e", "#082f49", "#0f172a",
 ];
 
 /** Source badge for AI vs rule-engine output. */
@@ -334,7 +334,7 @@ function DashboardProjectCard({
       viewport={{ once: true }}
       transition={{ duration: 0.3, ease: "easeOut" }}
       onClick={() => onOpen(project)}
-      className={`project-row group cursor-pointer border-b border-white/5 border-l-4 px-5 py-5 last:border-b-0 transition-all hover:bg-fpso-blue/[0.04] hover:border-white/10 ${phaseBorderLClass(project.phase)}`}
+      className={`project-row group cursor-pointer border-b border-fpso-border border-l-4 px-5 py-5 last:border-b-0 transition-all hover:bg-fpso-blue/[0.04] hover:border-fpso-border ${phaseBorderLClass(project.phase)}`}
     >
               {/* Row 1: status dot + name + country badge */}
               <div className="flex items-center justify-between gap-3">
@@ -343,7 +343,7 @@ function DashboardProjectCard({
                     className={`h-2 w-2 flex-shrink-0 rounded-full ${phaseDotClass(project.phase)}`}
                     style={{ boxShadow: `0 0 6px currentColor` }}
                   />
-                  <h3 className="truncate text-sm font-semibold text-fpso-fg group-hover:text-white transition-colors">
+                  <h3 className="truncate text-sm font-semibold text-fpso-fg group-hover:text-fpso-blue transition-colors">
                     {project.name}
                   </h3>
                 </div>
@@ -498,7 +498,7 @@ function DashboardProjectCard({
                 )}
 
                 {/* Row 6: source + dates (left) · progress bar + next milestone (right) */}
-                <div className="flex items-center justify-between gap-3 border-t border-white/5 pt-1.5">
+                <div className="flex items-center justify-between gap-3 border-t border-fpso-border pt-1.5">
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
                     {project.source.url ? (
                       <a
@@ -880,14 +880,14 @@ export default function DashboardPage() {
     const withoutDots = allCountries.filter((c) => !countryCoordinates[c]);
     console.log(
       `[Map] %c${withDots.length} countries with dots:%c`,
-      "color:#00d4ff;font-weight:bold",
+      "color:#0284c7;font-weight:bold",
       "color:inherit",
       withDots.join(", ") || "(none)",
     );
     if (withoutDots.length > 0) {
       console.warn(
         `[Map] %c${withoutDots.length} countries MISSING coordinates:%c`,
-        "color:#ff9f43;font-weight:bold",
+        "color:#ea580c;font-weight:bold",
         "color:inherit",
         withoutDots.join(", "),
       );
@@ -1133,7 +1133,7 @@ export default function DashboardPage() {
         <section className="mb-8">
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
             {/* Total Projects */}
-            <div className="group relative overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300 p-4 transition-all hover:border-fpso-blue/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(0,212,255,0.06)]">
+            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md shadow-sm hover:shadow-md transition-shadow duration-300 p-4 transition-all hover:border-fpso-blue/40 hover:bg-white hover:shadow-[0_2px_12px_rgba(15,23,42,0.06)]">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <Building2 className="h-20 w-20 text-fpso-blue" />
               </div>
@@ -1143,13 +1143,13 @@ export default function DashboardPage() {
                 </span>
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Total Projects</div>
-                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300" style={{ textShadow: "0 0 8px rgba(0,212,255,0.5)" }}>{filteredStats.total}</div>
+                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300">{filteredStats.total}</div>
                 </div>
               </div>
             </div>
 
             {/* Early (Concept / Planning / Design) */}
-            <div className="group relative overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300 p-4 transition-all hover:border-fpso-muted/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(148,163,184,0.06)]">
+            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md shadow-sm hover:shadow-md transition-shadow duration-300 p-4 transition-all hover:border-fpso-muted/40 hover:bg-white hover:shadow-[0_2px_12px_rgba(15,23,42,0.06)]">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <CalendarDays className="h-20 w-20 text-fpso-muted" />
               </div>
@@ -1159,14 +1159,14 @@ export default function DashboardPage() {
                 </span>
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Early Phase</div>
-                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300" style={{ textShadow: "0 0 8px rgba(0,212,255,0.5)" }}>{filteredStats.early}</div>
+                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300">{filteredStats.early}</div>
                   <div className="truncate text-xs text-fpso-dim">Concept · Planning · Design</div>
                 </div>
               </div>
             </div>
 
             {/* Mid (Approval / EPC Award / Procurement) */}
-            <div className="group relative overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300 p-4 transition-all hover:border-yellow-400/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(250,204,21,0.08)]">
+            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md shadow-sm hover:shadow-md transition-shadow duration-300 p-4 transition-all hover:border-yellow-400/40 hover:bg-white hover:shadow-[0_2px_12px_rgba(15,23,42,0.06)]">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <Hammer className="h-20 w-20 text-yellow-400" />
               </div>
@@ -1176,14 +1176,14 @@ export default function DashboardPage() {
                 </span>
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Mid Phase</div>
-                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300" style={{ textShadow: "0 0 8px rgba(0,212,255,0.5)" }}>{filteredStats.mid}</div>
+                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300">{filteredStats.mid}</div>
                   <div className="truncate text-xs text-fpso-dim">Approval · EPC Award · Procurement</div>
                 </div>
               </div>
             </div>
 
             {/* Late (Construction / Commissioning / Delivery) */}
-            <div className="group relative overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300 p-4 transition-all hover:border-fpso-blue/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(0,212,255,0.06)]">
+            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md shadow-sm hover:shadow-md transition-shadow duration-300 p-4 transition-all hover:border-fpso-blue/40 hover:bg-white hover:shadow-[0_2px_12px_rgba(15,23,42,0.06)]">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <Hammer className="h-20 w-20 text-fpso-blue" />
               </div>
@@ -1193,14 +1193,14 @@ export default function DashboardPage() {
                 </span>
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Late Phase</div>
-                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300" style={{ textShadow: "0 0 8px rgba(0,212,255,0.5)" }}>{filteredStats.late}</div>
+                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300">{filteredStats.late}</div>
                   <div className="truncate text-xs text-fpso-dim">Construction · Commissioning · Delivery</div>
                 </div>
               </div>
             </div>
 
             {/* Added This Week */}
-            <div className="group relative overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300 p-4 transition-all hover:border-fpso-green/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(16,185,129,0.06)]">
+            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md shadow-sm hover:shadow-md transition-shadow duration-300 p-4 transition-all hover:border-fpso-green/40 hover:bg-white hover:shadow-[0_2px_12px_rgba(15,23,42,0.06)]">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <PlusCircle className="h-20 w-20 text-fpso-green" />
               </div>
@@ -1210,7 +1210,7 @@ export default function DashboardPage() {
                 </span>
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Added This Week</div>
-                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300" style={{ textShadow: "0 0 8px rgba(0,212,255,0.5)" }}>{filteredStats.addedThisWeek}</div>
+                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300">{filteredStats.addedThisWeek}</div>
                   <div className="truncate text-xs text-fpso-dim">New Discoveries</div>
                 </div>
               </div>
@@ -1225,7 +1225,7 @@ export default function DashboardPage() {
             <span className="text-xs text-fpso-muted">Equirectangular Projection</span>
           </div>
 
-          <div className="map-container relative w-full overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300">
+          <div className="map-container relative w-full overflow-hidden rounded-lg border border-fpso-border bg-white backdrop-blur-md shadow-sm hover:shadow-md transition-shadow duration-300">
             <img
               src="/world-map.png"
               alt="世界地图轮廓"
@@ -1264,12 +1264,12 @@ export default function DashboardPage() {
         {/* 图表区域 */}
         <section className="mb-10 grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
           {/* 国家分布环形图 */}
-          <div className="group relative flex flex-col overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md p-5 shadow-xl transition-all duration-300 hover:border-fpso-blue/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(0,212,255,0.06)]">
+          <div className="group relative flex flex-col overflow-hidden rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md p-5 shadow-sm transition-all duration-300 hover:border-fpso-blue/40 hover:bg-white hover:shadow-[0_2px_12px_rgba(15,23,42,0.06)]">
             <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
               <Globe className="h-20 w-20 text-fpso-blue" />
             </div>
             <div className="relative z-10 flex flex-1 flex-col">
-              <h3 className="mb-4 border-b border-white/5 pb-3 text-xs font-semibold uppercase tracking-widest text-fpso-muted">Country Distribution</h3>
+              <h3 className="mb-4 border-b border-fpso-border pb-3 text-xs font-semibold uppercase tracking-widest text-fpso-muted">Country Distribution</h3>
               {countryChartData.length === 0 ? (
                 <div className="flex flex-1 items-center justify-center">
                   <span className="text-sm text-fpso-muted">No country data for current filters.</span>
@@ -1302,11 +1302,11 @@ export default function DashboardPage() {
                         </Pie>
                         <Tooltip
                           contentStyle={{
-                            background: "#131a2e",
-                            border: "1px solid #1e2844",
+                            background: "#ffffff",
+                            border: "1px solid #e2e8f0",
                             borderRadius: "8px",
                             fontSize: "13px",
-                            color: "#f8fafc",
+                            color: "#0f172a",
                           }}
                           formatter={(value: number, name: string) => [`${value} projects`, name]}
                         />
@@ -1316,7 +1316,7 @@ export default function DashboardPage() {
                     <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                       <div
                         className="font-mono text-3xl font-extrabold tabular-nums text-fpso-fg"
-                        style={{ textShadow: "0 0 12px rgba(0,212,255,0.5)" }}
+                       
                       >
                         {countryTotal}
                       </div>
@@ -1354,12 +1354,12 @@ export default function DashboardPage() {
           </div>
 
           {/* 状态分布水平条形图 */}
-          <div className="group relative flex flex-col overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md p-5 shadow-xl transition-all duration-300 hover:border-fpso-blue/40 hover:bg-fpso-card/60 hover:shadow-[0_0_20px_rgba(0,212,255,0.06)]">
+          <div className="group relative flex flex-col overflow-hidden rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md p-5 shadow-sm transition-all duration-300 hover:border-fpso-blue/40 hover:bg-white hover:shadow-[0_2px_12px_rgba(15,23,42,0.06)]">
             <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
               <BarChart3 className="h-20 w-20 text-fpso-blue" />
             </div>
             <div className="relative z-10 flex flex-1 flex-col">
-              <h3 className="mb-4 border-b border-white/5 pb-3 text-xs font-semibold uppercase tracking-widest text-fpso-muted">Phase Breakdown</h3>
+              <h3 className="mb-4 border-b border-fpso-border pb-3 text-xs font-semibold uppercase tracking-widest text-fpso-muted">Phase Breakdown</h3>
               {phaseChartData.length === 0 ? (
                 <div className="flex flex-1 items-center justify-center">
                   <span className="text-sm text-fpso-muted">No phase data for current filters.</span>
@@ -1379,7 +1379,7 @@ export default function DashboardPage() {
                             />
                             <span className="truncate">{d.name}</span>
                           </span>
-                          <div className="h-3 flex-1 overflow-hidden rounded-full bg-[#1e2844]">
+                          <div className="h-3 flex-1 overflow-hidden rounded-full bg-[#e2e8f0]">
                             <motion.div
                               initial={{ width: 0 }}
                               animate={{ width: `${widthPct}%` }}
@@ -1396,7 +1396,7 @@ export default function DashboardPage() {
                           </span>
                         </div>
                         {/* hover tooltip：状态名 + 数量 */}
-                        <div className="pointer-events-none absolute -top-8 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-md border border-[#1e2844] bg-[#131a2e] px-2.5 py-1 text-xs text-fpso-fg opacity-0 shadow-xl transition-opacity duration-200 group-hover/row:opacity-100">
+                        <div className="pointer-events-none absolute -top-8 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-md border border-[#e2e8f0] bg-white px-2.5 py-1 text-xs text-fpso-fg opacity-0 shadow-xl transition-opacity duration-200 group-hover/row:opacity-100">
                           {d.name} — {d.value} projects
                         </div>
                       </div>
@@ -1421,7 +1421,7 @@ export default function DashboardPage() {
             </span>
           </div>
 
-          <div className="rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300">
+          <div className="rounded-lg border border-fpso-border bg-white backdrop-blur-md shadow-sm hover:shadow-md transition-shadow duration-300">
             {loading ? (
               <div className="px-5 py-10 text-center text-sm text-fpso-muted">Loading projects…</div>
             ) : filteredProjects.length === 0 ? (
@@ -1446,7 +1446,7 @@ export default function DashboardPage() {
       </div>
 
       {/* 页脚 */}
-      <footer className="mt-auto border-t border-white/5 bg-fpso-bg">
+      <footer className="mt-auto border-t border-fpso-border bg-fpso-bg">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-6 py-5 md:flex-row">
           <span className="text-xs text-fpso-dim">
             Data aggregated from public sources. For internal analysis only.
@@ -1479,10 +1479,10 @@ export default function DashboardPage() {
           {/* 模态框本体 */}
           <div
             onClick={(e) => e.stopPropagation()}
-            className="relative z-10 w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-2xl animate-fade-in"
+            className="relative z-10 w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl border border-fpso-border bg-white shadow-2xl animate-fade-in"
           >
             {/* 顶部栏 */}
-            <div className="flex-shrink-0 flex items-center justify-between border-b border-white/5 px-6 py-4">
+            <div className="flex-shrink-0 flex items-center justify-between border-b border-fpso-border px-6 py-4">
               <h2 className="text-base font-semibold text-fpso-fg">Project Detail</h2>
               <button
                 onClick={() => { setSelectedProject(null); setModalTab("overview"); }}
@@ -1496,7 +1496,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Tab 导航 —— Overview / Timeline */}
-            <div className="flex-shrink-0 flex border-b border-white/5 px-6">
+            <div className="flex-shrink-0 flex border-b border-fpso-border px-6">
                 <button
                   type="button"
                   onClick={() => setModalTab("overview")}
@@ -1637,41 +1637,41 @@ export default function DashboardPage() {
                 {(() => {
                   if (!showSpecs) return null;
                   return (
-                    <div className="mb-3 overflow-hidden rounded-md border border-white/5">
+                    <div className="mb-3 overflow-hidden rounded-md border border-fpso-border">
                       <table className="w-full text-xs">
                         <tbody>
                           {specs.waterDepthM != null && (
-                            <tr className="border-b border-white/5">
+                            <tr className="border-b border-fpso-border">
                               <td className="px-3 py-1.5 text-fpso-muted font-medium">Water Depth</td>
                               <td className="px-3 py-1.5 text-fpso-fg font-mono">{specs.waterDepthM.toLocaleString()} m</td>
                             </tr>
                           )}
                           {specs.oilCapacityBpd != null && (
-                            <tr className="border-b border-white/5">
+                            <tr className="border-b border-fpso-border">
                               <td className="px-3 py-1.5 text-fpso-muted font-medium">Oil Capacity</td>
                               <td className="px-3 py-1.5 text-fpso-fg font-mono">{specs.oilCapacityBpd.toLocaleString()} bpd</td>
                             </tr>
                           )}
                           {specs.gasCapacityMmcmd != null && (
-                            <tr className="border-b border-white/5">
+                            <tr className="border-b border-fpso-border">
                               <td className="px-3 py-1.5 text-fpso-muted font-medium">Gas Capacity</td>
                               <td className="px-3 py-1.5 text-fpso-fg font-mono">{specs.gasCapacityMmcmd.toLocaleString()} MMcmd</td>
                             </tr>
                           )}
                           {specs.hullType && (
-                            <tr className="border-b border-white/5">
+                            <tr className="border-b border-fpso-border">
                               <td className="px-3 py-1.5 text-fpso-muted font-medium">Hull Type</td>
                               <td className="px-3 py-1.5 text-fpso-fg">{specs.hullType}</td>
                             </tr>
                           )}
                           {specs.fieldName && (
-                            <tr className="border-b border-white/5">
+                            <tr className="border-b border-fpso-border">
                               <td className="px-3 py-1.5 text-fpso-muted font-medium">Field</td>
                               <td className="px-3 py-1.5 text-fpso-fg">{specs.fieldName}</td>
                             </tr>
                           )}
                           {specs.operatorName && (
-                            <tr className="border-b border-white/5">
+                            <tr className="border-b border-fpso-border">
                               <td className="px-3 py-1.5 text-fpso-muted font-medium">Operator</td>
                               <td className="px-3 py-1.5 text-fpso-fg">{specs.operatorName}</td>
                             </tr>
@@ -1936,7 +1936,7 @@ export default function DashboardPage() {
                         {/* 圆点 */}
                         <div className={`relative z-10 mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full border-2 border-fpso-card ${timelineDotColor(evt.eventType)}`} />
                         {/* 内容卡片 */}
-                        <div className="flex-1 min-w-0 rounded-md border border-white/5 bg-fpso-bg/40 backdrop-blur-md px-3 py-2.5">
+                        <div className="flex-1 min-w-0 rounded-md border border-fpso-border bg-fpso-bg/40 backdrop-blur-md px-3 py-2.5">
                           <div className="flex items-center justify-between gap-2 mb-1">
                             <span className="text-xs font-semibold text-fpso-fg">
                               {formatEventType(evt.eventType)}
@@ -1978,7 +1978,7 @@ export default function DashboardPage() {
               )}
 
               {/* Link to full timeline page */}
-              <div className="mt-5 pt-3 border-t border-white/5 text-center">
+              <div className="mt-5 pt-3 border-t border-fpso-border text-center">
                   <button
                     type="button"
                     onClick={() => {

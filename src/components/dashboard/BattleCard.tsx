@@ -86,7 +86,7 @@ async function elementToPng(element: HTMLElement): Promise<string | null> {
   if (!h2c) return null;
 
   const canvas = await h2c(element, {
-    backgroundColor: "#0a0f1a",
+    backgroundColor: "#ffffff",
     scale: 2,
     useCORS: true,
     logging: false,
@@ -553,8 +553,8 @@ export default function BattleCardWrapper({ project, baseUrl, timelineSummary }:
       <style>{`
         @media print {
           .no-print { display: none !important; }
-          body { background: #0a0f1a !important; }
-          .battle-card { box-shadow: none !important; border: 1px solid #1e2844 !important; }
+          body { background: #ffffff !important; }
+          .battle-card { box-shadow: none !important; border: 1px solid #e2e8f0 !important; }
         }
       `}</style>
     </div>

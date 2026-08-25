@@ -38,10 +38,10 @@ const HIGHLIGHT_OPACITY = 0.15;
 const IDLE_REGION_OPACITY = 0.06;
 
 /** 无图片时的暗色背景色 */
-const PLACEHOLDER_BG = "#0d1117";
+const PLACEHOLDER_BG = "#f8fafc";
 
 /** 无图片时的网格线颜色 */
-const PLACEHOLDER_GRID = "rgba(56,139,253,0.06)";
+const PLACEHOLDER_GRID = "rgba(2,132,199,0.10)";
 
 // ── 底部缩略板块 ──
 
@@ -65,12 +65,12 @@ interface MaterialSpec {
 }
 
 const MATERIAL_COLORS: MaterialSpec[] = [
-  { name: "304L",  color: "#A0A0A0", desc: "低压辅助管路" },
-  { name: "316L",  color: "#6CB4D9", desc: "预处理/低压系统" },
-  { name: "2205",  color: "#2B5C8F", desc: "取水/浓水排放" },
-  { name: "2507",  color: "#7B4FA0", desc: "高压泵/RO管道/膜壳" },
-  { name: "904L",  color: "#F4A340", desc: "CIP 清洗系统" },
-  { name: "钛材",  color: "#8DD3C7", desc: "特殊耐腐蚀部位" },
+  { name: "304L",  color: "#64748b", desc: "低压辅助管路" },
+  { name: "316L",  color: "#0284c7", desc: "预处理/低压系统" },
+  { name: "2205",  color: "#1d4ed8", desc: "取水/浓水排放" },
+  { name: "2507",  color: "#6d28d9", desc: "高压泵/RO管道/膜壳" },
+  { name: "904L",  color: "#d97706", desc: "CIP 清洗系统" },
+  { name: "钛材",  color: "#0d9488", desc: "特殊耐腐蚀部位" },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -87,41 +87,41 @@ interface RegionMask {
 
 const REGION_MASKS: Record<string, RegionMask> = {
   pretreatment: {
-    color: "#6CB4D9",
+    color: "#0284c7",
     label: "预处理系统(316L)",
     polys: [
       [{ x: 155, y: 692 }, { x: 307, y: 694 }, { x: 312, y: 1010 }, { x: 161, y: 1008 }],
     ],
   },
   intake: {
-    color: "#2B5C8F",
+    color: "#1d4ed8",
     label: "取水系统(2205)",
     polys: [
       [{ x: 5, y: 695 }, { x: 141, y: 693 }, { x: 145, y: 1010 }, { x: 6, y: 1010 }, { x: 10, y: 691 }],
     ],
   },
   hpp: {
-    color: "#7B4FA0",
+    color: "#6d28d9",
     label: "高压泵系统(2205/2507)",
     polys: [[{ x: 322, y: 694 }, { x: 516, y: 696 }, { x: 518, y: 1017 }, { x: 329, y: 1011 }, { x: 327, y: 692 }]],
   },
   roPipe: {
-    color: "#7B4FA0",
+    color: "#6d28d9",
     label: "RO高压管道(2507)",
     polys: [[{ x: 529, y: 697 }, { x: 690, y: 696 }, { x: 690, y: 1010 }, { x: 535, y: 1011 }, { x: 529, y: 697 }]],
   },
   roMembrane: {
-    color: "#7B4FA0",
+    color: "#6d28d9",
     label: "RO膜壳(2507)",
     polys: [[{ x: 707, y: 696 }, { x: 845, y: 697 }, { x: 849, y: 1013 }, { x: 701, y: 1011 }, { x: 701, y: 684 }]],
   },
   cip: {
-    color: "#F4A340",
+    color: "#d97706",
     label: "CIP系统(904L)",
     polys: [[{ x: 858, y: 697 }, { x: 994, y: 697 }, { x: 996, y: 1010 }, { x: 860, y: 1008 }, { x: 858, y: 697 }]],
   },
   brine: {
-    color: "#2B5C8F",
+    color: "#1d4ed8",
     label: "浓水排放管道(2205/2507)",
     polys: [[{ x: 1006, y: 697 }, { x: 1142, y: 694 }, { x: 1142, y: 1013 }, { x: 1011, y: 1017 }, { x: 1009, y: 697 }]],
   },
@@ -141,13 +141,13 @@ interface ThumbItem {
 }
 
 const THUMB_ITEMS: ThumbItem[] = [
-  { key: "intake",       label: "取水系统",        material: "2205",      color: "#2B5C8F" },
-  { key: "pretreatment", label: "预处理系统",      material: "316L",      color: "#6CB4D9" },
-  { key: "hpp",          label: "高压泵系统",      material: "2205/2507", color: "#7B4FA0" },
-  { key: "roPipe",       label: "RO高压管道",      material: "2507",      color: "#7B4FA0" },
-  { key: "roMembrane",   label: "RO膜壳",          material: "2507",      color: "#7B4FA0" },
-  { key: "cip",          label: "CIP 系统",         material: "904L",      color: "#F4A340" },
-  { key: "brine",        label: "浓水排放管道",    material: "2205/2507", color: "#2B5C8F" },
+  { key: "intake",       label: "取水系统",        material: "2205",      color: "#1d4ed8" },
+  { key: "pretreatment", label: "预处理系统",      material: "316L",      color: "#0284c7" },
+  { key: "hpp",          label: "高压泵系统",      material: "2205/2507", color: "#6d28d9" },
+  { key: "roPipe",       label: "RO高压管道",      material: "2507",      color: "#6d28d9" },
+  { key: "roMembrane",   label: "RO膜壳",          material: "2507",      color: "#6d28d9" },
+  { key: "cip",          label: "CIP 系统",         material: "904L",      color: "#d97706" },
+  { key: "brine",        label: "浓水排放管道",    material: "2205/2507", color: "#1d4ed8" },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -310,7 +310,7 @@ export default function IndustryBreakdownPage() {
           }
           ctx.closePath();
         }
-        ctx.fillStyle = `rgba(0,0,0,${DIM_OPACITY * alpha})`;
+        ctx.fillStyle = `rgba(255,255,255,${DIM_OPACITY * alpha})`;
         ctx.fill("evenodd");
         ctx.restore();
 
@@ -325,7 +325,7 @@ export default function IndustryBreakdownPage() {
         }
       } else {
         // 无坐标数据的模块: 全图均匀变暗
-        ctx.fillStyle = `rgba(0,0,0,${DIM_OPACITY * alpha})`;
+        ctx.fillStyle = `rgba(255,255,255,${DIM_OPACITY * alpha})`;
         ctx.fillRect(0, 0, iw, ih);
       }
     }
@@ -347,7 +347,7 @@ export default function IndustryBreakdownPage() {
     // ── 3. 占位提示 (取水系统 hover，无坐标数据) ──
     if (activeKey && !hasRegion && alpha > 0.5) {
       const textAlpha = 0.7 * Math.min(1, (alpha - 0.5) * 2);
-      ctx.fillStyle = `rgba(255,255,255,${textAlpha})`;
+      ctx.fillStyle = `rgba(15,23,42,${textAlpha})`;
       ctx.font = `${14 * dpr}px -apple-system, sans-serif`;
       ctx.textAlign = "center";
       ctx.fillText("⚠ 取水系统坐标数据待标定 — 请使用坐标拾取工具标定后更新 REGION_MASKS", cw / 2, ch / 2);
@@ -355,7 +355,7 @@ export default function IndustryBreakdownPage() {
 
     // ── 4. 无图片时的中央提示 ──
     if (!image) {
-      ctx.fillStyle = "rgba(255,255,255,0.2)";
+      ctx.fillStyle = "rgba(15,23,42,0.45)";
       ctx.font = `${13 * dpr}px -apple-system, sans-serif`;
       ctx.textAlign = "center";
       ctx.fillText("拖拽工艺图至此 或 将图片放入 public/images/desalination-process.png", cw / 2, ch / 2 - 72);
@@ -495,7 +495,7 @@ export default function IndustryBreakdownPage() {
         {/* Canvas 区域 */}
         <div
           ref={containerRef}
-          className="flex-1 relative bg-[#0a0a12] overflow-hidden"
+          className="flex-1 relative bg-white overflow-hidden"
           onDrop={handleDrop}
           onDragOver={handleDragOver}
         >
@@ -505,10 +505,10 @@ export default function IndustryBreakdownPage() {
           {hovered && (
             <div
               className="absolute top-3 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full text-xs font-medium
-                         bg-black/70 backdrop-blur border border-white/15 text-white pointer-events-none z-10"
+                         bg-white border border-fpso-border text-fpso-fg shadow-sm pointer-events-none z-10"
               style={{ transition: `opacity ${TRANSITION_MS}ms ease` }}
             >
-              当前高亮：<span style={{ color: REGION_MASKS[hovered]?.color ?? "#888" }}>{activeLabel}</span>
+              当前高亮：<span style={{ color: REGION_MASKS[hovered]?.color ?? "#64748b" }}>{activeLabel}</span>
               {!REGION_MASKS[hovered] && " — 坐标待标定"}
             </div>
           )}
@@ -563,7 +563,7 @@ export default function IndustryBreakdownPage() {
                           className="px-1.5 py-0.5 rounded text-[10px] font-mono"
                           style={{
                             background: spec ? hexToRgba(spec.color, 0.2) : "transparent",
-                            color: spec?.color ?? "#888",
+                            color: spec?.color ?? "#64748b",
                             border: `1px solid ${spec ? hexToRgba(spec.color, 0.35) : "transparent"}`,
                           }}
                         >
@@ -592,7 +592,7 @@ export default function IndustryBreakdownPage() {
 
       {/* ════════════ 底部缩略板块 ════════════ */}
       <div
-        className="flex-shrink-0 border-t border-fpso-border bg-[#0c0c16]"
+        className="flex-shrink-0 border-t border-fpso-border bg-white"
         style={{ height: 130 }}
       >
         <div className="flex items-stretch h-full">
@@ -632,7 +632,7 @@ export default function IndustryBreakdownPage() {
                 {/* 标签 */}
                 <span
                   className="text-xs font-medium text-center leading-tight"
-                  style={{ color: isActive ? item.color : "#cdd6f4" }}
+                  style={{ color: isActive ? item.color : "#64748b" }}
                 >
                   {item.label}
                 </span>

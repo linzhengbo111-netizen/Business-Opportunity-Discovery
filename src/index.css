@@ -3,53 +3,53 @@
 @tailwind components;
 @tailwind utilities;
 
-/* FPSO 深色数据终端设计系统 — 配色与动效 */
+/* FPSO 浅色数据终端设计系统 — 配色与动效 */
 
 @layer base {
   :root {
     --radius: 0.5rem;
 
-    /* 深色终端主色板 */
-    --background: 220 45% 7%; /* #0a0f1e */
-    --foreground: 210 40% 98%; /* #f8fafc */
-    --card: 222 39% 12%; /* #131a2e */
-    --card-foreground: 210 40% 98%;
-    --popover: 222 39% 12%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 189 100% 50%; /* #00d4ff */
-    --primary-foreground: 220 45% 7%;
-    --secondary: 222 32% 18%; /* #1e2844 */
-    --secondary-foreground: 210 40% 98%;
-    --muted: 222 32% 18%;
-    --muted-foreground: 215 20% 60%; /* #94a3b8 */
-    --accent: 27 100% 63%; /* #ff9f43 */
-    --accent-foreground: 220 45% 7%;
+    /* 浅色终端主色板（白底 + 石板灰层次 + 深天蓝点缀） */
+    --background: 210 40% 98%; /* #f8fafc */
+    --foreground: 222 47% 11%; /* #0f172a */
+    --card: 0 0% 100%; /* #ffffff */
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 199 96% 39%; /* #0284c7 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96%; /* #f1f5f9 */
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%; /* #64748b */
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-    --border: 222 32% 19%; /* #1e2844 */
-    --input: 222 32% 19%;
-    --ring: 189 100% 50%;
-    --success: 158 64% 45%; /* #10b981 */
-    --success-foreground: 220 45% 7%;
-    --warning: 27 100% 63%; /* #ff9f43 */
-    --warning-foreground: 220 45% 7%;
-    --info: 189 100% 50%; /* #00d4ff */
-    --info-foreground: 220 45% 7%;
+    --border: 214 32% 91%; /* #e2e8f0 */
+    --input: 214 32% 91%;
+    --ring: 199 96% 39%;
+    --success: 161 94% 30%; /* #059669 */
+    --success-foreground: 0 0% 100%;
+    --warning: 25 95% 53%; /* #f97316 */
+    --warning-foreground: 0 0% 100%;
+    --info: 199 96% 39%; /* #0284c7 */
+    --info-foreground: 0 0% 100%;
 
-    --chart-1: 189 100% 50%;
-    --chart-2: 27 100% 63%;
-    --chart-3: 158 64% 45%;
-    --chart-4: 220 70% 50%;
-    --chart-5: 280 65% 60%;
+    --chart-1: 199 96% 39%; /* sky-600 */
+    --chart-2: 21 90% 48%; /* orange-600 */
+    --chart-3: 161 94% 30%; /* emerald-600 */
+    --chart-4: 217 91% 60%; /* blue-500 */
+    --chart-5: 262 83% 58%; /* violet-500 */
 
-    --sidebar-background: 220 45% 7%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 189 100% 50%;
-    --sidebar-primary-foreground: 220 45% 7%;
-    --sidebar-accent: 222 32% 18%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 222 32% 19%;
-    --sidebar-ring: 189 100% 50%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 199 96% 39%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 40% 96%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 214 32% 91%;
+    --sidebar-ring: 199 96% 39%;
   }
 }
 
@@ -59,10 +59,10 @@
   }
 
   button {
-    @apply shadow-md transition-shadow duration-300;
+    @apply shadow-sm transition-shadow duration-300;
   }
   button:hover {
-    @apply shadow-lg;
+    @apply shadow-md;
   }
 
   html {
@@ -80,10 +80,9 @@
 }
 
 @layer components {
-  /* 标题霓虹发光效果 */
+  /* 标题强调色 */
   .neon-glow {
     color: hsl(var(--primary));
-    text-shadow: 0 0 8px rgba(0, 212, 255, 0.45), 0 0 18px rgba(0, 212, 255, 0.25);
   }
 
   /* 地图光点 — 双层脉冲 + hover 增强 */
@@ -98,7 +97,7 @@
     top: 50%;
     left: 50%;
     border-radius: 50%;
-    border: 1px solid rgba(0, 212, 255, 0.6);
+    border: 1px solid rgba(2, 132, 199, 0.6);
     transform: translate(-50%, -50%);
     pointer-events: none;
   }
@@ -117,14 +116,14 @@
     height: 100%;
     animation: map-ring-outer 2.5s ease-out infinite;
     animation-delay: calc(var(--dot-delay, 0s) + 0.15s);
-    border-color: rgba(0, 212, 255, 0.35);
+    border-color: rgba(2, 132, 199, 0.35);
   }
 
   /* hover: 暂停呼吸动画, 放大 1.5 倍, 增强发光 */
   .map-pulse:hover {
     animation-play-state: paused;
     transform: translate(-50%, -50%) scale(1.5);
-    box-shadow: 0 0 14px rgba(0, 212, 255, 0.9), 0 0 28px rgba(0, 212, 255, 0.5), 0 0 42px rgba(0, 212, 255, 0.25);
+    box-shadow: 0 0 14px rgba(2, 132, 199, 0.9), 0 0 28px rgba(2, 132, 199, 0.5), 0 0 42px rgba(2, 132, 199, 0.25);
     z-index: 20;
     transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
   }
@@ -146,7 +145,7 @@
 
   .chart-slice:hover {
     transform: scale(1.06);
-    filter: drop-shadow(0 0 6px rgba(0, 212, 255, 0.6));
+    filter: drop-shadow(0 0 6px rgba(2, 132, 199, 0.6));
   }
 
   /* Other 扇区不可交互 */
@@ -162,11 +161,11 @@
   @keyframes map-core-pulse {
     0%, 100% {
       transform: translate(-50%, -50%) scale(1);
-      box-shadow: 0 0 4px rgba(0, 212, 255, 0.5);
+      box-shadow: 0 0 4px rgba(2, 132, 199, 0.5);
     }
     50% {
       transform: translate(-50%, -50%) scale(1.18);
-      box-shadow: 0 0 10px rgba(0, 212, 255, 0.75);
+      box-shadow: 0 0 10px rgba(2, 132, 199, 0.75);
     }
   }
 
@@ -223,13 +222,13 @@
     }
   }
 
-  /* 项目行悬停效果：背景变亮 + 右移 2px */
+  /* 项目行悬停效果：背景变深 + 右移 2px */
   .project-row {
     transition: background-color 0.25s ease, transform 0.25s ease;
   }
 
   .project-row:hover {
-    background-color: rgba(255, 255, 255, 0.035);
+    background-color: rgba(15, 23, 42, 0.04);
     transform: translateX(2px);
   }
 
@@ -266,7 +265,7 @@
     transition: background-color 0.15s;
   }
   .procurement-tag:hover {
-    filter: brightness(1.2);
+    filter: brightness(0.96);
   }
 
   /* 状态圆点 */
@@ -281,15 +280,15 @@
     max-width: 1000px;
   }
 
-  /* 下拉选项深色主题 */
+  /* 下拉选项浅色主题 */
   select option {
-    background-color: #131a2e;
-    color: #f8fafc;
+    background-color: #ffffff;
+    color: #0f172a;
   }
 
   /* 自定义下拉箭头 — 替换浏览器原生样式（配合 appearance-none） */
   select.appearance-none {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 10px center;
     padding-right: 28px;

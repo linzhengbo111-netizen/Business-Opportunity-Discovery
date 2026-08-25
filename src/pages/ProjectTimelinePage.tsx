@@ -70,11 +70,11 @@ function formatEventType(et: string): string {
 type EventCategory = "PRODUCTION" | "CONTRACT" | "EIA" | "REGULATORY" | "OTHER";
 
 const CATEGORY_OPTIONS: { key: EventCategory; label: string; color: string }[] = [
-  { key: "PRODUCTION", label: "投产", color: "#10b981" },
-  { key: "CONTRACT", label: "合同", color: "#00d4ff" },
-  { key: "EIA", label: "EIA/计划", color: "#ff9f43" },
-  { key: "REGULATORY", label: "监管/许可", color: "#f472b6" },
-  { key: "OTHER", label: "其他", color: "#94a3b8" },
+  { key: "PRODUCTION", label: "投产", color: "#059669" },
+  { key: "CONTRACT", label: "合同", color: "#0284c7" },
+  { key: "EIA", label: "EIA/计划", color: "#ea580c" },
+  { key: "REGULATORY", label: "监管/许可", color: "#db2777" },
+  { key: "OTHER", label: "其他", color: "#64748b" },
 ];
 
 function categorizeEvent(eventType: string): EventCategory {
@@ -100,11 +100,11 @@ function timelineDotColor(eventType: string): string {
 function timelineDotStyle(eventType: string): string {
   const cat = categorizeEvent(eventType);
   switch (cat) {
-    case "PRODUCTION": return "#10b981";
-    case "CONTRACT": return "#00d4ff";
-    case "EIA": return "#ff9f43";
-    case "REGULATORY": return "#f472b6";
-    default: return "#94a3b8";
+    case "PRODUCTION": return "#059669";
+    case "CONTRACT": return "#0284c7";
+    case "EIA": return "#ea580c";
+    case "REGULATORY": return "#db2777";
+    default: return "#64748b";
   }
 }
 
@@ -637,7 +637,7 @@ export default function ProjectTimelinePage() {
                   style={{
                     borderColor: active ? cat.color : "rgb(30 40 68 / 0.6)",
                     backgroundColor: active ? `${cat.color}18` : "transparent",
-                    color: active ? cat.color : "#94a3b8",
+                    color: active ? cat.color : "#64748b",
                   }}
                 >
                   {cat.label}

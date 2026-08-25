@@ -212,7 +212,7 @@ export default function FilterSidebar({
                       style={{
                         borderColor: active ? s.color : "rgb(30 40 68 / 0.6)",
                         backgroundColor: active ? `${s.color}18` : "transparent",
-                        color: active ? s.color : "#94a3b8",
+                        color: active ? s.color : "#64748b",
                       }}
                     >
                       {s.label}

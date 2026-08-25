@@ -68,18 +68,18 @@ export const PHASE_GROUP_LABELS: Record<PhaseGroup, string> = {
 /* Colors                                                              */
 /* ------------------------------------------------------------------ */
 
-/** Hex colors for charts (mirror the tailwind classes below). */
+/** Hex colors for charts (light theme; mirror the tailwind classes below). */
 export const PHASE_HEX: Record<string, string> = {
-  Concept: "#64748b",
-  Planning: "#64748b",
-  Design: "#94a3b8",
-  Approval: "#ff9f43",
-  "EPC Award": "#ff9f43",
+  Concept: "#94a3b8",
+  Planning: "#94a3b8",
+  Design: "#64748b",
+  Approval: "#f97316",
+  "EPC Award": "#f97316",
   Procurement: "#facc15", // yellow — core business window
-  Construction: "#00d4ff",
+  Construction: "#0284c7",
   Commissioning: "#10b981",
   Delivery: "#10b981",
-  [PHASE_UNKNOWN]: "#64748b",
+  [PHASE_UNKNOWN]: "#94a3b8",
 };
 
 /** Text color class for inline phase labels. */
@@ -93,7 +93,7 @@ export function phaseColorClass(phase: string | null | undefined): string {
     case "EPC Award":
       return "text-fpso-orange";
     case "Procurement":
-      return "text-yellow-400";
+      return "text-yellow-600";
     case "Construction":
       return "text-fpso-blue";
     case "Commissioning":
@@ -137,7 +137,7 @@ export function phaseBgClass(phase: string | null | undefined): string {
     case "EPC Award":
       return "bg-fpso-orange/15 text-fpso-orange";
     case "Procurement":
-      return "bg-yellow-400/15 text-yellow-400";
+      return "bg-yellow-400/15 text-yellow-600";
     case "Construction":
       return "bg-fpso-blue/15 text-fpso-blue";
     case "Commissioning":
@@ -183,18 +183,18 @@ export function phaseProgressIndex(phase: string | null | undefined): number {
 
 /** Segments for the 9-phase progress bar: label + lit color. */
 export const PHASE_SEGMENTS = [
-  { label: "Concept", color: "#64748b" },
-  { label: "Planning", color: "#64748b" },
-  { label: "Design", color: "#94a3b8" },
-  { label: "Approval", color: "#ff9f43" },
-  { label: "EPC", color: "#ff9f43" },
+  { label: "Concept", color: "#94a3b8" },
+  { label: "Planning", color: "#94a3b8" },
+  { label: "Design", color: "#64748b" },
+  { label: "Approval", color: "#f97316" },
+  { label: "EPC", color: "#f97316" },
   { label: "Procurement", color: "#facc15" },
-  { label: "Construction", color: "#00d4ff" },
+  { label: "Construction", color: "#0284c7" },
   { label: "Commissioning", color: "#10b981" },
   { label: "Delivery", color: "#10b981" },
 ] as const;
 
-export const PHASE_UNLIT = "#1e2844";
+export const PHASE_UNLIT = "#e2e8f0";
 
 /* ------------------------------------------------------------------ */
 /* Legacy compatibility — reads old 4-value status data safely         */
