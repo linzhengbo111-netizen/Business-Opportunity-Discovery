@@ -23,6 +23,7 @@ import { supabase } from "@/db/supabase";
 import { callLLM, isLLMConfigured, type ChatMessage } from "@/lib/llm_client";
 import { parseRecommendation } from "@/lib/material_matcher";
 import { scoreOpportunity } from "@/lib/opportunity_scorer";
+import { stagePromptBlock } from "@/lib/project_phase";
 
 // ---------------------------------------------------------------------------
 // Types — same shape as analyze_for_push()'s output
@@ -270,6 +271,11 @@ function buildPrompt(project: Project, events: PushEvent[], today: string): stri
     lines.push("【事件时间线】无关联事件。");
   }
 
+  // Canonical stage term definitions — same text the Python
+  // ai_push_analyst.py injects (both render from their mirrored
+  // project_phase modules).
+  lines.push("", stagePromptBlock());
+
   lines.push(
     "",
     "【输出】只输出一个 JSON 对象，不要输出其他文本，格式如下：",
@@ -311,7 +317,9 @@ function buildPrompt(project: Project, events: PushEvent[], today: string): stri
       "说明该项目为什么需要这些具体管件产品（例如：项目进入 EPC 采购阶段，" +
       "上部模块工艺管线需要大量对焊无缝管件与法兰）。只推荐 2-5 个。",
     "4. confidence 只允许 high / medium / low，反映时间窗证据的强弱。",
-    "5. 所有输出用中文。",
+    "5. 项目「阶段」字段的含义以【项目阶段术语定义】为准；若原文证据不足，" +
+      "不要臆断项目阶段，涉及阶段的内容写 '信息不足'。",
+    "6. 所有输出用中文。",
   );
   return lines.join("\n");
 }

@@ -44,6 +44,7 @@ if _SCRIPT_DIR not in sys.path:
 
 from adapters.media_common import normalize_project_name  # noqa: E402
 from ai_event_extractor import call_llm  # noqa: E402
+from project_phase import stage_prompt_block  # noqa: E402
 
 # Optional proxy for LLM calls: POST {LLM_PROXY_URL}/api/llm with the same
 # OpenAI Chat Completions body but NO Authorization header (the worker keeps
@@ -308,6 +309,13 @@ def _build_prompt(project: dict, events: list[dict], today: str) -> str:
     else:
         lines.append("【事件时间线】无关联事件。")
 
+    # Canonical stage term definitions — same text the TS push_analyst.ts
+    # injects (both render from their mirrored project_phase modules).
+    lines += [
+        "",
+        stage_prompt_block(),
+    ]
+
     lines += [
         "",
         "【输出】只输出一个 JSON 对象，不要输出其他文本，格式如下：",
@@ -349,7 +357,9 @@ def _build_prompt(project: dict, events: list[dict], today: str) -> str:
         "说明该项目为什么需要这些具体管件产品（例如：项目进入 EPC 采购阶段，"
         "上部模块工艺管线需要大量对焊无缝管件与法兰）。只推荐 2-5 个。",
         "4. confidence 只允许 high / medium / low，反映时间窗证据的强弱。",
-        "5. 所有输出用中文。",
+        "5. 项目「阶段」字段的含义以【项目阶段术语定义】为准；若原文证据不足，"
+        "不要臆断项目阶段，涉及阶段的内容写 '信息不足'。",
+        "6. 所有输出用中文。",
     ]
     return "\n".join(lines)
 

@@ -42,6 +42,10 @@ from adapters.media_common import (  # noqa: E402
     extract_project_info,
     normalize_project_name,
 )
+from project_phase import (  # noqa: E402
+    PHASE_UNKNOWN,
+    stage_prompt_block,
+)
 
 load_dotenv()
 
@@ -126,10 +130,17 @@ LLM_PROXY_URL = os.getenv("LLM_PROXY_URL", "").strip().rstrip("/")
 
 
 def _phase_prompt(project, events_text):
-    """Build the phase-classification prompt for one project."""
+    """Build the phase-classification prompt for one project.
+
+    The prompt embeds the canonical stage term definitions from
+    project_phase.py (same text as src/lib/project_phase.ts renders), so
+    both the crawler and the website classify against identical definitions.
+    """
     lines = [
-        "Classify the lifecycle phase of one FPSO/oil & gas project.",
-        "Phases (in lifecycle order): " + " → ".join(PROJECT_PHASES) + ".",
+        "Classify the lifecycle phase of one FPSO/oil & gas project, "
+        "using the stage term definitions below.",
+        "",
+        stage_prompt_block(),
         "",
         f"TODAY IS {datetime.now(timezone.utc).strftime('%Y-%m-%d')}. "
         "Treat dates relative to this, not relative to model knowledge.",
@@ -159,20 +170,24 @@ def _phase_prompt(project, events_text):
     lines += [
         "",
         "Return a JSON object with this exact shape:",
-        '{"phase": "<one of the 9 phases above>", "reasoning": "<one short sentence>"}',
+        '{"phase": "<one of the 10 stage names above, or Unknown>", '
+        '"reasoning": "<one short sentence quoting the matched keywords>"}',
         "",
         "Rules:",
         "1. phase: exactly one of Concept / Planning / Design / Approval / "
-        "EPC Award / Procurement / Construction / Commissioning / Delivery.",
-        "2. If evidence supports several phases, return the LATEST phase in "
-        "the lifecycle order (e.g. award + procurement → Procurement).",
-        "3. A Consent Date / Production Start older than 10 years means the "
+        "EPC Award / Procurement / Construction / Commissioning / Delivery / "
+        "Unknown, judged against the stage term definitions above.",
+        "2. Judge by keywords that literally appear in the source text "
+        "(「关键词」of each stage). Do not infer from vague context.",
+        "3. If several stages are supported, return the LATEST stage in "
+        "lifecycle order (e.g. FID + contract awarded → EPC Award).",
+        "4. A Consent Date / Production Start older than 10 years means the "
         "field is already producing or abandoned → Delivery (or Commissioning "
         "if commissioning data exists). A consent date alone is ONLY Approval "
         "when it is recent (within ~10 years) or no production data exists.",
-        "4. Use ONLY facts present in the data above. Never invent events.",
-        "5. If nothing supports any phase, return an empty string for phase: "
-        '{"phase": "", "reasoning": "insufficient data"}.',
+        "5. Use ONLY facts present in the data above. Never invent events.",
+        "6. If nothing supports any stage, phase must be Unknown, with "
+        'reasoning "insufficient data". Never guess a stage from nothing.',
     ]
     return "\n".join(lines)
 
@@ -403,6 +418,11 @@ def determine_project_phase(project, events_text=""):
             if obj:
                 phase = str(obj.get("phase") or "").strip()
                 reasoning = str(obj.get("reasoning") or "").strip()[:300]
+                # The LLM may legitimately answer Unknown (insufficient
+                # evidence). Keep that answer as-is — do NOT fall through
+                # to rule guessing when the AI already judged.
+                if phase == PHASE_UNKNOWN:
+                    return None, reasoning or "insufficient data", "ai"
                 if phase in PHASES_SET:
                     # Date-based sanity override: decades-old consent dates
                     # cannot be Approval — the field is producing/abandoned.
