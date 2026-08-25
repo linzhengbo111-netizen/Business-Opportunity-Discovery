@@ -219,7 +219,7 @@ export const sampleProjects: Project[] = [
  *   x% = (longitude + 180) / 360 * 100
  *   y% = (90 - latitude)  / 180 * 100
  *
- * 底图: public/world.svg (1000×500, 2:1)
+ * 底图: public/world-map.png (720×360, 2:1)
  */
 export const countryCoordinates: Record<string, CountryCoordinate> = {
   // ---- 南美洲 ----

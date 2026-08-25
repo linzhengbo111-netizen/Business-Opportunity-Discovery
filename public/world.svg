@@ -5,8 +5,8 @@
       <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
     <linearGradient id="oceanGrad" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#f1f5f9"/>
-      <stop offset="100%" stop-color="#e2e8f0"/>
+      <stop offset="0%" stop-color="#0a0f1e"/>
+      <stop offset="100%" stop-color="#0d1329"/>
     </linearGradient>
   </defs>
 
@@ -14,7 +14,7 @@
   <rect width="1000" height="500" fill="url(#oceanGrad)"/>
 
   <!-- Subtle grid lines -->
-  <g stroke="#cbd5e1" stroke-width="0.5" opacity="0.6">
+  <g stroke="#111830" stroke-width="0.5" opacity="0.5">
     <line x1="0" y1="125" x2="1000" y2="125"/>
     <line x1="0" y1="250" x2="1000" y2="250"/>
     <line x1="0" y1="375" x2="1000" y2="375"/>
@@ -24,7 +24,7 @@
   </g>
 
   <!-- Continent outlines — equirectangular projection, simplified Natural Earth 110m coastlines -->
-  <g fill="none" stroke="#94a3b8" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round" filter="url(#glow)">
+  <g fill="none" stroke="#1e2844" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round" filter="url(#glow)">
 
     <!-- ====== NORTH AMERICA ====== -->
     <path d="

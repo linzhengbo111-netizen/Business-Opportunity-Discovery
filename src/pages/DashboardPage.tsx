@@ -1227,9 +1227,10 @@ export default function DashboardPage() {
 
           <div className="map-container relative w-full overflow-hidden rounded-lg border border-fpso-border bg-white backdrop-blur-md shadow-sm hover:shadow-md transition-shadow duration-300">
             <img
-              src="/world.svg"
+              src="/world-map.png"
               alt="世界地图轮廓"
               className="pointer-events-none absolute inset-0 z-0 h-auto w-full select-none"
+              style={{ filter: "brightness(2.0) contrast(1.4)" }}
             />
             {loading ? (
               <div className="flex h-64 items-center justify-center">
