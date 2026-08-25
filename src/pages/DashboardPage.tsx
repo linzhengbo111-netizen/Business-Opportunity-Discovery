@@ -12,7 +12,7 @@ import {
 import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
 import type { Project, MaterialMatchResult } from "@/data/projects";
-import { countryCoordinates, sampleProjects, countryToFlagEmoji, COUNTRY_ALIASES, normalizeIndustry, getIndustryTitle } from "@/data/projects";
+import { countryCoordinates, sampleProjects, countryToFlagEmoji, COUNTRY_ALIASES, normalizeIndustry, getIndustryTitle, ALL_INDUSTRIES } from "@/data/projects";
 import { normalizeProjectName, getDisplayName, sortPriorityFirst, priorityProjectRankByName } from "@/data/project_aliases";
 import { supabase, fetchAllRows } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
@@ -850,10 +850,16 @@ export default function DashboardPage() {
     [phaseChartData],
   );
 
-  // 地图光点 — 始终基于全部项目（不受筛选影响），点击光点仍会联动下拉框筛选
+  // 地图光点 — 跟随行业筛选联动（All Industries 时显示全部项目），
+  // 点击光点仍会联动国家下拉框筛选
   const allCountries = useMemo(
-    () => getUniqueCountries(projects),
-    [projects],
+    () =>
+      getUniqueCountries(
+        selectedIndustry === ALL_INDUSTRIES
+          ? projects
+          : projects.filter((p) => p.industry === selectedIndustry),
+      ),
+    [projects, selectedIndustry],
   );
 
   const mapDots = useMemo(() => {

@@ -12,7 +12,7 @@ import PageMeta from "@/components/common/PageMeta";
 import type { Project } from "@/data/projects";
 import { sampleProjects, COUNTRY_ALIASES, normalizeIndustry } from "@/data/projects";
 import { normalizeProjectName, getDisplayName, sortPriorityFirst, priorityProjectRankByName } from "@/data/project_aliases";
-import { supabase } from "@/db/supabase";
+import { fetchAllRows } from "@/db/supabase";
 import { phaseFromRow, PHASE_UNKNOWN } from "@/lib/project_phase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
 import { useTimelineEventCounts } from "@/hooks/useTimelineEventCounts";
@@ -231,7 +231,8 @@ export default function BattleCardsPage() {
     let cancelled = false;
 
     async function loadData() {
-      const { data, error } = await supabase.from("projects").select("*");
+      // 分页拉取全量 — 单次 select 上限 1000 行，DB 现有 1212+ 行。
+      const { data, error } = await fetchAllRows("projects", "*", { orderBy: "name" });
 
       if (cancelled) return;
 
@@ -302,7 +303,7 @@ export default function BattleCardsPage() {
 
   return (
     <div className="min-h-screen bg-fpso-bg text-fpso-fg">
-      <PageMeta title="战报中心 — FPSO Projects" description="高质量商机作战卡" />
+      <PageMeta title="战报中心" description="高质量商机作战卡" />
       <Header />
 
       <main className="mx-auto max-w-7xl px-6 py-8">

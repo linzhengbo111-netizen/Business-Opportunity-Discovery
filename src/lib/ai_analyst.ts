@@ -83,7 +83,7 @@ export interface FactoryCapabilities {
 // ---------------------------------------------------------------------------
 
 const SYSTEM_PROMPT =
-  "你是 FPSO 海上油气项目的不锈钢材料销售分析助手。" +
+  "你是工业能源项目（油气、化工、LNG、海水淡化、核电、矿业等）的不锈钢材料销售分析助手。" +
   "严格只基于用户提供的项目事实、工厂能力和规则引擎结果进行分析，不得编造任何数据或事实。" +
   "当信息不足以支持判断时，明确写 '信息不足'。" +
   "只输出 JSON，不要输出任何其他文本。";
@@ -203,7 +203,7 @@ export async function analyzeProjectScenario(
 
   const ai = await askJSON(
     [
-      "请分析以下 FPSO 项目的材料需求场景，输出 JSON。",
+      "请分析以下项目的材料需求场景（行业见项目数据），输出 JSON。",
       "项目数据：",
       JSON.stringify(projectFacts(project), null, 2),
       "规则引擎匹配结果：",
@@ -252,7 +252,7 @@ export async function recommendProducts(
 
   const ai = await askJSON(
     [
-      "请为该 FPSO 项目推荐工厂可生产的产品和材料牌号，输出 JSON。",
+      "请为该工业项目推荐工厂可生产的产品和材料牌号，输出 JSON。",
       "项目数据：",
       JSON.stringify(projectFacts(project), null, 2),
       "工厂生产能力：",
@@ -292,7 +292,7 @@ export async function assessOpportunity(
 
   const ai = await askJSON(
     [
-      "请评估该 FPSO 项目作为不锈钢材料销售商机的价值，输出 JSON。",
+      "请评估该项目作为不锈钢材料销售商机的价值，输出 JSON。",
       "项目数据：",
       JSON.stringify(projectFacts(project), null, 2),
       "规则引擎评分结果：",
@@ -330,7 +330,7 @@ export async function suggestNextActions(
 
   const ai = await askJSON(
     [
-      "请为该 FPSO 项目提出下一步销售行动建议，输出 JSON。",
+      "请为该工业项目提出下一步销售行动建议，输出 JSON。",
       "项目数据：",
       JSON.stringify(projectFacts(project), null, 2),
       "规则引擎评分结果：",
@@ -392,7 +392,7 @@ export async function generate_outreach_message(
 
   const ai = await askJSON(
     [
-      "请为该 FPSO 项目撰写一封销售开发信（冷邮件）草稿，输出 JSON。",
+      "请为该工业项目撰写一封销售开发信（冷邮件）草稿，输出 JSON。",
       "工厂：Jiaxing MT Stainless Steel（嘉兴 MT 不锈钢）。",
       "项目数据：",
       JSON.stringify(projectFacts(project), null, 2),

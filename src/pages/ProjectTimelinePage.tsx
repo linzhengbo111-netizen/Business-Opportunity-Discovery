@@ -484,7 +484,7 @@ export default function ProjectTimelinePage() {
 
   return (
     <>
-      <PageMeta title="Project Timeline" description="FPSO project milestone timeline" />
+      <PageMeta title="项目时间线" description="全球工业项目里程碑时间线" />
 
       <Header
         rightContent={

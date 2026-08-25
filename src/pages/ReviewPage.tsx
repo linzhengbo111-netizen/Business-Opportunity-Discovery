@@ -246,7 +246,7 @@ export default function ReviewPage() {
   /* ---- render ---- */
   return (
     <>
-      <PageMeta title="Workspace — FPSO Projects" description="个人工作区 — 关注/忽略项目" />
+      <PageMeta title="工作区" description="个人工作区 — 关注/忽略项目" />
       <Header rightContent={
         <div className="flex items-center gap-2">
           <span className="relative inline-flex h-2.5 w-2.5">

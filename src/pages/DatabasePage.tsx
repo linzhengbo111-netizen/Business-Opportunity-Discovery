@@ -242,6 +242,22 @@ export default function DatabasePage() {
     return () => { cancelled = true; };
   }, [version]);
 
+  // Deep link: /database?project=<name> — 打开对应项目详情面板
+  // （飞书推送 "View Details"、战报卡项目链接、Settings 关注卡均指向此格式）。
+  // 名称匹配（大小写不敏感），兼容 canonical id。
+  useEffect(() => {
+    const urlProject = searchParams.get("project");
+    if (!urlProject || loading) return;
+    const hit = projects.find((p) => {
+      const canonicalId = normalizeProjectName(p.name);
+      return (
+        p.name.trim().toLowerCase() === urlProject.trim().toLowerCase() ||
+        (canonicalId && canonicalId.toLowerCase() === urlProject.trim().toLowerCase())
+      );
+    });
+    if (hit) setSelected(hit);
+  }, [searchParams, projects, loading]);
+
   /* ---- derive ---- */
   const countries = useMemo(() => getUniqueCountries(projects), [projects]);
 
@@ -313,7 +329,7 @@ export default function DatabasePage() {
   /* ---- render ---- */
   return (
     <>
-      <PageMeta title="Database — FPSO Projects" description="项目数据库表格视图" />
+      <PageMeta title="项目数据库" description="全球工业项目数据库表格视图" />
       <Header rightContent={
         <div className="flex items-center gap-2">
           <span className="relative inline-flex h-2.5 w-2.5">

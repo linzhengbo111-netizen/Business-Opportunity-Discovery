@@ -223,7 +223,7 @@ async function fetchProjectEvents(project: Project): Promise<PushEvent[]> {
 
 function buildPrompt(project: Project, events: PushEvent[], today: string): string {
   const lines = [
-    "你是一名 FPSO 海上油气项目不锈钢材料销售分析助手。",
+    "你是一名工业能源项目不锈钢材料销售分析助手。",
     `今天是 ${today}。请基于下方项目数据与该项目的事件报道原文，` +
       "为销售推送做个性化分析。",
     "严格只基于给定信息，不得编造原文不存在的事实；" +
@@ -307,7 +307,7 @@ function buildPrompt(project: Project, events: PushEvent[], today: string): stri
       "原文内容，每个牌号说明为什么（例如：项目水深 2100m、Santos 盐下、" +
       "原文提到高 CO2 环境 → 推荐 Super Duplex 2507，因为深水盐下加高 CO2 " +
       "需要高耐点蚀当量材质）。只推荐 2-5 个最相关的牌号，不得简单堆砌牌号。",
-    "3. 推荐产品必须结合项目阶段与设备类型（FPSO/FLNG 上部模块等），" +
+    "3. 推荐产品必须结合项目阶段与设备类型（如 FPSO 上部模块、LNG 冷箱、海水淡化蒸发器等），" +
       "说明该项目为什么需要这些具体管件产品（例如：项目进入 EPC 采购阶段，" +
       "上部模块工艺管线需要大量对焊无缝管件与法兰）。只推荐 2-5 个。",
     "4. confidence 只允许 high / medium / low，反映时间窗证据的强弱。",
@@ -486,7 +486,7 @@ export function analyzePush(project: Project): Promise<PushAnalysis> {
         {
           role: "system",
           content:
-            "你是 FPSO 海上油气项目的不锈钢材料销售分析助手。" +
+            "你是工业能源项目的不锈钢材料销售分析助手。" +
             "严格只基于用户提供的项目事实与事件原文分析，" +
             "不得编造任何原文不存在的信息。信息不足时写 '信息不足'。" +
             "只输出 JSON。",
