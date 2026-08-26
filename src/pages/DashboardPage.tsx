@@ -1249,7 +1249,7 @@ export default function DashboardPage() {
                   key={dot.country}
                   type="button"
                   onClick={() => handleDotClick(dot.country)}
-                  className="map-pulse absolute z-10 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full border border-[#075985] bg-[#075985] outline-none focus:ring-2 focus:ring-[#075985]/40"
+                  className="map-pulse absolute z-10 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full border border-[#3b82f6] bg-[#3b82f6] outline-none focus:ring-2 focus:ring-[#3b82f6]/40"
                   style={{
                     left: `${dot.x}%`,
                     top: `${dot.y}%`,
