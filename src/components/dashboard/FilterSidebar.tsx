@@ -243,11 +243,6 @@ export default function FilterSidebar({
                   <Download className="h-3.5 w-3.5" />
                   导出商机清单
                 </button>
-                {!exportDisabled && (
-                  <p className="mt-1.5 text-[10px] leading-relaxed text-fpso-dim text-center">
-                    CSV — 仅含工厂可做的项目
-                  </p>
-                )}
               </div>
             )}
 
