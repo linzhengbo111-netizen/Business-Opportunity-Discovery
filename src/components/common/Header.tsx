@@ -27,7 +27,7 @@ export default function Header({ rightContent }: { rightContent?: ReactNode }) {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-white/5 bg-fpso-bg/70 backdrop-blur-md">
+    <header className="sticky top-0 z-50 w-full border-b border-fpso-border/80 bg-white/60 backdrop-blur-xl shadow-[0_1px_8px_rgba(15,23,42,0.04)]">
       <div className="relative mx-auto flex h-16 max-w-7xl items-center px-6">
         {/* left: title */}
         <div className="z-10 flex-shrink-0">

@@ -306,7 +306,7 @@ export default function ReviewPage() {
         </section>
 
         {/* filters */}
-        <section className="mb-6 flex flex-wrap items-center gap-4 rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md px-5 py-3 shadow-xl hover:shadow-2xl transition-shadow duration-300">
+        <section className="mb-6 flex flex-wrap items-center gap-4 rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md px-5 py-3 shadow-card hover:shadow-lift transition-shadow duration-300">
           {/* country */}
           <div className="flex items-center gap-2">
             <label className="text-xs font-medium text-fpso-muted">Country</label>
@@ -357,11 +357,11 @@ export default function ReviewPage() {
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-fpso-blue/30 border-t-fpso-blue" />
             </div>
           ) : projects.length === 0 ? (
-            <div className="rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md px-6 py-16 text-center shadow-xl">
+            <div className="rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md px-6 py-16 text-center shadow-card">
               <p className="text-fpso-muted text-sm">No data in projects table.</p>
             </div>
           ) : filtered.length === 0 ? (
-            <div className="rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md px-6 py-16 text-center shadow-xl text-fpso-muted">
+            <div className="rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md px-6 py-16 text-center shadow-card text-fpso-muted">
               No projects match the current filters ({projects.length} total).
             </div>
           ) : (
@@ -370,7 +370,7 @@ export default function ReviewPage() {
               return (
                 <div
                   key={p.name}
-                  className="rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md p-5 shadow-xl hover:shadow-2xl transition-shadow duration-300 hover:border-fpso-blue/30"
+                  className="rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md p-5 shadow-card hover:shadow-lift transition-shadow duration-300 hover:border-fpso-blue/30"
                 >
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     {/* info */}

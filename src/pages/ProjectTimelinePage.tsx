@@ -72,7 +72,7 @@ type EventCategory = "PRODUCTION" | "CONTRACT" | "EIA" | "REGULATORY" | "OTHER";
 const CATEGORY_OPTIONS: { key: EventCategory; label: string; color: string }[] = [
   { key: "PRODUCTION", label: "投产", color: "#059669" },
   { key: "CONTRACT", label: "合同", color: "#0284c7" },
-  { key: "EIA", label: "EIA/计划", color: "#ea580c" },
+  { key: "EIA", label: "EIA/计划", color: "#f97316" },
   { key: "REGULATORY", label: "监管/许可", color: "#db2777" },
   { key: "OTHER", label: "其他", color: "#64748b" },
 ];
@@ -102,7 +102,7 @@ function timelineDotStyle(eventType: string): string {
   switch (cat) {
     case "PRODUCTION": return "#059669";
     case "CONTRACT": return "#0284c7";
-    case "EIA": return "#ea580c";
+    case "EIA": return "#f97316";
     case "REGULATORY": return "#db2777";
     default: return "#64748b";
   }
@@ -504,7 +504,7 @@ export default function ProjectTimelinePage() {
             Project
           </label>
           <div className="relative">
-            <div className="flex items-center rounded-lg border border-white/5 bg-fpso-card/60 backdrop-blur-md hover:border-white/10 transition-colors">
+            <div className="flex items-center rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md hover:border-fpso-blue/30 transition-colors">
               <Search className="ml-3 h-4 w-4 text-fpso-dim flex-shrink-0" />
               <input
                 type="text"
@@ -534,7 +534,7 @@ export default function ProjectTimelinePage() {
             </div>
 
             {dropdownOpen && (
-              <div className="absolute z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-white/5 bg-fpso-card/90 backdrop-blur-md shadow-xl">
+              <div className="absolute z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-fpso-border bg-white/95 backdrop-blur-md shadow-card">
                 {showNoMatch ? (
                   <div className="px-4 py-6 text-center text-xs text-fpso-muted">No projects match.</div>
                 ) : (
@@ -570,7 +570,7 @@ export default function ProjectTimelinePage() {
                     {showMinedGroup && (
                       <>
                         {filteredWithEvents.length > 0 && (
-                          <div className="my-1 border-t border-white/5" />
+                          <div className="my-1 border-t border-fpso-border" />
                         )}
                         <button
                           type="button"
@@ -578,7 +578,7 @@ export default function ProjectTimelinePage() {
                           // while toggling the group.
                           onMouseDown={(e) => e.preventDefault()}
                           onClick={() => setMinedOpen((o) => !o)}
-                          className="flex w-full items-center gap-1.5 px-4 py-2 text-[11px] font-medium text-fpso-dim hover:bg-white/5 hover:text-fpso-muted transition-colors"
+                          className="flex w-full items-center gap-1.5 px-4 py-2 text-[11px] font-medium text-fpso-dim hover:bg-fpso-bg hover:text-fpso-muted transition-colors"
                         >
                           {minedOpen ? (
                             <ChevronDown className="h-3.5 w-3.5 flex-shrink-0" />
@@ -600,7 +600,7 @@ export default function ProjectTimelinePage() {
                                 key={p.canonicalId}
                                 type="button"
                                 onClick={() => handleSelectProject(p.canonicalId)}
-                                className={`flex w-full items-center gap-3 py-2.5 pl-8 pr-4 text-left text-sm transition-colors hover:bg-white/5 ${
+                                className={`flex w-full items-center gap-3 py-2.5 pl-8 pr-4 text-left text-sm transition-colors hover:bg-fpso-bg ${
                                   p.canonicalId === selectedId
                                     ? "text-fpso-blue bg-fpso-blue/5"
                                     : "text-fpso-dim/70 hover:text-fpso-muted"
@@ -663,7 +663,7 @@ export default function ProjectTimelinePage() {
               <span className="text-sm text-fpso-muted">Loading timeline…</span>
             </div>
           ) : filteredEvents.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center rounded-lg border border-white/5 bg-fpso-card/40">
+            <div className="flex flex-col items-center justify-center py-16 text-center rounded-lg border border-fpso-border bg-white/70">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 className="h-12 w-12 text-fpso-dim mb-4"
@@ -709,7 +709,7 @@ export default function ProjectTimelinePage() {
 
                       {/* Event card */}
                       <div
-                        className={`flex-1 min-w-0 rounded-lg border border-white/5 bg-fpso-card/60 backdrop-blur-md transition-shadow hover:shadow-lg cursor-default ${
+                        className={`flex-1 min-w-0 rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md transition-all hover:shadow-hover hover:border-fpso-blue/30 cursor-default ${
                           hasExtra ? "cursor-pointer" : ""
                         }`}
                         onClick={() => hasExtra && toggleExpand(evt.id)}
@@ -785,7 +785,7 @@ export default function ProjectTimelinePage() {
 
         {/* Project Info Card */}
         {projectInfo && (
-          <section className="rounded-lg border border-white/5 bg-fpso-card/60 backdrop-blur-md p-5">
+          <section className="rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md p-5">
             <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-fpso-dim">
               Project Info
             </h3>
@@ -833,7 +833,7 @@ export default function ProjectTimelinePage() {
       </div>
 
       {/* Footer */}
-      <footer className="mt-auto border-t border-white/5 bg-fpso-bg">
+      <footer className="mt-auto border-t border-fpso-border bg-fpso-bg">
         <div className="mx-auto flex max-w-4xl flex-col items-center justify-between gap-2 px-6 py-5 md:flex-row">
           <span className="text-xs text-fpso-dim">
             Timeline data from candidate_events. For internal analysis only.

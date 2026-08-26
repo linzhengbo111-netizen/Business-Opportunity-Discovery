@@ -887,7 +887,7 @@ export default function DashboardPage() {
     if (withoutDots.length > 0) {
       console.warn(
         `[Map] %c${withoutDots.length} countries MISSING coordinates:%c`,
-        "color:#ea580c;font-weight:bold",
+        "color:#f97316;font-weight:bold",
         "color:inherit",
         withoutDots.join(", "),
       );
@@ -1133,7 +1133,7 @@ export default function DashboardPage() {
         <section className="mb-8">
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
             {/* Total Projects */}
-            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md shadow-sm hover:shadow-md transition-shadow duration-300 p-4 transition-all hover:border-fpso-blue/40 hover:bg-white hover:shadow-[0_2px_12px_rgba(15,23,42,0.06)]">
+            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md shadow-card transition-all duration-300 p-4 hover:border-fpso-blue/50 hover:bg-white hover:shadow-glow hover:-translate-y-0.5">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <Building2 className="h-20 w-20 text-fpso-blue" />
               </div>
@@ -1149,7 +1149,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Early (Concept / Planning / Design) */}
-            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md shadow-sm hover:shadow-md transition-shadow duration-300 p-4 transition-all hover:border-fpso-muted/40 hover:bg-white hover:shadow-[0_2px_12px_rgba(15,23,42,0.06)]">
+            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md shadow-card transition-all duration-300 p-4 hover:border-fpso-muted/50 hover:bg-white hover:shadow-lift hover:-translate-y-0.5">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <CalendarDays className="h-20 w-20 text-fpso-muted" />
               </div>
@@ -1166,7 +1166,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Mid (Approval / EPC Award / Procurement) */}
-            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md shadow-sm hover:shadow-md transition-shadow duration-300 p-4 transition-all hover:border-yellow-400/40 hover:bg-white hover:shadow-[0_2px_12px_rgba(15,23,42,0.06)]">
+            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md shadow-card transition-all duration-300 p-4 hover:border-yellow-400/60 hover:bg-white hover:shadow-lift hover:-translate-y-0.5">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <Hammer className="h-20 w-20 text-yellow-400" />
               </div>
@@ -1183,7 +1183,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Late (Construction / Commissioning / Delivery) */}
-            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md shadow-sm hover:shadow-md transition-shadow duration-300 p-4 transition-all hover:border-fpso-blue/40 hover:bg-white hover:shadow-[0_2px_12px_rgba(15,23,42,0.06)]">
+            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md shadow-card transition-all duration-300 p-4 hover:border-fpso-blue/50 hover:bg-white hover:shadow-glow hover:-translate-y-0.5">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <Hammer className="h-20 w-20 text-fpso-blue" />
               </div>
@@ -1200,7 +1200,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Added This Week */}
-            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md shadow-sm hover:shadow-md transition-shadow duration-300 p-4 transition-all hover:border-fpso-green/40 hover:bg-white hover:shadow-[0_2px_12px_rgba(15,23,42,0.06)]">
+            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md shadow-card transition-all duration-300 p-4 hover:border-fpso-green/50 hover:bg-white hover:shadow-glow hover:-translate-y-0.5">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <PlusCircle className="h-20 w-20 text-fpso-green" />
               </div>
@@ -1225,7 +1225,7 @@ export default function DashboardPage() {
             <span className="text-xs text-fpso-muted">Equirectangular Projection</span>
           </div>
 
-          <div className="map-container relative w-full overflow-hidden rounded-lg border border-fpso-border bg-white backdrop-blur-md shadow-sm hover:shadow-md transition-shadow duration-300">
+          <div className="map-container relative w-full overflow-hidden rounded-lg border border-fpso-border bg-white backdrop-blur-md shadow-card hover:shadow-lift transition-shadow duration-300">
             <img
               src="/world-map.png"
               alt="世界地图轮廓"
@@ -1263,7 +1263,7 @@ export default function DashboardPage() {
         {/* 图表区域 */}
         <section className="mb-10 grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
           {/* 国家分布环形图 */}
-          <div className="group relative flex flex-col overflow-hidden rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md p-5 shadow-sm transition-all duration-300 hover:border-fpso-blue/40 hover:bg-white hover:shadow-[0_2px_12px_rgba(15,23,42,0.06)]">
+          <div className="group relative flex flex-col overflow-hidden rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md p-5 shadow-card transition-all duration-300 hover:border-fpso-blue/50 hover:bg-white hover:shadow-glow hover:-translate-y-0.5">
             <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
               <Globe className="h-20 w-20 text-fpso-blue" />
             </div>
@@ -1353,7 +1353,7 @@ export default function DashboardPage() {
           </div>
 
           {/* 状态分布水平条形图 */}
-          <div className="group relative flex flex-col overflow-hidden rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md p-5 shadow-sm transition-all duration-300 hover:border-fpso-blue/40 hover:bg-white hover:shadow-[0_2px_12px_rgba(15,23,42,0.06)]">
+          <div className="group relative flex flex-col overflow-hidden rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md p-5 shadow-card transition-all duration-300 hover:border-fpso-blue/50 hover:bg-white hover:shadow-glow hover:-translate-y-0.5">
             <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
               <BarChart3 className="h-20 w-20 text-fpso-blue" />
             </div>
@@ -1420,7 +1420,7 @@ export default function DashboardPage() {
             </span>
           </div>
 
-          <div className="rounded-lg border border-fpso-border bg-white backdrop-blur-md shadow-sm hover:shadow-md transition-shadow duration-300">
+          <div className="rounded-lg border border-fpso-border bg-white backdrop-blur-md shadow-card hover:shadow-lift transition-shadow duration-300">
             {loading ? (
               <div className="px-5 py-10 text-center text-sm text-fpso-muted">Loading projects…</div>
             ) : filteredProjects.length === 0 ? (

@@ -171,7 +171,7 @@ function BattleSummaryCard({
       ref={cardRef}
       type="button"
       onClick={() => onOpen(project)}
-      className="group rounded-xl border border-white/5 bg-fpso-card/60 p-5 text-left backdrop-blur-md transition-all hover:border-fpso-blue/30 hover:shadow-lg hover:shadow-fpso-blue/5"
+      className="group rounded-xl border border-fpso-border bg-white/70 p-5 text-left backdrop-blur-md transition-all hover:border-fpso-blue/40 hover:shadow-glow"
     >
       {/* name + grade */}
       <div className="mb-3 flex items-start justify-between gap-3">
@@ -318,7 +318,7 @@ export default function BattleCardsPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-fpso-border bg-fpso-bg/60 px-3 py-1 text-xs font-medium">
               <span className={`h-1.5 w-1.5 rounded-full ${connectionStatus === "connected" ? "bg-emerald-400" : "bg-amber-400"}`} />
               {connectionStatus === "connected" ? "LIVE" : "STALE"}
             </span>

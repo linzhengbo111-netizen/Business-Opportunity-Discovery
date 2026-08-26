@@ -364,7 +364,7 @@ export default function DatabasePage() {
         </section>
 
         {/* filters */}
-        <section className="mb-6 flex flex-wrap items-center gap-4 rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md px-5 py-3 shadow-xl hover:shadow-2xl transition-shadow duration-300">
+        <section className="mb-6 flex flex-wrap items-center gap-4 rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md px-5 py-3 shadow-card hover:shadow-lift transition-shadow duration-300">
           {/* industry */}
           <div className="flex items-center gap-2">
             <label className="text-xs font-medium text-fpso-muted">Industry</label>
@@ -458,14 +458,14 @@ export default function DatabasePage() {
         </section>
 
         {/* table */}
-        <section className="overflow-hidden rounded-lg border border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-xl hover:shadow-2xl transition-shadow duration-300">
+        <section className="overflow-hidden rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md shadow-card hover:shadow-lift transition-shadow duration-300">
           {loading ? (
             <Spinner />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-white/5 bg-fpso-bg/40 backdrop-blur-md text-left text-xs font-medium uppercase tracking-wider text-fpso-muted">
+                  <tr className="border-b border-fpso-border bg-fpso-bg/40 backdrop-blur-md text-left text-xs font-medium uppercase tracking-wider text-fpso-muted">
                     <th className="px-4 py-3">Project</th>
                     <th className="px-4 py-3">Country</th>
                     <th className="px-4 py-3">Phase</th>
@@ -503,7 +503,7 @@ export default function DatabasePage() {
                       <tr
                         key={p.name}
                         onClick={() => setSelected(p)}
-                        className="border-b border-white/5 transition-colors hover:bg-fpso-blue/5 cursor-pointer"
+                        className="border-b border-fpso-border transition-colors hover:bg-fpso-blue/5 cursor-pointer"
                       >
                         <td className="px-4 py-2.5 font-medium text-fpso-fg max-w-[220px] truncate">
                           {p.name}
@@ -597,7 +597,7 @@ export default function DatabasePage() {
 
           {/* pagination */}
           {!loading && totalPages > 1 && (
-            <div className="flex items-center justify-between border-t border-white/5 px-4 py-3">
+            <div className="flex items-center justify-between border-t border-fpso-border px-4 py-3">
               <span className="text-xs text-fpso-dim">
                 Page {safePage} of {totalPages}
               </span>
@@ -651,7 +651,7 @@ export default function DatabasePage() {
 
       {/* detail panel (slide-in from right) */}
       <aside
-        className={`fixed right-0 top-0 z-50 h-full w-full max-w-lg overflow-y-auto border-l border-white/5 bg-fpso-card/40 backdrop-blur-md shadow-2xl transition-transform duration-300 ${
+        className={`fixed right-0 top-0 z-50 h-full w-full max-w-lg overflow-y-auto border-l border-fpso-border bg-white/70 backdrop-blur-md shadow-lift transition-transform duration-300 ${
           selected ? "translate-x-0" : "translate-x-full"
         }`}
       >
@@ -771,41 +771,41 @@ export default function DatabasePage() {
                   </h4>
                   {/* Technical parameters table */}
                   {showSpecs && (
-                    <div className="mb-3 overflow-hidden rounded-md border border-white/5">
+                    <div className="mb-3 overflow-hidden rounded-md border border-fpso-border">
                       <table className="w-full text-xs">
                         <tbody>
                           {specs.waterDepthM != null && (
-                            <tr className="border-b border-white/5">
+                            <tr className="border-b border-fpso-border">
                               <td className="px-3 py-1.5 text-fpso-muted font-medium">Water Depth</td>
                               <td className="px-3 py-1.5 text-fpso-fg font-mono">{specs.waterDepthM.toLocaleString()} m</td>
                             </tr>
                           )}
                           {specs.oilCapacityBpd != null && (
-                            <tr className="border-b border-white/5">
+                            <tr className="border-b border-fpso-border">
                               <td className="px-3 py-1.5 text-fpso-muted font-medium">Oil Capacity</td>
                               <td className="px-3 py-1.5 text-fpso-fg font-mono">{specs.oilCapacityBpd.toLocaleString()} bpd</td>
                             </tr>
                           )}
                           {specs.gasCapacityMmcmd != null && (
-                            <tr className="border-b border-white/5">
+                            <tr className="border-b border-fpso-border">
                               <td className="px-3 py-1.5 text-fpso-muted font-medium">Gas Capacity</td>
                               <td className="px-3 py-1.5 text-fpso-fg font-mono">{specs.gasCapacityMmcmd.toLocaleString()} MMcmd</td>
                             </tr>
                           )}
                           {specs.hullType && (
-                            <tr className="border-b border-white/5">
+                            <tr className="border-b border-fpso-border">
                               <td className="px-3 py-1.5 text-fpso-muted font-medium">Hull Type</td>
                               <td className="px-3 py-1.5 text-fpso-fg">{specs.hullType}</td>
                             </tr>
                           )}
                           {specs.fieldName && (
-                            <tr className="border-b border-white/5">
+                            <tr className="border-b border-fpso-border">
                               <td className="px-3 py-1.5 text-fpso-muted font-medium">Field</td>
                               <td className="px-3 py-1.5 text-fpso-fg">{specs.fieldName}</td>
                             </tr>
                           )}
                           {specs.operatorName && (
-                            <tr className="border-b border-white/5">
+                            <tr className="border-b border-fpso-border">
                               <td className="px-3 py-1.5 text-fpso-muted font-medium">Operator</td>
                               <td className="px-3 py-1.5 text-fpso-fg">{specs.operatorName}</td>
                             </tr>

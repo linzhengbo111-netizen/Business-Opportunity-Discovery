@@ -9,14 +9,14 @@
   :root {
     --radius: 0.5rem;
 
-    /* 浅色终端主色板（白底 + 石板灰层次 + 深天蓝点缀） */
+    /* 浅色终端主色板 — 多层白系（冷白背景 + 纯白卡片 + 石板灰文字层次） */
     --background: 210 40% 98%; /* #f8fafc */
     --foreground: 222 47% 11%; /* #0f172a */
     --card: 0 0% 100%; /* #ffffff */
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 199 96% 39%; /* #0284c7 */
+    --primary: 199 96% 39%; /* #0284c7 — 深青蓝，浅色下保持高饱和但不刺眼 */
     --primary-foreground: 0 0% 100%;
     --secondary: 210 40% 96%; /* #f1f5f9 */
     --secondary-foreground: 222 47% 11%;
@@ -26,18 +26,18 @@
     --accent-foreground: 222 47% 11%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214 32% 91%; /* #e2e8f0 */
+    --border: 214 32% 91%; /* #e2e8f0 — 极淡蓝灰，比纯灰更冷更精致 */
     --input: 214 32% 91%;
     --ring: 199 96% 39%;
     --success: 161 94% 30%; /* #059669 */
     --success-foreground: 0 0% 100%;
-    --warning: 25 95% 53%; /* #f97316 */
+    --warning: 25 95% 53%; /* #f97316 — 橙色柔和化，暖而不燥 */
     --warning-foreground: 0 0% 100%;
     --info: 199 96% 39%; /* #0284c7 */
     --info-foreground: 0 0% 100%;
 
     --chart-1: 199 96% 39%; /* sky-600 */
-    --chart-2: 21 90% 48%; /* orange-600 */
+    --chart-2: 25 95% 53%; /* orange-500 — 柔和橙 */
     --chart-3: 161 94% 30%; /* emerald-600 */
     --chart-4: 217 91% 60%; /* blue-500 */
     --chart-5: 262 83% 58%; /* violet-500 */
@@ -50,6 +50,19 @@
     --sidebar-accent-foreground: 222 47% 11%;
     --sidebar-border: 214 32% 91%;
     --sidebar-ring: 199 96% 39%;
+
+    /* 浅色阴影系统 — 多层柔光扩散，比深色模式更轻但层次更足 */
+    --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 2px 8px rgba(15, 23, 42, 0.04);
+    --shadow-hover: 0 2px 4px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.08);
+    --shadow-lift: 0 4px 8px rgba(15, 23, 42, 0.05), 0 16px 32px rgba(15, 23, 42, 0.1);
+    --shadow-glow: 0 0 0 1px rgba(2, 132, 199, 0.12), 0 2px 8px rgba(2, 132, 199, 0.18);
+
+    /* 含蓄渐变 — 冷白顶部环境光 + 青蓝主色渐变 */
+    --gradient-background:
+      radial-gradient(1100px 480px at 50% -80px, rgba(2, 132, 199, 0.05), transparent 70%),
+      linear-gradient(180deg, #f4f8fc 0%, #f8fafc 180px);
+    --gradient-primary: linear-gradient(135deg, #0891b2 0%, #0284c7 55%, #0369a1 100%);
+    --gradient-card: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
   }
 }
 
@@ -62,7 +75,7 @@
     @apply shadow-sm transition-shadow duration-300;
   }
   button:hover {
-    @apply shadow-md;
+    box-shadow: var(--shadow-hover);
   }
 
   html {
@@ -70,7 +83,10 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply text-foreground antialiased;
+    background-color: hsl(var(--background));
+    background-image: var(--gradient-background);
+    background-attachment: fixed;
     font-family: "Inter", "Glow Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
 
@@ -80,9 +96,34 @@
 }
 
 @layer components {
-  /* 标题强调色 */
+  /* 标题强调色 — 浅色下用青蓝渐变文字，保留科技感 */
   .neon-glow {
-    color: hsl(var(--primary));
+    background-image: var(--gradient-primary);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* 玻璃态卡片 — 半透明白 + 微光边框 + 柔和阴影 */
+  .glass-card {
+    background-color: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    box-shadow: var(--shadow-card);
+  }
+
+  .glass-card:hover {
+    box-shadow: var(--shadow-hover);
+  }
+
+  /* 卡片悬浮光晕 — 蓝色微光，替代深色模式的霓虹 */
+  .glow-hover {
+    transition: box-shadow 0.25s ease, transform 0.25s ease, border-color 0.25s ease;
+  }
+
+  .glow-hover:hover {
+    box-shadow: var(--shadow-glow);
+    transform: translateY(-1px);
   }
 
   /* 地图光点 — 双层脉冲 + hover 增强 */
@@ -268,9 +309,9 @@
     filter: brightness(0.96);
   }
 
-  /* 状态圆点 */
+  /* 状态圆点 — 浅色下光晕收敛 */
   .status-dot {
-    box-shadow: 0 0 6px currentColor;
+    box-shadow: 0 0 4px currentColor;
   }
 
   /* 地图容器固定比例 */

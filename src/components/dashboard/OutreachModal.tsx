@@ -105,10 +105,10 @@ export default function OutreachModal({ project, onClose }: OutreachModalProps) 
       {/* 弹窗容器 */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative z-10 w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-xl border border-white/10 bg-fpso-card/95 backdrop-blur-md shadow-2xl animate-fade-in"
+        className="relative z-10 w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-xl border border-fpso-border bg-white/95 backdrop-blur-md shadow-lift animate-fade-in"
       >
         {/* header */}
-        <div className="flex items-center justify-between gap-3 border-b border-white/5 px-5 py-4">
+        <div className="flex items-center justify-between gap-3 border-b border-fpso-border px-5 py-4">
           <div className="min-w-0">
             <h3 className="text-sm font-bold text-fpso-fg truncate">开发信草稿 · Outreach Draft</h3>
             <p className="mt-0.5 text-xs text-fpso-dim truncate">{project.name}</p>
@@ -141,7 +141,7 @@ export default function OutreachModal({ project, onClose }: OutreachModalProps) 
                 <h4 className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-fpso-dim">
                   Subject · 主题
                 </h4>
-                <p className="rounded-md border border-white/5 bg-fpso-bg/40 px-3 py-2 text-xs font-medium text-fpso-fg">
+                <p className="rounded-md border border-fpso-border bg-fpso-bg/60 px-3 py-2 text-xs font-medium text-fpso-fg">
                   {message.subject}
                 </p>
               </div>
@@ -151,7 +151,7 @@ export default function OutreachModal({ project, onClose }: OutreachModalProps) 
                 <h4 className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-fpso-dim">
                   Body · 正文
                 </h4>
-                <p className="whitespace-pre-wrap rounded-md border border-white/5 bg-fpso-bg/40 px-3 py-2 text-xs leading-relaxed text-fpso-fg/90">
+                <p className="whitespace-pre-wrap rounded-md border border-fpso-border bg-fpso-bg/60 px-3 py-2 text-xs leading-relaxed text-fpso-fg/90">
                   {message.body}
                 </p>
               </div>

@@ -525,7 +525,7 @@ export default function IndustryBreakdownPage() {
               {MATERIAL_COLORS.map((m) => (
                 <div key={m.name} className="flex items-center gap-2.5 text-xs">
                   <span
-                    className="inline-block w-3.5 h-3.5 rounded-sm flex-shrink-0 border border-white/10"
+                    className="inline-block w-3.5 h-3.5 rounded-sm flex-shrink-0 border border-fpso-border"
                     style={{ background: m.color }}
                   />
                   <span className="font-mono text-fpso-fg w-10">{m.name}</span>

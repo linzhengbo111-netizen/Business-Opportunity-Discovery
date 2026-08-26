@@ -172,7 +172,7 @@ export default function FollowUpStatus({
             className={`inline-flex items-center rounded-md border px-2.5 py-1 text-xs font-medium transition-all
               ${isActive(s)
                 ? `${FOLLOW_UP_STATUS_COLORS[s]} ring-1 ring-offset-1 ring-offset-fpso-bg`
-                : "border-white/10 text-fpso-muted hover:border-white/20 hover:text-fpso-fg"
+                : "border-fpso-border text-fpso-muted hover:border-fpso-blue/40 hover:text-fpso-fg hover:shadow-glow"
               }
               disabled:opacity-50 disabled:cursor-not-allowed
             `}
@@ -185,7 +185,7 @@ export default function FollowUpStatus({
           <button
             type="button"
             onClick={() => startEdit(current.status)}
-            className="inline-flex items-center rounded-md border border-dashed border-white/10 px-2 py-1 text-xs text-fpso-dim hover:border-fpso-blue/30 hover:text-fpso-blue transition-colors"
+            className="inline-flex items-center rounded-md border border-dashed border-fpso-border px-2 py-1 text-xs text-fpso-dim hover:border-fpso-blue/30 hover:text-fpso-blue transition-colors"
           >
             + Notes
           </button>
@@ -194,7 +194,7 @@ export default function FollowUpStatus({
 
       {/* Inline edit form */}
       {editing && pendingStatus && (
-        <div className="space-y-3 rounded-lg border border-white/10 bg-fpso-bg/30 p-4 animate-fade-in">
+        <div className="space-y-3 rounded-lg border border-fpso-border bg-fpso-bg/60 p-4 shadow-card animate-fade-in">
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-fpso-fg">
               {isActive(pendingStatus) ? "Edit" : "Set"} status:
@@ -212,12 +212,12 @@ export default function FollowUpStatus({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
-              className="resize-none bg-white/5 border-white/10 text-fpso-fg text-xs placeholder:text-fpso-muted/50"
+              className="resize-none bg-white border-fpso-border text-fpso-fg text-xs placeholder:text-fpso-muted/50"
             />
           </div>
 
           {/* Corrections form */}
-          <div className="space-y-3 border-t border-white/5 pt-3">
+          <div className="space-y-3 border-t border-fpso-border pt-3">
             <p className="text-[11px] text-fpso-dim">
               Corrections — 修正系统推断 (all optional)
             </p>
@@ -229,7 +229,7 @@ export default function FollowUpStatus({
                   placeholder="如: Duplex 2205"
                   value={actualMaterial}
                   onChange={(e) => setActualMaterial(e.target.value)}
-                  className="h-8 bg-white/5 border-white/10 text-fpso-fg text-xs placeholder:text-fpso-muted/50"
+                  className="h-8 bg-white border-fpso-border text-fpso-fg text-xs placeholder:text-fpso-muted/50"
                 />
               </div>
               <div className="space-y-1.5">
@@ -238,7 +238,7 @@ export default function FollowUpStatus({
                   type="date"
                   value={actualProcurementDate}
                   onChange={(e) => setActualProcurementDate(e.target.value)}
-                  className="h-8 bg-white/5 border-white/10 text-fpso-fg text-xs"
+                  className="h-8 bg-white border-fpso-border text-fpso-fg text-xs"
                 />
               </div>
             </div>
@@ -249,7 +249,7 @@ export default function FollowUpStatus({
                 placeholder="补充说明... (可选)"
                 value={additionalNotes}
                 onChange={(e) => setAdditionalNotes(e.target.value)}
-                className="h-8 bg-white/5 border-white/10 text-fpso-fg text-xs placeholder:text-fpso-muted/50"
+                className="h-8 bg-white border-fpso-border text-fpso-fg text-xs placeholder:text-fpso-muted/50"
               />
             </div>
           </div>
@@ -269,7 +269,7 @@ export default function FollowUpStatus({
               variant="outline"
               onClick={cancelEdit}
               disabled={saving}
-              className="h-7 border-white/10 text-fpso-muted hover:text-fpso-fg text-xs"
+              className="h-7 border-fpso-border text-fpso-muted hover:text-fpso-fg text-xs"
             >
               Cancel
             </Button>
