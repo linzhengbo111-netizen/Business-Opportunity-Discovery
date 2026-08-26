@@ -22,11 +22,16 @@ export default {
             }
         },
         extend: {
+            fontFamily: {
+                sans: ['"Inter Variable"', '"Inter"', '"Glow Sans SC"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+                mono: ['"JetBrains Mono"', '"Fira Code"', 'ui-monospace', 'monospace'],
+            },
             colors: {
                 fpso: {
                     blue: '#0284c7',
                     orange: '#ea580c',
                     green: '#059669',
+                    gold: '#ca8a04',
                     bg: '#f8fafc',
                     card: '#ffffff',
                     border: '#e2e8f0',

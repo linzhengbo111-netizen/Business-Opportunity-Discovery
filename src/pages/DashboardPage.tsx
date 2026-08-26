@@ -36,7 +36,7 @@ import BattleCardWrapper from "@/components/dashboard/BattleCard";
 import OutreachModal from "@/components/dashboard/OutreachModal";
 import FollowUpStatus from "@/components/dashboard/FollowUpStatus";
 import GlobalSearch from "@/components/dashboard/GlobalSearch";
-import { Building2, Hammer, CalendarDays, PlusCircle, Anchor, Waves, Gauge, Globe, BarChart3 } from "lucide-react";
+import { Building2, Hammer, Wrench, CalendarDays, PlusCircle, Anchor, Waves, Gauge, Globe, BarChart3 } from "lucide-react";
 import FilterSidebar from "@/components/dashboard/FilterSidebar";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
@@ -151,7 +151,7 @@ function getCountryFlag(projects: Project[], country: string): string {
 
 
 
-/** 环形图顺序色 — 天蓝→深蓝单色系渐变，最深给最大扇区 */
+/** 环形图顺序色 — 天蓝→深蓝单色系渐变（数据降序，反序取色让最大扇区拿最深色） */
 const COUNTRY_CHART_COLORS = [
   "#0ea5e9", "#0284c7", "#0369a1", "#075985",
   "#0c4a6e", "#082f49", "#0f172a",
@@ -1153,7 +1153,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Early (Concept / Planning / Design) */}
-            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-fpso-card/70 backdrop-blur-md shadow-card transition-all duration-300 p-4 hover:border-fpso-muted/50 hover:bg-white hover:shadow-lift hover:-translate-y-0.5">
+            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-fpso-card/70 backdrop-blur-md shadow-card transition-all duration-300 p-4 hover:border-fpso-muted/50 hover:bg-white hover:shadow-glow hover:-translate-y-0.5">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <CalendarDays className="h-20 w-20 text-fpso-muted" />
               </div>
@@ -1170,13 +1170,13 @@ export default function DashboardPage() {
             </div>
 
             {/* Mid (Approval / EPC Award / Procurement) */}
-            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-fpso-card/70 backdrop-blur-md shadow-card transition-all duration-300 p-4 hover:border-yellow-400/60 hover:bg-white hover:shadow-lift hover:-translate-y-0.5">
+            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-fpso-card/70 backdrop-blur-md shadow-card transition-all duration-300 p-4 hover:border-fpso-orange/50 hover:bg-white hover:shadow-glow hover:-translate-y-0.5">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
-                <Hammer className="h-20 w-20 text-yellow-400" />
+                <Hammer className="h-20 w-20 text-fpso-orange" />
               </div>
               <div className="relative z-10 flex items-center gap-3">
-                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-yellow-400/10 ring-1 ring-yellow-400/20">
-                  <Hammer className="h-4 w-4 text-yellow-400" />
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-fpso-orange/10 ring-1 ring-fpso-orange/20">
+                  <Hammer className="h-4 w-4 text-fpso-orange" />
                 </span>
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Mid Phase</div>
@@ -1189,11 +1189,11 @@ export default function DashboardPage() {
             {/* Late (Construction / Commissioning / Delivery) */}
             <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-fpso-card/70 backdrop-blur-md shadow-card transition-all duration-300 p-4 hover:border-fpso-blue/50 hover:bg-white hover:shadow-glow hover:-translate-y-0.5">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
-                <Hammer className="h-20 w-20 text-fpso-blue" />
+                <Wrench className="h-20 w-20 text-fpso-blue" />
               </div>
               <div className="relative z-10 flex items-center gap-3">
                 <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-fpso-blue/10 ring-1 ring-fpso-blue/20">
-                  <Hammer className="h-4 w-4 text-fpso-blue" />
+                  <Wrench className="h-4 w-4 text-fpso-blue" />
                 </span>
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Late Phase</div>
@@ -1204,7 +1204,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Added This Week */}
-            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-fpso-card/70 backdrop-blur-md shadow-card transition-all duration-300 p-4 hover:border-fpso-green/50 hover:bg-white hover:shadow-glow hover:-translate-y-0.5">
+            <div className="group relative col-span-2 overflow-hidden rounded-lg border border-fpso-border bg-fpso-card/70 backdrop-blur-md shadow-card transition-all duration-300 p-4 hover:border-fpso-green/50 hover:bg-white hover:shadow-glow hover:-translate-y-0.5 lg:col-span-1">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <PlusCircle className="h-20 w-20 text-fpso-green" />
               </div>
@@ -1295,7 +1295,7 @@ export default function DashboardPage() {
                           {countryChartData.map((d, i) => (
                             <Cell
                               key={d.name}
-                              fill={COUNTRY_CHART_COLORS[i]}
+                              fill={d.name === "Other" ? "#64748b" : COUNTRY_CHART_COLORS[COUNTRY_CHART_COLORS.length - 1 - i]}
                               className={d.name === "Other" ? "chart-slice chart-slice--static" : "chart-slice"}
                               onClick={() => {
                                 if (d.name !== "Other") setSelectedCountry(d.name);
@@ -1321,7 +1321,7 @@ export default function DashboardPage() {
                         className="font-mono text-3xl font-extrabold tabular-nums text-fpso-fg"
                        
                       >
-                        {countryTotal}
+                        {countryTotal.toLocaleString()}
                       </div>
                       <div className="text-xs text-fpso-muted">Projects</div>
                     </div>
@@ -1341,7 +1341,7 @@ export default function DashboardPage() {
                         >
                           <span
                             className="h-2 w-2 flex-shrink-0 rounded-full"
-                            style={{ background: COUNTRY_CHART_COLORS[i] }}
+                            style={{ background: d.name === "Other" ? "#64748b" : COUNTRY_CHART_COLORS[COUNTRY_CHART_COLORS.length - 1 - i] }}
                           />
                           <span className="flex-shrink-0 text-sm leading-none">{flag}</span>
                           <span className="min-w-0 flex-1 truncate text-fpso-muted">{d.name}</span>
@@ -1932,7 +1932,7 @@ export default function DashboardPage() {
               ) : (
                 <div className="relative">
                   {/* 竖线 */}
-                  <div className="absolute left-[11px] top-1 bottom-1 w-0.5 bg-fpso-border" />
+                  <div className="absolute left-[4px] top-1 bottom-1 w-0.5 bg-fpso-border" />
                   <div className="space-y-4">
                     {timelineEvents.map((evt) => (
                       <div key={evt.id} className="relative flex gap-4">

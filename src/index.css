@@ -89,10 +89,6 @@
     background-attachment: fixed;
     font-family: "Inter Variable", "Inter", "Glow Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
-
-  .font-mono {
-    font-family: "JetBrains Mono", "Fira Code", "Courier New", monospace;
-  }
 }
 
 @layer components {
@@ -131,14 +127,6 @@
     animation: map-core-pulse 2.5s ease-in-out infinite, fade-in-scale 0.5s backwards ease-out;
   }
 
-  /* hover: 暂停呼吸动画, 放大 1.5 倍, 柔和光晕 */
-  .map-pulse:hover {
-    animation-play-state: paused;
-    transform: translate(-50%, -50%) scale(1.5);
-    box-shadow: 0 0 6px rgba(2, 132, 199, 0.45), 0 0 12px rgba(2, 132, 199, 0.28), 0 0 18px rgba(2, 132, 199, 0.15);
-    z-index: 20;
-    transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
-  }
 
   /* 环形图扇区 — hover 放大 + 发光，点击联动国家筛选 */
   .chart-slice {
@@ -271,5 +259,16 @@
     background-repeat: no-repeat;
     background-position: right 10px center;
     padding-right: 28px;
+  }
+}
+
+/* hover 放大 1.5 倍 — utilities 层，压过 -translate 工具类；
+   用独立 scale 属性（不碰 transform），呼吸动画照常运行 */
+@layer utilities {
+  .map-pulse:hover {
+    animation-play-state: paused;
+    scale: 1.5;
+    z-index: 20;
+    transition: scale 0.2s ease-out;
   }
 }

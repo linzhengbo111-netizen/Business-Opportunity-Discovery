@@ -68,18 +68,18 @@ export const PHASE_GROUP_LABELS: Record<PhaseGroup, string> = {
 /* Colors                                                              */
 /* ------------------------------------------------------------------ */
 
-/** Hex colors for charts (light theme; mirror the tailwind classes below). */
+/** Hex colors for charts (light theme; mirror the fpso tokens). */
 export const PHASE_HEX: Record<string, string> = {
-  Concept: "#94a3b8",
-  Planning: "#94a3b8",
+  Concept: "#64748b",
+  Planning: "#64748b",
   Design: "#64748b",
-  Approval: "#f97316",
-  "EPC Award": "#f97316",
-  Procurement: "#facc15", // yellow — core business window
+  Approval: "#ea580c",
+  "EPC Award": "#ea580c",
+  Procurement: "#ca8a04", // gold — core business window（文字可读，填充仍可用 #facc15）
   Construction: "#0284c7",
-  Commissioning: "#10b981",
-  Delivery: "#10b981",
-  [PHASE_UNKNOWN]: "#94a3b8",
+  Commissioning: "#059669",
+  Delivery: "#059669",
+  [PHASE_UNKNOWN]: "#64748b",
 };
 
 /** Text color class for inline phase labels. */
@@ -93,7 +93,7 @@ export function phaseColorClass(phase: string | null | undefined): string {
     case "EPC Award":
       return "text-fpso-orange";
     case "Procurement":
-      return "text-yellow-600";
+      return "text-fpso-gold";
     case "Construction":
       return "text-fpso-blue";
     case "Commissioning":
@@ -137,7 +137,7 @@ export function phaseBgClass(phase: string | null | undefined): string {
     case "EPC Award":
       return "bg-fpso-orange/15 text-fpso-orange";
     case "Procurement":
-      return "bg-yellow-400/15 text-yellow-600";
+      return "bg-fpso-gold/15 text-fpso-gold";
     case "Construction":
       return "bg-fpso-blue/15 text-fpso-blue";
     case "Commissioning":
@@ -159,7 +159,7 @@ export function phaseBorderLClass(phase: string | null | undefined): string {
     case "EPC Award":
       return "border-l-fpso-orange";
     case "Procurement":
-      return "border-l-yellow-400";
+      return "border-l-fpso-gold";
     case "Construction":
       return "border-l-fpso-blue";
     case "Commissioning":
@@ -183,15 +183,15 @@ export function phaseProgressIndex(phase: string | null | undefined): number {
 
 /** Segments for the 9-phase progress bar: label + lit color. */
 export const PHASE_SEGMENTS = [
-  { label: "Concept", color: "#94a3b8" },
-  { label: "Planning", color: "#94a3b8" },
+  { label: "Concept", color: "#64748b" },
+  { label: "Planning", color: "#64748b" },
   { label: "Design", color: "#64748b" },
-  { label: "Approval", color: "#f97316" },
-  { label: "EPC", color: "#f97316" },
-  { label: "Procurement", color: "#facc15" },
+  { label: "Approval", color: "#ea580c" },
+  { label: "EPC", color: "#ea580c" },
+  { label: "Procurement", color: "#facc15" }, // fill-only yellow
   { label: "Construction", color: "#0284c7" },
-  { label: "Commissioning", color: "#10b981" },
-  { label: "Delivery", color: "#10b981" },
+  { label: "Commissioning", color: "#059669" },
+  { label: "Delivery", color: "#059669" },
 ] as const;
 
 export const PHASE_UNLIT = "#e2e8f0";
