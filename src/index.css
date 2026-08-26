@@ -51,7 +51,7 @@
     --sidebar-border: 214 32% 91%;
     --sidebar-ring: 199 96% 39%;
 
-    /* 浅色阴影系统 — 多层柔光扩散，比深色模式更轻但层次更足 */
+    /* 浅色阴影系统 — 多层柔光扩散 */
     --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 2px 8px rgba(15, 23, 42, 0.04);
     --shadow-hover: 0 2px 4px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.08);
     --shadow-lift: 0 4px 8px rgba(15, 23, 42, 0.05), 0 16px 32px rgba(15, 23, 42, 0.1);
@@ -116,7 +116,7 @@
     box-shadow: var(--shadow-hover);
   }
 
-  /* 卡片悬浮光晕 — 蓝色微光，替代深色模式的霓虹 */
+  /* 卡片悬浮光晕 — 蓝色微光 */
   .glow-hover {
     transition: box-shadow 0.25s ease, transform 0.25s ease, border-color 0.25s ease;
   }

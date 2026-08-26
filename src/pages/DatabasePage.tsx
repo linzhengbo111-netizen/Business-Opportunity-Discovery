@@ -1,6 +1,6 @@
 /**
  * Database Page — 项目数据表格视图
- * 深色数据终端风格，支持筛选、分页、行点击详情
+ * 浅色数据终端风格，支持筛选、分页、行点击详情
  */
 
 import { useEffect, useMemo, useState } from "react";

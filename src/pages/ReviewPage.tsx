@@ -1,6 +1,6 @@
 /**
  * Review Page — 个人工作区 (Personal Workspace)
- * 深色数据终端风格。
+ * 浅色数据终端风格。
  *
  * 所有项目直接来自 projects 表，支持关注/忽略标记（localStorage），
  * 不再显示 Accept/Reject/Promote 按钮 — 数据已自动入库。

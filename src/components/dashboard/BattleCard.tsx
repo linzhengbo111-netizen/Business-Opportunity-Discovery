@@ -3,7 +3,7 @@
  * =================================
  *
  * One-page battle card designed for printing, screenshot sharing,
- * and quick sales prep. Dark terminal theme matching the app.
+ * and quick sales prep. Light data-terminal theme matching the app.
  */
 
 import { useRef, useCallback, useState, useEffect } from "react";

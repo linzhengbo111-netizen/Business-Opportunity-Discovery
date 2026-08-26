@@ -23,6 +23,8 @@
 
 ### P0-1 深色模式完全失效：机制 + token 双重缺失
 
+> ✅ **已解决（2026-08-26）**：产品决策为**仅浅色模式**。已移除 `next-themes` 依赖、删除 `darkMode: ['class']` 配置、清理全部 `dark:` 变体与深色相关注释、[chart.tsx](src/components/ui/chart.tsx) `THEMES` 收敛为仅 light、[sonner.tsx](src/components/ui/sonner.tsx) 硬编码 `theme="light"`。全站现在只有一套浅色视觉。
+
 **证据链**：
 - [tailwind.config.js:6](tailwind.config.js#L6) 配置 `darkMode: ['class']`，要求 `<html>` 上有 `.dark` 类。
 - `package.json` 装了 `next-themes@0.4.6`，但全 src 搜不到任何 `ThemeProvider` mount；[App.tsx:14](src/App.tsx#L14) 只包了 `AuthProvider`。没有 Provider，`.dark` 永远不会被加。
@@ -286,4 +288,4 @@ PushAnalysisPanel:51 静态斜体文字、BattleCard:213 amber 脉冲横幅、Ou
 - **动效约定**：hover 颜色变化 150ms；阴影/位移 200ms；进场 fade-in-scale 500ms。禁止 `transition-all`。
 - **徽章字号两档**：`text-[11px]` / `text-xs`，禁 10px 以下。
 - **mono 只用于数字/日期/牌号**，不用于公司名等自然语言。
-- **决策先行**：深色模式修（方案 A）还是明确砍（方案 B），必须在下一轮改动前拍板，P1-16 等一批替换的写法依赖此决策。
+- **决策已定**：仅浅色模式（2026-08-26 拍板并清理完毕）。禁止新增任何 `dark:` 变体、深色 token 或主题切换逻辑。

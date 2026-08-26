@@ -1,6 +1,6 @@
 /**
  * Business Opportunity Discovery
- * 深色数据终端风格单页面：全球 FPSO 项目不锈钢商机挖掘系统
+ * 浅色数据终端风格单页面：全球 FPSO 项目不锈钢商机挖掘系统
  * 数据源：Supabase projects + candidate_events 合并显示
  */
 
