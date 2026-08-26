@@ -37,7 +37,7 @@ import BattleCardWrapper from "@/components/dashboard/BattleCard";
 import OutreachModal from "@/components/dashboard/OutreachModal";
 import FollowUpStatus from "@/components/dashboard/FollowUpStatus";
 import GlobalSearch from "@/components/dashboard/GlobalSearch";
-import { Building2, Hammer, Wrench, CalendarDays, PlusCircle, Anchor, Waves, Gauge, Globe, BarChart3, TrendingUp, TrendingDown } from "lucide-react";
+import { Building2, Hammer, Wrench, CalendarDays, PlusCircle, Anchor, Waves, Gauge, Globe, BarChart3, TrendingUp } from "lucide-react";
 import FilterSidebar from "@/components/dashboard/FilterSidebar";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
@@ -158,27 +158,14 @@ const COUNTRY_CHART_COLORS = [
   "#0c4a6e", "#082f49", "#0f172a",
 ];
 
-/** 统计卡趋势行 — 近 30 天 vs 前 30 天；前值缺失时降级为「近 30 天新增」而非空文案 */
-function TrendLine({ current, previous }: { current: number; previous: number }) {
-  if (previous > 0) {
-    const pct = ((current - previous) / previous) * 100;
-    const up = pct >= 0;
-    return (
-      <span className={`inline-flex items-center gap-1 text-[11px] font-medium ${up ? "text-fpso-green" : "text-destructive"}`}>
-        {up ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-        {up ? "+" : ""}{pct.toFixed(1)}% <span className="font-normal text-fpso-dim">较上期</span>
-      </span>
-    );
-  }
-  if (current > 0) {
-    return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-fpso-green">
-        <TrendingUp className="h-3 w-3" />
-        近 30 天新增 {current} 条
-      </span>
-    );
-  }
-  return <span className="text-[11px] text-fpso-dim">近 30 天暂无新增</span>;
+/** 统计卡趋势行 — 本周新增（近 7 天，锚数据集最新日期） */
+function TrendLine({ current }: { current: number }) {
+  return (
+    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-fpso-green">
+      <TrendingUp className="h-3 w-3" />
+      本周新增 {current} 条
+    </span>
+  );
 }
 
 /** Source badge for AI vs rule-engine output. */
@@ -834,8 +821,8 @@ export default function DashboardPage() {
 
   const filteredStats = useMemo(() => getStats(filteredProjects), [filteredProjects]);
 
-  // 趋势：近 30 天 vs 前 30 天。时间取 createdAt，缺失回退 source.date；
-  // 窗口锚在数据集最新日期（而非今天），老数据也能算出来。分组口径与统计卡一致。
+  // 本周新增：各分组近 7 天新增数。时间取 createdAt，缺失回退 source.date；
+  // 窗口锚在数据集最新日期（而非今天）。分组口径与统计卡一致。
   const trendCounts = useMemo(() => {
     const day = 86400000;
     const ts = filteredProjects
@@ -847,8 +834,7 @@ export default function DashboardPage() {
       .filter((t) => !Number.isNaN(t));
     if (ts.length === 0) return null;
     const latest = Math.max(...ts);
-    const curStart = latest - 30 * day;
-    const prevStart = latest - 60 * day;
+    const weekStart = latest - 7 * day;
     const stampOf = (p: Project): number => {
       const raw = p.createdAt || p.source?.date;
       const t = raw ? new Date(raw).getTime() : NaN;
@@ -856,18 +842,15 @@ export default function DashboardPage() {
     };
     const rows = filteredProjects.filter((p) => {
       const t = stampOf(p);
-      return !Number.isNaN(t) && t >= prevStart;
+      return !Number.isNaN(t) && t >= weekStart;
     });
-    const count = (from: number, to: number, group: PhaseGroup | "total") =>
-      rows.filter((p) => {
-        const t = stampOf(p);
-        return t >= from && t < to && (group === "total" || phaseGroup(p.phase) === group);
-      }).length;
+    const count = (group: PhaseGroup | "total") =>
+      rows.filter((p) => group === "total" || phaseGroup(p.phase) === group).length;
     return {
-      total: { cur: count(curStart, latest + 1, "total"), prev: count(prevStart, curStart, "total") },
-      early: { cur: count(curStart, latest + 1, "early"), prev: count(prevStart, curStart, "early") },
-      mid: { cur: count(curStart, latest + 1, "mid"), prev: count(prevStart, curStart, "mid") },
-      late: { cur: count(curStart, latest + 1, "late"), prev: count(prevStart, curStart, "late") },
+      total: count("total"),
+      early: count("early"),
+      mid: count("mid"),
+      late: count("late"),
     };
   }, [filteredProjects]);
 
@@ -1225,7 +1208,7 @@ export default function DashboardPage() {
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Total Projects</div>
                   <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300 group-hover:text-[#075985]">{filteredStats.total.toLocaleString()}</div>
-                  <TrendLine current={trendCounts?.total.cur ?? 0} previous={trendCounts?.total.prev ?? 0} />
+                  <TrendLine current={trendCounts?.total ?? 0} />
                 </div>
               </div>
             </div>
@@ -1242,7 +1225,7 @@ export default function DashboardPage() {
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Early Phase</div>
                   <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300 group-hover:text-[#075985]">{filteredStats.early.toLocaleString()}</div>
-                  <TrendLine current={trendCounts?.early.cur ?? 0} previous={trendCounts?.early.prev ?? 0} />
+                  <TrendLine current={trendCounts?.early ?? 0} />
                   <div className="truncate text-xs text-fpso-dim">Concept · Planning · Design</div>
                 </div>
               </div>
@@ -1260,7 +1243,7 @@ export default function DashboardPage() {
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Mid Phase</div>
                   <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300 group-hover:text-[#075985]">{filteredStats.mid.toLocaleString()}</div>
-                  <TrendLine current={trendCounts?.mid.cur ?? 0} previous={trendCounts?.mid.prev ?? 0} />
+                  <TrendLine current={trendCounts?.mid ?? 0} />
                   <div className="truncate text-xs text-fpso-dim">Approval · EPC Award · Procurement</div>
                 </div>
               </div>
@@ -1278,7 +1261,7 @@ export default function DashboardPage() {
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Late Phase</div>
                   <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300 group-hover:text-[#075985]">{filteredStats.late.toLocaleString()}</div>
-                  <TrendLine current={trendCounts?.late.cur ?? 0} previous={trendCounts?.late.prev ?? 0} />
+                  <TrendLine current={trendCounts?.late ?? 0} />
                   <div className="truncate text-xs text-fpso-dim">Construction · Commissioning · Delivery</div>
                 </div>
               </div>
@@ -1296,7 +1279,7 @@ export default function DashboardPage() {
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Added This Week</div>
                   <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300 group-hover:text-[#075985]">{filteredStats.addedThisWeek.toLocaleString()}</div>
-                  <div className="text-[11px] font-medium text-fpso-green">本周新增 {filteredStats.addedThisWeek.toLocaleString()} 条</div>
+                  <TrendLine current={filteredStats.addedThisWeek} />
                   <div className="truncate text-xs text-fpso-dim">New Discoveries</div>
                 </div>
               </div>
