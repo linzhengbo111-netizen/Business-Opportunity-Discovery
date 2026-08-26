@@ -302,7 +302,7 @@ export default function BattleCardsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-fpso-bg text-fpso-fg">
+    <div className="min-h-screen text-fpso-fg">
       <PageMeta title="战报中心" description="高质量商机作战卡" />
       <Header />
 

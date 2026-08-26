@@ -110,7 +110,7 @@ export default function SettingsPage() {
   return (
     <>
       <Header />
-      <main className="mx-auto max-w-3xl flex flex-col gap-8 px-6 py-10">
+      <main className="mx-auto max-w-3xl flex flex-col gap-8 px-6 py-8">
         {/* Profile card */}
         <Card className="border-border bg-fpso-bg/50">
           <CardHeader>

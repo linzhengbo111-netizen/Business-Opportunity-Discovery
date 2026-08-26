@@ -5,9 +5,6 @@ import intersect from 'tailwindcss-intersect';
 export default {
     content: [
         './index.html',
-        './pages/**/*.{ts,tsx}',
-        './components/**/*.{ts,tsx}',
-        './app/**/*.{ts,tsx}',
         './src/**/*.{ts,tsx}',
         './node_modules/streamdown/dist/**/*.js'
     ],
@@ -37,7 +34,7 @@ export default {
                     border: '#e2e8f0',
                     muted: '#64748b',
                     fg: '#0f172a',
-                    dim: '#64748b',
+                    dim: '#94a3b8',
                 },
                 border: 'hsl(var(--border))',
                 borderColor: {

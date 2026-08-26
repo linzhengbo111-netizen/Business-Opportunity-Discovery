@@ -15,6 +15,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Palette, Table2 } from "lucide-react";
 import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
 
@@ -348,7 +349,7 @@ export default function IndustryBreakdownPage() {
     if (activeKey && !hasRegion && alpha > 0.5) {
       const textAlpha = 0.7 * Math.min(1, (alpha - 0.5) * 2);
       ctx.fillStyle = `rgba(15,23,42,${textAlpha})`;
-      ctx.font = `${14 * dpr}px -apple-system, sans-serif`;
+      ctx.font = `${14 * dpr}px "Inter Variable", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
       ctx.textAlign = "center";
       ctx.fillText("⚠ 取水系统坐标数据待标定 — 请使用坐标拾取工具标定后更新 REGION_MASKS", cw / 2, ch / 2);
     }
@@ -356,7 +357,7 @@ export default function IndustryBreakdownPage() {
     // ── 4. 无图片时的中央提示 ──
     if (!image) {
       ctx.fillStyle = "rgba(15,23,42,0.45)";
-      ctx.font = `${13 * dpr}px -apple-system, sans-serif`;
+      ctx.font = `${13 * dpr}px "Inter Variable", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
       ctx.textAlign = "center";
       ctx.fillText("拖拽工艺图至此 或 将图片放入 public/images/desalination-process.png", cw / 2, ch / 2 - 72);
       ctx.fillText("当前显示区域遮罩预览 (基于标定坐标)", cw / 2, ch / 2 - 52);
@@ -518,8 +519,8 @@ export default function IndustryBreakdownPage() {
         <aside className="w-72 flex-shrink-0 border-l border-fpso-border bg-fpso-bg/60 overflow-y-auto">
           {/* 管道材质色卡 */}
           <div className="p-4 border-b border-fpso-border">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-fpso-muted mb-3">
-              🎨 管道材质选用总览
+            <h3 className="mb-3 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-fpso-muted">
+              <Palette className="h-3.5 w-3.5 text-fpso-dim" /> 管道材质选用总览
             </h3>
             <div className="space-y-2">
               {MATERIAL_COLORS.map((m) => (
@@ -537,8 +538,8 @@ export default function IndustryBreakdownPage() {
 
           {/* 主要设备表 */}
           <div className="p-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-fpso-muted mb-3">
-              📋 主要设备表
+            <h3 className="mb-3 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-fpso-muted">
+              <Table2 className="h-3.5 w-3.5 text-fpso-dim" /> 主要设备表
             </h3>
             <table className="w-full text-xs">
               <thead>
@@ -554,7 +555,7 @@ export default function IndustryBreakdownPage() {
                   const mat = eq.material.split("/")[0].trim();
                   const spec = MATERIAL_COLORS.find((m) => m.name === mat || eq.material.includes(m.name));
                   return (
-                    <tr key={eq.no} className="border-b border-fpso-border/20 hover:bg-fpso-card/[0.03]">
+                    <tr key={eq.no} className="border-b border-fpso-border/20 hover:bg-fpso-blue/[0.05]">
                       <td className="py-1.5 pr-2 text-fpso-dim">{eq.no}</td>
                       <td className="py-1.5 pr-2 text-fpso-fg">{eq.name}</td>
                       <td className="py-1.5 pr-2 text-fpso-dim font-mono">{eq.spec}</td>

@@ -1119,7 +1119,7 @@ export default function DashboardPage() {
         />
 
         <main
-          className="flex-1 min-w-0 px-6 py-10 transition-all duration-300 ease-in-out max-md:!ml-0"
+          className="flex-1 min-w-0 px-6 py-8 transition-all duration-300 ease-in-out max-md:!ml-0"
           style={{ marginLeft: sidebarCollapsed ? 48 : 260 }}
         >
         {/* 页面标题 — 深灰主体 + 「商机挖掘」青蓝渐变 + 英文副标 */}

@@ -98,28 +98,6 @@
     color: transparent;
   }
 
-  /* 玻璃态卡片 — 半透明白 + 微光边框 + 柔和阴影 */
-  .glass-card {
-    background-color: rgba(255, 255, 255, 0.72);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(226, 232, 240, 0.9);
-    box-shadow: var(--shadow-card);
-  }
-
-  .glass-card:hover {
-    box-shadow: var(--shadow-hover);
-  }
-
-  /* 卡片悬浮光晕 — 蓝色微光 */
-  .glow-hover {
-    transition: box-shadow 0.25s ease, transform 0.25s ease, border-color 0.25s ease;
-  }
-
-  .glow-hover:hover {
-    box-shadow: var(--shadow-glow);
-    transform: translateY(-1px);
-  }
-
   /* 地图光点 — 轻呼吸（无扩散环）+ hover 增强 */
   .map-pulse {
     animation: map-core-pulse 2.5s ease-in-out infinite, fade-in-scale 0.5s backwards ease-out;
@@ -197,15 +175,6 @@
     transform: translateX(2px);
   }
 
-  /* 空状态占位 */
-  .empty-state {
-    display: none;
-  }
-
-  .empty-state.visible {
-    display: block;
-  }
-
   /* 外部链接图标不跟随下划线 */
   .external-link {
     text-decoration: none;
@@ -220,22 +189,12 @@
     display: inline-block;
   }
 
-  /* 可复用的标签隐藏类 */
-  .tag-hidden {
-    display: none;
-  }
-
   /* 采购链标签 */
   .procurement-tag {
     transition: background-color 0.15s;
   }
   .procurement-tag:hover {
     filter: brightness(0.96);
-  }
-
-  /* 状态圆点 — 浅色下光晕收敛 */
-  .status-dot {
-    box-shadow: 0 0 4px currentColor;
   }
 
   /* 地图容器固定比例 */

@@ -458,10 +458,10 @@ export default function DatabasePage() {
           {loading ? (
             <Spinner />
           ) : (
-            <div className="overflow-x-auto">
+            <div className="max-h-[70vh] overflow-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-fpso-border bg-fpso-bg/40 backdrop-blur-md text-left text-xs font-medium uppercase tracking-wider text-fpso-muted">
+                  <tr className="sticky top-0 z-10 border-b border-fpso-border bg-fpso-card text-left text-xs font-medium uppercase tracking-wider text-fpso-muted">
                     <th className="px-4 py-3">Project</th>
                     <th className="px-4 py-3">Country</th>
                     <th className="px-4 py-3">Phase</th>
@@ -499,9 +499,9 @@ export default function DatabasePage() {
                       <tr
                         key={p.name}
                         onClick={() => setSelected(p)}
-                        className="border-b border-fpso-border transition-colors hover:bg-fpso-blue/10 cursor-pointer"
+                        className="border-b border-fpso-border transition-colors odd:bg-fpso-bg/30 hover:bg-fpso-blue/10 cursor-pointer"
                       >
-                        <td className="px-4 py-2.5 font-medium text-fpso-fg max-w-[220px] truncate">
+                        <td className="px-4 py-2.5 font-medium text-fpso-fg max-w-[220px] truncate" title={p.name}>
                           {p.name}
                           {showAllProjects && !hasTimelineData(p, timelineEventCounts) && (
                             <span
@@ -562,7 +562,7 @@ export default function DatabasePage() {
                             <span className="text-fpso-dim">—</span>
                           )}
                         </td>
-                        <td className="px-4 py-2.5 text-fpso-muted max-w-[280px] truncate">
+                        <td className="px-4 py-2.5 text-fpso-muted max-w-[280px] truncate" title={p.summary}>
                           {truncate(p.summary, 60)}
                         </td>
                         <td className="px-4 py-2.5">
