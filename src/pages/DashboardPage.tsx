@@ -1122,11 +1122,15 @@ export default function DashboardPage() {
           className="flex-1 min-w-0 px-6 py-10 transition-all duration-300 ease-in-out max-md:!ml-0"
           style={{ marginLeft: sidebarCollapsed ? 48 : 260 }}
         >
-        {/* 页面标题 */}
+        {/* 页面标题 — 深灰主体 + 「商机挖掘」青蓝渐变 + 英文副标 */}
         <section className="mb-8">
           <h1 className="text-2xl font-semibold tracking-tight text-fpso-fg md:text-3xl">
-            {getIndustryTitle(selectedIndustry)}
+            {getIndustryTitle(selectedIndustry).replace(/商机挖掘$/, "")}
+            <span className="neon-glow">商机挖掘</span>
           </h1>
+          <p className="mt-1.5 text-[11px] font-medium uppercase tracking-[0.2em] text-fpso-muted/80">
+            Global Business Opportunity Discovery
+          </p>
         </section>
 
         {/* 指标统计带 */}
