@@ -499,7 +499,7 @@ export default function DatabasePage() {
                       <tr
                         key={p.name}
                         onClick={() => setSelected(p)}
-                        className="border-b border-fpso-border transition-colors hover:bg-fpso-blue/5 cursor-pointer"
+                        className="border-b border-fpso-border transition-colors hover:bg-fpso-blue/10 cursor-pointer"
                       >
                         <td className="px-4 py-2.5 font-medium text-fpso-fg max-w-[220px] truncate">
                           {p.name}
@@ -647,7 +647,7 @@ export default function DatabasePage() {
 
       {/* detail panel (slide-in from right) */}
       <aside
-        className={`fixed right-0 top-0 z-50 h-full w-full max-w-lg overflow-y-auto border-l border-fpso-border bg-fpso-card/70 backdrop-blur-md shadow-lift transition-transform duration-300 ${
+        className={`fixed right-0 top-0 z-50 h-full w-full max-w-lg overflow-y-auto border-l border-fpso-border bg-fpso-card/95 backdrop-blur-md shadow-lift transition-transform duration-300 ${
           selected ? "translate-x-0" : "translate-x-full"
         }`}
       >

@@ -170,8 +170,8 @@ function BattleCardView({ card, innerRef, followUp, timelineSummary, analysis, a
   return (
     <div
       ref={innerRef}
-      className="battle-card w-full max-w-2xl mx-auto rounded-xl border border-border bg-fpso-card/60 backdrop-blur-md shadow-2xl overflow-hidden"
-      style={{ minWidth: 600 }}
+      className="battle-card w-full max-w-2xl mx-auto rounded-xl border border-border bg-fpso-card/95 backdrop-blur-md shadow-2xl overflow-hidden"
+      style={{ minWidth: "min(600px, 100%)" }}
     >
       {/* ---- invalid / closed banner ---- */}
       {showBanner && (

@@ -319,7 +319,7 @@ export default function BattleCardsPage() {
           </div>
           <div className="flex items-center gap-3">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-fpso-border bg-fpso-bg/60 px-3 py-1 text-xs font-medium">
-              <span className={`h-1.5 w-1.5 rounded-full ${connectionStatus === "connected" ? "bg-emerald-400" : "bg-fpso-orange"}`} />
+              <span className={`h-1.5 w-1.5 rounded-full ${connectionStatus === "connected" ? "bg-fpso-green" : "bg-fpso-orange"}`} />
               {connectionStatus === "connected" ? "LIVE" : "STALE"}
             </span>
             <Button

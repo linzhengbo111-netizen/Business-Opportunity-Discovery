@@ -27,7 +27,7 @@ export default function Header({ rightContent }: { rightContent?: ReactNode }) {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-fpso-border/80 bg-fpso-card/60 backdrop-blur-xl shadow-[0_1px_8px_rgba(15,23,42,0.04)]">
+    <header className="sticky top-0 z-50 w-full border-b border-fpso-border/80 bg-fpso-card/60 backdrop-blur-xl shadow-card">
       <div className="relative mx-auto flex h-16 max-w-7xl items-center px-6">
         {/* left: title */}
         <div className="z-10 flex-shrink-0">
@@ -91,7 +91,7 @@ export default function Header({ rightContent }: { rightContent?: ReactNode }) {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={logout}
-                    className="cursor-pointer text-red-400 hover:text-red-300"
+                    className="cursor-pointer text-destructive/80 hover:text-destructive"
                   >
                     Log Out
                   </DropdownMenuItem>

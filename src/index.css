@@ -74,9 +74,7 @@
   button {
     @apply shadow-sm transition-shadow duration-300;
   }
-  button:hover {
-    box-shadow: var(--shadow-hover);
-  }
+  /* 全局 hover 阴影已移除 — 小按钮 hover 只做颜色变化，浮起阴影留给显式 hover:shadow-* 的组件 */
 
   html {
     scroll-behavior: smooth;

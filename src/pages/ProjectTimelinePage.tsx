@@ -69,10 +69,11 @@ function formatEventType(et: string): string {
 
 type EventCategory = "PRODUCTION" | "CONTRACT" | "EIA" | "REGULATORY" | "OTHER";
 
+/** 单一颜色源：chips 与圆点共用（hex 对齐 fpso token） */
 const CATEGORY_OPTIONS: { key: EventCategory; label: string; color: string }[] = [
   { key: "PRODUCTION", label: "投产", color: "#059669" },
   { key: "CONTRACT", label: "合同", color: "#0284c7" },
-  { key: "EIA", label: "EIA/计划", color: "#f97316" },
+  { key: "EIA", label: "EIA/计划", color: "#ea580c" },
   { key: "REGULATORY", label: "监管/许可", color: "#db2777" },
   { key: "OTHER", label: "其他", color: "#64748b" },
 ];
@@ -86,26 +87,9 @@ function categorizeEvent(eventType: string): EventCategory {
   return "OTHER";
 }
 
-function timelineDotColor(eventType: string): string {
-  const cat = categorizeEvent(eventType);
-  switch (cat) {
-    case "PRODUCTION": return "bg-fpso-green";
-    case "CONTRACT": return "bg-fpso-blue";
-    case "EIA": return "bg-fpso-orange";
-    case "REGULATORY": return "bg-pink-400"; // tailwind pink
-    default: return "bg-fpso-muted";
-  }
-}
-
 function timelineDotStyle(eventType: string): string {
   const cat = categorizeEvent(eventType);
-  switch (cat) {
-    case "PRODUCTION": return "#059669";
-    case "CONTRACT": return "#0284c7";
-    case "EIA": return "#f97316";
-    case "REGULATORY": return "#db2777";
-    default: return "#64748b";
-  }
+  return CATEGORY_OPTIONS.find((c) => c.key === cat)?.color ?? "#64748b";
 }
 
 // ---- Helpers ----

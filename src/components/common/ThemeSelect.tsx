@@ -48,7 +48,7 @@ export function ThemeSelect({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className={`flex h-8 w-full items-center justify-between gap-2 rounded-md border bg-fpso-card/70 px-2.5 py-1 text-xs text-fpso-fg outline-none transition-all backdrop-blur-sm ${
+        className={`flex h-8 w-full items-center justify-between gap-2 rounded-md border bg-fpso-card/70 px-2.5 py-1 text-xs text-fpso-fg outline-none transition-all backdrop-blur-sm focus-visible:border-fpso-blue/50 focus-visible:ring-2 focus-visible:ring-fpso-blue/50 ${
           open
             ? "border-fpso-blue/50 ring-1 ring-fpso-blue/30 shadow-glow"
             : "border-fpso-border hover:border-fpso-blue/40 hover:bg-fpso-card"
