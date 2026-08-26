@@ -1124,7 +1124,7 @@ export default function DashboardPage() {
         >
         {/* 页面标题 — 深灰主体 + 「商机挖掘」青蓝渐变 + 英文副标 */}
         <section className="mb-8">
-          <h1 className="text-2xl font-semibold tracking-tight text-fpso-fg md:text-3xl">
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-600 md:text-3xl">
             {getIndustryTitle(selectedIndustry).replace(/商机挖掘$/, "")}
             <span className="neon-glow">商机挖掘</span>
           </h1>
