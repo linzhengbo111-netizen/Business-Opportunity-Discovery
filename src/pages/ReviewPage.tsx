@@ -8,9 +8,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Header from "@/components/common/Header";
+import { ThemeSelect } from "@/components/common/ThemeSelect";
 import PageMeta from "@/components/common/PageMeta";
 import type { Project } from "@/data/projects";
-import { sampleProjects, COUNTRY_ALIASES } from "@/data/projects";
+import { sampleProjects, COUNTRY_ALIASES, countryToFlagEmoji } from "@/data/projects";
 import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
 import { supabase } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
@@ -310,31 +311,32 @@ export default function ReviewPage() {
           {/* country */}
           <div className="flex items-center gap-2">
             <label className="text-xs font-medium text-fpso-muted">Country</label>
-            <select
+            <ThemeSelect
               value={filterCountry}
-              onChange={(e) => setFilterCountry(e.target.value)}
-              className="h-8 min-w-[140px] rounded-md bg-fpso-bg/70 px-2.5 py-1 text-sm text-fpso-fg outline-none border border-fpso-border focus:ring-2 focus:ring-fpso-blue/50"
-            >
-              <option value="all">All Countries</option>
-              {countries.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
+              onChange={setFilterCountry}
+              className="min-w-[140px]"
+              options={[
+                { value: "all", label: "All Countries" },
+                ...countries.map((c) => ({
+                  value: c,
+                  label: countryToFlagEmoji(c) ? `${countryToFlagEmoji(c)} ${c}` : c,
+                })),
+              ]}
+            />
           </div>
 
           {/* source */}
           <div className="flex items-center gap-2">
             <label className="text-xs font-medium text-fpso-muted">Source</label>
-            <select
+            <ThemeSelect
               value={filterSource}
-              onChange={(e) => setFilterSource(e.target.value)}
-              className="h-8 min-w-[140px] rounded-md bg-fpso-bg/70 px-2.5 py-1 text-sm text-fpso-fg outline-none border border-fpso-border focus:ring-2 focus:ring-fpso-blue/50"
-            >
-              <option value="all">All Sources</option>
-              {sources.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
+              onChange={setFilterSource}
+              className="min-w-[140px]"
+              options={[
+                { value: "all", label: "All Sources" },
+                ...sources.map((s) => ({ value: s, label: s })),
+              ]}
+            />
           </div>
 
           {/* name search */}

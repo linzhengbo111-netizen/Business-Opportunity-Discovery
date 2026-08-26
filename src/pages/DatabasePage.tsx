@@ -6,9 +6,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Header from "@/components/common/Header";
+import { ThemeSelect } from "@/components/common/ThemeSelect";
 import PageMeta from "@/components/common/PageMeta";
 import type { Project } from "@/data/projects";
-import { sampleProjects, COUNTRY_ALIASES, INDUSTRY_OPTIONS, industryLabel, normalizeIndustry } from "@/data/projects";
+import { sampleProjects, COUNTRY_ALIASES, INDUSTRY_OPTIONS, industryLabel, normalizeIndustry, countryToFlagEmoji } from "@/data/projects";
 import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
 import { supabase, fetchAllRows } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
@@ -368,65 +369,60 @@ export default function DatabasePage() {
           {/* industry */}
           <div className="flex items-center gap-2">
             <label className="text-xs font-medium text-fpso-muted">Industry</label>
-            <select
+            <ThemeSelect
               value={industryFilter}
-              onChange={(e) => setIndustryFilter(e.target.value)}
-              className="h-8 min-w-[150px] rounded-md bg-fpso-bg/70 px-2.5 py-1 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50 border border-fpso-border"
-            >
-              {INDUSTRY_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>{industryLabel(opt)}</option>
-              ))}
-            </select>
+              onChange={setIndustryFilter}
+              className="min-w-[150px]"
+              options={INDUSTRY_OPTIONS.map((opt) => ({
+                value: opt,
+                label: industryLabel(opt),
+              }))}
+            />
           </div>
 
           {/* region */}
           <div className="flex items-center gap-2">
             <label className="text-xs font-medium text-fpso-muted">Region</label>
-            <select
+            <ThemeSelect
               value={countryFilter}
-              onChange={(e) => setCountryFilter(e.target.value)}
-              className="h-8 min-w-[140px] rounded-md bg-fpso-bg/70 px-2.5 py-1 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50 border border-fpso-border"
-            >
-              <option value="All Countries">All Countries</option>
-              {countries.map((c) => {
-                const flag = getCountryFlag(projects, c);
-                return (
-                  <option key={c} value={c}>
-                    {flag ? `${flag} ${c}` : c}
-                  </option>
-                );
-              })}
-            </select>
+              onChange={setCountryFilter}
+              className="min-w-[140px]"
+              options={[
+                { value: "All Countries", label: "All Countries" },
+                ...countries.map((c) => {
+                  const flag = countryToFlagEmoji(c) || getCountryFlag(projects, c);
+                  return { value: c, label: flag ? `${flag} ${c}` : c };
+                }),
+              ]}
+            />
           </div>
 
           {/* phase */}
           <div className="flex items-center gap-2">
             <label className="text-xs font-medium text-fpso-muted">Phase</label>
-            <select
+            <ThemeSelect
               value={phaseFilter}
-              onChange={(e) => setPhaseFilter(e.target.value)}
-              className="h-8 min-w-[160px] rounded-md bg-fpso-bg/70 px-2.5 py-1 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50 border border-fpso-border"
-            >
-              {PHASE_FILTER_OPTIONS.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
+              onChange={setPhaseFilter}
+              className="min-w-[160px]"
+              options={PHASE_FILTER_OPTIONS.map((s) => ({ value: s, label: s }))}
+            />
           </div>
 
           {/* confidence */}
           <div className="flex items-center gap-2">
             <label className="text-xs font-medium text-fpso-muted">Confidence</label>
-            <select
+            <ThemeSelect
               value={confidenceFilter}
-              onChange={(e) => setConfidenceFilter(e.target.value)}
-              className="h-8 min-w-[120px] rounded-md bg-fpso-bg/70 px-2.5 py-1 text-sm text-fpso-fg outline-none ring-offset-0 focus:ring-2 focus:ring-fpso-blue/50 border border-fpso-border disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <option value="High & Medium">High &amp; Medium</option>
-              <option value="High">High</option>
-              <option value="Medium">Medium</option>
-              <option value="Low">Low</option>
-              <option value="All">All</option>
-            </select>
+              onChange={setConfidenceFilter}
+              className="min-w-[120px]"
+              options={[
+                { value: "High & Medium", label: "High & Medium" },
+                { value: "High", label: "High" },
+                { value: "Medium", label: "Medium" },
+                { value: "Low", label: "Low" },
+                { value: "All", label: "All" },
+              ]}
+            />
           </div>
 
           {/* name search */}
