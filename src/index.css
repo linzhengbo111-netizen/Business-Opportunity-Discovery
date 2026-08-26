@@ -59,7 +59,7 @@
 
     /* 含蓄渐变 — 冷白顶部环境光 + 青蓝主色渐变 */
     --gradient-background:
-      radial-gradient(1100px 480px at 50% -80px, rgba(2, 132, 199, 0.05), transparent 70%),
+      radial-gradient(1100px 480px at 50% -80px, rgba(2, 132, 199, 0.07), transparent 70%),
       linear-gradient(180deg, #f4f8fc 0%, #f8fafc 180px);
     --gradient-primary: linear-gradient(135deg, #0891b2 0%, #0284c7 55%, #0369a1 100%);
     --gradient-card: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);

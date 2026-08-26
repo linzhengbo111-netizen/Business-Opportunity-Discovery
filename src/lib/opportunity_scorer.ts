@@ -505,9 +505,9 @@ export function scoreToGrade(score: number): "A" | "B" | "C" | "D" {
 export function scoreBadgeClass(grade: string): string {
   switch (grade) {
     case "A":
-      return "bg-fpso-green/15 text-fpso-green";
+      return "bg-[#0c4a6e] text-white";
     case "B":
-      return "bg-fpso-blue/15 text-fpso-blue";
+      return "bg-fpso-blue text-white";
     case "C":
       return "bg-fpso-orange/15 text-fpso-orange";
     case "D":

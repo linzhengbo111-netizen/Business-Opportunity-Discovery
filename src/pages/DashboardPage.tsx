@@ -28,6 +28,7 @@ import {
   PHASES, PHASE_UNKNOWN, PHASE_HEX, PHASE_SEGMENTS, PHASE_UNLIT,
   phaseGroup, phaseColorClass, phaseDotClass, phaseBgClass, phaseBorderLClass,
   phaseProgressIndex, phaseLabel, phaseFromRow,
+  type PhaseGroup,
 } from "@/lib/project_phase";
 import { analyzeProjectScenario, assessOpportunity, type AIResult, type ScenarioAnalysis, type OpportunityAssessment } from "@/lib/ai_analyst";
 import { usePushAnalysis, usePushAnalysisState } from "@/hooks/usePushAnalysis";
@@ -36,7 +37,7 @@ import BattleCardWrapper from "@/components/dashboard/BattleCard";
 import OutreachModal from "@/components/dashboard/OutreachModal";
 import FollowUpStatus from "@/components/dashboard/FollowUpStatus";
 import GlobalSearch from "@/components/dashboard/GlobalSearch";
-import { Building2, Hammer, Wrench, CalendarDays, PlusCircle, Anchor, Waves, Gauge, Globe, BarChart3 } from "lucide-react";
+import { Building2, Hammer, Wrench, CalendarDays, PlusCircle, Anchor, Waves, Gauge, Globe, BarChart3, TrendingUp, TrendingDown } from "lucide-react";
 import FilterSidebar from "@/components/dashboard/FilterSidebar";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
@@ -156,6 +157,21 @@ const COUNTRY_CHART_COLORS = [
   "#0ea5e9", "#0284c7", "#0369a1", "#075985",
   "#0c4a6e", "#082f49", "#0f172a",
 ];
+
+/** 统计卡趋势行 — 基于 createdAt 的近 30 天环比；前值缺失时不编造 */
+function TrendLine({ current, previous }: { current: number; previous: number }) {
+  if (previous === 0) {
+    return <span className="text-[11px] text-fpso-dim">暂无趋势</span>;
+  }
+  const pct = ((current - previous) / previous) * 100;
+  const up = pct >= 0;
+  return (
+    <span className={`inline-flex items-center gap-1 text-[11px] font-medium ${up ? "text-fpso-green" : "text-destructive"}`}>
+      {up ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+      {up ? "+" : ""}{pct.toFixed(1)}% <span className="font-normal text-fpso-dim">较上月</span>
+    </span>
+  );
+}
 
 /** Source badge for AI vs rule-engine output. */
 function SourceBadge({ source }: { source: "ai" | "rules" }) {
@@ -378,8 +394,8 @@ function DashboardProjectCard({
                   {(() => {
                     const scoreResult = scoreOpportunity(project);
                     return (
-                      <span className={`inline-flex items-center rounded border border-current/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${scoreBadgeClass(scoreResult.grade)}`}>
-                        {scoreResult.grade}{scoreResult.totalScore}
+                      <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${scoreBadgeClass(scoreResult.grade)}`}>
+                        {scoreResult.grade} {scoreResult.totalScore}
                       </span>
                     );
                   })()}
@@ -810,6 +826,40 @@ export default function DashboardPage() {
 
   const filteredStats = useMemo(() => getStats(filteredProjects), [filteredProjects]);
 
+  // 趋势：近 30 天 vs 前 30 天（按 createdAt），分组口径与统计卡一致
+  const trendCounts = useMemo(() => {
+    const day = 86400000;
+    const now = Date.now();
+    const curStart = now - 30 * day;
+    const prevStart = now - 60 * day;
+    const rows = filteredProjects.filter((p) => {
+      const t = p.createdAt ? new Date(p.createdAt).getTime() : NaN;
+      return !Number.isNaN(t) && t >= prevStart && t < now;
+    });
+    const count = (from: number, to: number, group: PhaseGroup | "total") =>
+      rows.filter((p) => {
+        const t = new Date(p.createdAt as string).getTime();
+        return t >= from && t < to && (group === "total" || phaseGroup(p.phase) === group);
+      }).length;
+    return {
+      total: { cur: count(curStart, now, "total"), prev: count(prevStart, curStart, "total") },
+      early: { cur: count(curStart, now, "early"), prev: count(prevStart, curStart, "early") },
+      mid: { cur: count(curStart, now, "mid"), prev: count(prevStart, curStart, "mid") },
+      late: { cur: count(curStart, now, "late"), prev: count(prevStart, curStart, "late") },
+    };
+  }, [filteredProjects]);
+
+  // 最后更新：全量项目中 createdAt 最大值
+  const lastUpdated = useMemo(() => {
+    const ts = projects
+      .map((p) => p.createdAt)
+      .filter((d): d is string => !!d)
+      .map((d) => new Date(d).getTime())
+      .filter((t) => !Number.isNaN(t));
+    if (ts.length === 0) return null;
+    return new Date(Math.max(...ts));
+  }, [projects]);
+
   // 图表数据
   const countryChartData = useMemo(() => {
     const count: Record<string, number> = {};
@@ -1122,99 +1172,109 @@ export default function DashboardPage() {
           className="flex-1 min-w-0 px-6 py-8 transition-all duration-300 ease-in-out max-md:!ml-0"
           style={{ marginLeft: sidebarCollapsed ? 48 : 260 }}
         >
-        {/* 页面标题 — 深灰主体 + 「商机挖掘」青蓝渐变 + 英文副标 */}
-        <section className="mb-8">
+        {/* 页面标题 — 深灰主体 + 「商机挖掘」青蓝渐变 + 英文副标 + 最后更新 */}
+        <section className="mb-10">
           <h1 className="text-2xl font-semibold tracking-tight text-fpso-fg md:text-3xl">
             {getIndustryTitle(selectedIndustry).replace(/商机挖掘$/, "")}
             <span className="neon-glow">商机挖掘</span>
           </h1>
-          <p className="mt-1.5 text-[11px] font-medium uppercase tracking-[0.2em] text-fpso-muted/80">
-            Global Business Opportunity Discovery
-          </p>
+          <div className="mt-1.5 flex items-baseline justify-between gap-4">
+            <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-fpso-muted/80">
+              Global Business Opportunity Discovery
+            </p>
+            <span className="flex-shrink-0 text-xs text-fpso-muted">
+              最后更新: {lastUpdated ? lastUpdated.toLocaleDateString("zh-CN") : "—"}
+            </span>
+          </div>
         </section>
 
         {/* 指标统计带 */}
-        <section className="mb-8">
+        <section className="mb-10">
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
             {/* Total Projects */}
-            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-fpso-card/70 backdrop-blur-md shadow-card transition-all duration-300 p-4 hover:border-fpso-blue/50 hover:bg-white hover:shadow-glow hover:-translate-y-0.5">
+            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-gradient-to-b from-white to-[#f2f8fc] shadow-card transition-all duration-300 p-4 hover:border-fpso-blue/50 hover:bg-white hover:shadow-glow hover:-translate-y-0.5">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <Building2 className="h-20 w-20 text-fpso-blue" />
               </div>
               <div className="relative z-10 flex items-center gap-3">
-                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-fpso-blue/10 ring-1 ring-fpso-blue/20">
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-gradient-to-b from-white to-fpso-blue/10 ring-1 ring-fpso-blue/20">
                   <Building2 className="h-4 w-4 text-fpso-blue" />
                 </span>
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Total Projects</div>
-                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300">{filteredStats.total.toLocaleString()}</div>
+                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300 group-hover:text-[#075985]">{filteredStats.total.toLocaleString()}</div>
+                  <TrendLine current={trendCounts.total.cur} previous={trendCounts.total.prev} />
                 </div>
               </div>
             </div>
 
             {/* Early (Concept / Planning / Design) */}
-            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-fpso-card/70 backdrop-blur-md shadow-card transition-all duration-300 p-4 hover:border-fpso-muted/50 hover:bg-white hover:shadow-glow hover:-translate-y-0.5">
+            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-gradient-to-b from-white to-[#f2f8fc] shadow-card transition-all duration-300 p-4 hover:border-fpso-muted/50 hover:bg-white hover:shadow-glow hover:-translate-y-0.5">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <CalendarDays className="h-20 w-20 text-fpso-muted" />
               </div>
               <div className="relative z-10 flex items-center gap-3">
-                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-fpso-muted/10 ring-1 ring-fpso-muted/20">
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-gradient-to-b from-white to-fpso-muted/10 ring-1 ring-fpso-muted/20">
                   <CalendarDays className="h-4 w-4 text-fpso-muted" />
                 </span>
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Early Phase</div>
-                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300">{filteredStats.early.toLocaleString()}</div>
+                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300 group-hover:text-[#075985]">{filteredStats.early.toLocaleString()}</div>
+                  <TrendLine current={trendCounts.early.cur} previous={trendCounts.early.prev} />
                   <div className="truncate text-xs text-fpso-dim">Concept · Planning · Design</div>
                 </div>
               </div>
             </div>
 
             {/* Mid (Approval / EPC Award / Procurement) */}
-            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-fpso-card/70 backdrop-blur-md shadow-card transition-all duration-300 p-4 hover:border-fpso-orange/50 hover:bg-white hover:shadow-glow hover:-translate-y-0.5">
+            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-gradient-to-b from-white to-[#f2f8fc] shadow-card transition-all duration-300 p-4 hover:border-fpso-orange/50 hover:bg-white hover:shadow-glow hover:-translate-y-0.5">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <Hammer className="h-20 w-20 text-fpso-orange" />
               </div>
               <div className="relative z-10 flex items-center gap-3">
-                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-fpso-orange/10 ring-1 ring-fpso-orange/20">
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-gradient-to-b from-white to-fpso-orange/10 ring-1 ring-fpso-orange/20">
                   <Hammer className="h-4 w-4 text-fpso-orange" />
                 </span>
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Mid Phase</div>
-                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300">{filteredStats.mid.toLocaleString()}</div>
+                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300 group-hover:text-[#075985]">{filteredStats.mid.toLocaleString()}</div>
+                  <TrendLine current={trendCounts.mid.cur} previous={trendCounts.mid.prev} />
                   <div className="truncate text-xs text-fpso-dim">Approval · EPC Award · Procurement</div>
                 </div>
               </div>
             </div>
 
             {/* Late (Construction / Commissioning / Delivery) */}
-            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-fpso-card/70 backdrop-blur-md shadow-card transition-all duration-300 p-4 hover:border-fpso-blue/50 hover:bg-white hover:shadow-glow hover:-translate-y-0.5">
+            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-gradient-to-b from-white to-[#f2f8fc] shadow-card transition-all duration-300 p-4 hover:border-fpso-blue/50 hover:bg-white hover:shadow-glow hover:-translate-y-0.5">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <Wrench className="h-20 w-20 text-fpso-blue" />
               </div>
               <div className="relative z-10 flex items-center gap-3">
-                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-fpso-blue/10 ring-1 ring-fpso-blue/20">
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-gradient-to-b from-white to-fpso-blue/10 ring-1 ring-fpso-blue/20">
                   <Wrench className="h-4 w-4 text-fpso-blue" />
                 </span>
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Late Phase</div>
-                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300">{filteredStats.late.toLocaleString()}</div>
+                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300 group-hover:text-[#075985]">{filteredStats.late.toLocaleString()}</div>
+                  <TrendLine current={trendCounts.late.cur} previous={trendCounts.late.prev} />
                   <div className="truncate text-xs text-fpso-dim">Construction · Commissioning · Delivery</div>
                 </div>
               </div>
             </div>
 
             {/* Added This Week */}
-            <div className="group relative col-span-2 overflow-hidden rounded-lg border border-fpso-border bg-fpso-card/70 backdrop-blur-md shadow-card transition-all duration-300 p-4 hover:border-fpso-green/50 hover:bg-white hover:shadow-glow hover:-translate-y-0.5 lg:col-span-1">
+            <div className="group relative col-span-2 overflow-hidden rounded-lg border border-fpso-border bg-gradient-to-b from-white to-[#f2f8fc] shadow-card transition-all duration-300 p-4 hover:border-fpso-green/50 hover:bg-white hover:shadow-glow hover:-translate-y-0.5 lg:col-span-1">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <PlusCircle className="h-20 w-20 text-fpso-green" />
               </div>
               <div className="relative z-10 flex items-center gap-3">
-                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-fpso-green/10 ring-1 ring-fpso-green/20">
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-gradient-to-b from-white to-fpso-green/10 ring-1 ring-fpso-green/20">
                   <PlusCircle className="h-4 w-4 text-fpso-green" />
                 </span>
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Added This Week</div>
-                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300">{filteredStats.addedThisWeek.toLocaleString()}</div>
+                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300 group-hover:text-[#075985]">{filteredStats.addedThisWeek.toLocaleString()}</div>
+                  <div className="text-[11px] font-medium text-fpso-green">本周新增 {filteredStats.addedThisWeek.toLocaleString()} 条</div>
                   <div className="truncate text-xs text-fpso-dim">New Discoveries</div>
                 </div>
               </div>
@@ -1272,7 +1332,10 @@ export default function DashboardPage() {
               <Globe className="h-20 w-20 text-fpso-blue" />
             </div>
             <div className="relative z-10 flex flex-1 flex-col">
-              <h3 className="mb-4 border-b border-fpso-border pb-3 text-xs font-semibold uppercase tracking-widest text-fpso-muted">Country Distribution</h3>
+              <h3 className="mb-4 flex items-center justify-between border-b border-fpso-border pb-3 text-xs font-semibold uppercase tracking-widest text-fpso-muted">
+                <span>Country Distribution</span>
+                <span className="text-xs font-medium normal-case tracking-normal text-fpso-dim">{countryChartData.length} 个国家/地区</span>
+              </h3>
               {countryChartData.length === 0 ? (
                 <div className="flex flex-1 items-center justify-center">
                   <span className="text-sm text-fpso-muted">No country data for current filters.</span>
@@ -1305,11 +1368,12 @@ export default function DashboardPage() {
                         </Pie>
                         <Tooltip
                           contentStyle={{
-                            background: "#ffffff",
-                            border: "1px solid #e2e8f0",
+                            background: "rgba(255, 255, 255, 0.92)",
+                            border: "1px solid hsl(var(--border))",
                             borderRadius: "8px",
-                            fontSize: "13px",
-                            color: "#0f172a",
+                            fontSize: "12px",
+                            color: "hsl(var(--foreground))",
+                            boxShadow: "var(--shadow-lift)",
                           }}
                           formatter={(value: number, name: string) => [`${value} projects`, name]}
                         />
@@ -1362,7 +1426,10 @@ export default function DashboardPage() {
               <BarChart3 className="h-20 w-20 text-fpso-blue" />
             </div>
             <div className="relative z-10 flex flex-1 flex-col">
-              <h3 className="mb-4 border-b border-fpso-border pb-3 text-xs font-semibold uppercase tracking-widest text-fpso-muted">Phase Breakdown</h3>
+              <h3 className="mb-4 flex items-center justify-between border-b border-fpso-border pb-3 text-xs font-semibold uppercase tracking-widest text-fpso-muted">
+                <span>Phase Breakdown</span>
+                <span className="text-xs font-medium normal-case tracking-normal text-fpso-dim">{phaseChartData.reduce((s, d) => s + d.value, 0)} 个项目</span>
+              </h3>
               {phaseChartData.length === 0 ? (
                 <div className="flex flex-1 items-center justify-center">
                   <span className="text-sm text-fpso-muted">No phase data for current filters.</span>
@@ -1399,7 +1466,7 @@ export default function DashboardPage() {
                           </span>
                         </div>
                         {/* hover tooltip：状态名 + 数量 */}
-                        <div className="pointer-events-none absolute -top-8 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-md border border-[#e2e8f0] bg-fpso-card px-2.5 py-1 text-xs text-fpso-fg opacity-0 shadow-xl transition-opacity duration-200 group-hover/row:opacity-100">
+                        <div className="pointer-events-none absolute -top-8 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-md border border-fpso-border bg-white/90 px-2.5 py-1 text-xs text-fpso-fg opacity-0 shadow-lift backdrop-blur-sm transition-opacity duration-200 group-hover/row:opacity-100">
                           {d.name} — {d.value} projects
                         </div>
                       </div>
