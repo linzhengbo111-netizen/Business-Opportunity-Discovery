@@ -365,7 +365,7 @@ export default function DatabasePage() {
         </section>
 
         {/* filters */}
-        <section className="mb-6 flex flex-wrap items-center gap-4 rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md px-5 py-3 shadow-card hover:shadow-lift transition-shadow duration-300">
+        <section className="mb-6 flex flex-wrap items-center gap-4 rounded-lg border border-fpso-border bg-fpso-card/70 backdrop-blur-md px-5 py-3 shadow-card hover:shadow-lift transition-shadow duration-300">
           {/* industry */}
           <div className="flex items-center gap-2">
             <label className="text-xs font-medium text-fpso-muted">Industry</label>
@@ -454,7 +454,7 @@ export default function DatabasePage() {
         </section>
 
         {/* table */}
-        <section className="overflow-hidden rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md shadow-card hover:shadow-lift transition-shadow duration-300">
+        <section className="overflow-hidden rounded-lg border border-fpso-border bg-fpso-card/70 backdrop-blur-md shadow-card hover:shadow-lift transition-shadow duration-300">
           {loading ? (
             <Spinner />
           ) : (
@@ -505,7 +505,7 @@ export default function DatabasePage() {
                           {p.name}
                           {showAllProjects && !hasTimelineData(p, timelineEventCounts) && (
                             <span
-                              className="ml-2 inline-block rounded bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-400 ring-1 ring-amber-400/20"
+                              className="ml-2 inline-block rounded bg-fpso-orange/10 px-1.5 py-0.5 text-[10px] font-semibold text-fpso-orange ring-1 ring-fpso-orange/20"
                               title="暂无足够商机数据，已加入待挖掘池"
                             >
                               待挖掘
@@ -647,7 +647,7 @@ export default function DatabasePage() {
 
       {/* detail panel (slide-in from right) */}
       <aside
-        className={`fixed right-0 top-0 z-50 h-full w-full max-w-lg overflow-y-auto border-l border-fpso-border bg-white/70 backdrop-blur-md shadow-lift transition-transform duration-300 ${
+        className={`fixed right-0 top-0 z-50 h-full w-full max-w-lg overflow-y-auto border-l border-fpso-border bg-fpso-card/70 backdrop-blur-md shadow-lift transition-transform duration-300 ${
           selected ? "translate-x-0" : "translate-x-full"
         }`}
       >

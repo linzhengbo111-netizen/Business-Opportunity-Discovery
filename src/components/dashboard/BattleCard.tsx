@@ -210,7 +210,7 @@ function BattleCardView({ card, innerRef, followUp, timelineSummary, analysis, a
 
       {/* ---- AI loading banner ---- */}
       {analysisLoading && (
-        <div className="border-b border-border bg-amber-400/5 px-5 py-2 text-center text-xs font-medium text-amber-400 animate-pulse">
+        <div className="border-b border-border bg-fpso-orange/5 px-5 py-2 text-center text-xs font-medium text-fpso-orange animate-pulse">
           AI 分析中… 结果返回后自动替换
         </div>
       )}
@@ -238,7 +238,7 @@ function BattleCardView({ card, innerRef, followUp, timelineSummary, analysis, a
                   <div className="space-y-1">
                     {analysis!.recommended_products.map((p) => (
                       <div key={p.product} className="flex items-start gap-1.5">
-                        <span className="inline-flex flex-shrink-0 items-center rounded bg-fpso-blue/10 px-2 py-0.5 text-xs font-medium text-fpso-blue border border-fpso-blue/15">
+                        <span className="inline-flex flex-shrink-0 items-center rounded bg-fpso-orange/10 px-2 py-0.5 text-xs font-medium text-fpso-orange border border-fpso-orange/15">
                           {p.product}
                         </span>
                         {p.reason && (
@@ -254,7 +254,7 @@ function BattleCardView({ card, innerRef, followUp, timelineSummary, analysis, a
                     {card.whatToPush.map((item) => (
                       <span
                         key={item}
-                        className="inline-flex items-center rounded bg-fpso-blue/10 px-2 py-0.5 text-xs font-medium text-fpso-blue border border-fpso-blue/15"
+                        className="inline-flex items-center rounded bg-fpso-orange/10 px-2 py-0.5 text-xs font-medium text-fpso-orange border border-fpso-orange/15"
                       >
                         {item}
                       </span>
@@ -275,7 +275,7 @@ function BattleCardView({ card, innerRef, followUp, timelineSummary, analysis, a
                   <div className="space-y-1">
                     {analysis!.recommended_materials.map((m) => (
                       <div key={m.grade} className="flex items-start gap-1.5">
-                        <span className="inline-flex flex-shrink-0 items-center rounded bg-fpso-green/10 px-2 py-0.5 text-xs font-mono font-medium text-fpso-green border border-fpso-green/15">
+                        <span className="inline-flex flex-shrink-0 items-center rounded bg-fpso-blue/10 px-2 py-0.5 text-xs font-mono font-medium text-fpso-blue border border-fpso-blue/15">
                           {m.grade}
                         </span>
                         {m.reason && (
@@ -291,7 +291,7 @@ function BattleCardView({ card, innerRef, followUp, timelineSummary, analysis, a
                     {card.materialGrades.map((g) => (
                       <span
                         key={g}
-                        className="inline-flex items-center rounded bg-fpso-green/10 px-2 py-0.5 text-xs font-mono font-medium text-fpso-green border border-fpso-green/15"
+                        className="inline-flex items-center rounded bg-fpso-blue/10 px-2 py-0.5 text-xs font-mono font-medium text-fpso-blue border border-fpso-blue/15"
                       >
                         {g}
                       </span>
@@ -308,7 +308,7 @@ function BattleCardView({ card, innerRef, followUp, timelineSummary, analysis, a
             {timelineSummary ? (
               <p className="text-xs leading-relaxed text-fpso-fg/90">{timelineSummary}</p>
             ) : (
-              <span className="inline-flex items-center rounded bg-amber-400/10 px-2 py-0.5 text-[10px] font-medium text-amber-400 ring-1 ring-amber-400/20">
+              <span className="inline-flex items-center rounded bg-fpso-orange/10 px-2 py-0.5 text-[10px] font-medium text-fpso-orange ring-1 ring-fpso-orange/20">
                 待补充
               </span>
             )}
@@ -350,7 +350,7 @@ function BattleCardView({ card, innerRef, followUp, timelineSummary, analysis, a
               {!card.whoToContact.epcContractor && !card.whoToContact.operator && !card.whoToContact.owner && (
                 <div className="flex gap-2">
                   <span className="text-fpso-dim flex-shrink-0">联系人:</span>
-                  <span className="inline-flex items-center rounded bg-amber-400/10 px-2 py-0.5 text-[10px] font-medium text-amber-400 ring-1 ring-amber-400/20">
+                  <span className="inline-flex items-center rounded bg-fpso-orange/10 px-2 py-0.5 text-[10px] font-medium text-fpso-orange ring-1 ring-fpso-orange/20">
                     待补充
                   </span>
                 </div>

@@ -161,7 +161,7 @@ function BattleSummaryCard({
 
   /** Amber "AI 分析中…" placeholder shown while the LLM call is in flight. */
   const analyzing = (
-    <span className="inline-flex items-center rounded bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400 animate-pulse">
+    <span className="inline-flex items-center rounded bg-fpso-orange/10 px-1.5 py-0.5 text-[10px] font-medium text-fpso-orange animate-pulse">
       AI 分析中…
     </span>
   );
@@ -171,7 +171,7 @@ function BattleSummaryCard({
       ref={cardRef}
       type="button"
       onClick={() => onOpen(project)}
-      className="group rounded-xl border border-fpso-border bg-white/70 p-5 text-left backdrop-blur-md transition-all hover:border-fpso-blue/40 hover:shadow-glow"
+      className="group rounded-xl border border-fpso-border bg-fpso-card/70 p-5 text-left backdrop-blur-md transition-all hover:border-fpso-blue/40 hover:shadow-glow"
     >
       {/* name + grade */}
       <div className="mb-3 flex items-start justify-between gap-3">
@@ -319,7 +319,7 @@ export default function BattleCardsPage() {
           </div>
           <div className="flex items-center gap-3">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-fpso-border bg-fpso-bg/60 px-3 py-1 text-xs font-medium">
-              <span className={`h-1.5 w-1.5 rounded-full ${connectionStatus === "connected" ? "bg-emerald-400" : "bg-amber-400"}`} />
+              <span className={`h-1.5 w-1.5 rounded-full ${connectionStatus === "connected" ? "bg-emerald-400" : "bg-fpso-orange"}`} />
               {connectionStatus === "connected" ? "LIVE" : "STALE"}
             </span>
             <Button

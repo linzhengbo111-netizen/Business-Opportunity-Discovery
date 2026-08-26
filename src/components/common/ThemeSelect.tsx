@@ -48,10 +48,10 @@ export function ThemeSelect({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className={`flex h-8 w-full items-center justify-between gap-2 rounded-md border bg-white/70 px-2.5 py-1 text-xs text-fpso-fg outline-none transition-all backdrop-blur-sm ${
+        className={`flex h-8 w-full items-center justify-between gap-2 rounded-md border bg-fpso-card/70 px-2.5 py-1 text-xs text-fpso-fg outline-none transition-all backdrop-blur-sm ${
           open
             ? "border-fpso-blue/50 ring-1 ring-fpso-blue/30 shadow-glow"
-            : "border-fpso-border hover:border-fpso-blue/40 hover:bg-white"
+            : "border-fpso-border hover:border-fpso-blue/40 hover:bg-fpso-card"
         }`}
       >
         <span className="truncate">{current?.label ?? value}</span>
@@ -63,7 +63,7 @@ export function ThemeSelect({
       </button>
 
       {open && (
-        <div className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto rounded-md border border-fpso-border bg-white p-1 shadow-lift">
+        <div className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto rounded-md border border-fpso-border bg-fpso-card p-1 shadow-lift">
           {options.map((o) => {
             const active = o.value === value;
             return (

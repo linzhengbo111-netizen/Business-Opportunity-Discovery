@@ -495,7 +495,7 @@ export default function IndustryBreakdownPage() {
         {/* Canvas 区域 */}
         <div
           ref={containerRef}
-          className="flex-1 relative bg-white overflow-hidden"
+          className="flex-1 relative bg-fpso-card overflow-hidden"
           onDrop={handleDrop}
           onDragOver={handleDragOver}
         >
@@ -505,7 +505,7 @@ export default function IndustryBreakdownPage() {
           {hovered && (
             <div
               className="absolute top-3 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full text-xs font-medium
-                         bg-white border border-fpso-border text-fpso-fg shadow-sm pointer-events-none z-10"
+                         bg-fpso-card border border-fpso-border text-fpso-fg shadow-sm pointer-events-none z-10"
               style={{ transition: `opacity ${TRANSITION_MS}ms ease` }}
             >
               当前高亮：<span style={{ color: REGION_MASKS[hovered]?.color ?? "#64748b" }}>{activeLabel}</span>
@@ -554,7 +554,7 @@ export default function IndustryBreakdownPage() {
                   const mat = eq.material.split("/")[0].trim();
                   const spec = MATERIAL_COLORS.find((m) => m.name === mat || eq.material.includes(m.name));
                   return (
-                    <tr key={eq.no} className="border-b border-fpso-border/20 hover:bg-white/[0.03]">
+                    <tr key={eq.no} className="border-b border-fpso-border/20 hover:bg-fpso-card/[0.03]">
                       <td className="py-1.5 pr-2 text-fpso-dim">{eq.no}</td>
                       <td className="py-1.5 pr-2 text-fpso-fg">{eq.name}</td>
                       <td className="py-1.5 pr-2 text-fpso-dim font-mono">{eq.spec}</td>
@@ -592,7 +592,7 @@ export default function IndustryBreakdownPage() {
 
       {/* ════════════ 底部缩略板块 ════════════ */}
       <div
-        className="flex-shrink-0 border-t border-fpso-border bg-white"
+        className="flex-shrink-0 border-t border-fpso-border bg-fpso-card"
         style={{ height: 130 }}
       >
         <div className="flex items-stretch h-full">

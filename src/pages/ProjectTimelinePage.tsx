@@ -504,7 +504,7 @@ export default function ProjectTimelinePage() {
             Project
           </label>
           <div className="relative">
-            <div className="flex items-center rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md hover:border-fpso-blue/30 transition-colors">
+            <div className="flex items-center rounded-lg border border-fpso-border bg-fpso-card/70 backdrop-blur-md hover:border-fpso-blue/30 transition-colors">
               <Search className="ml-3 h-4 w-4 text-fpso-dim flex-shrink-0" />
               <input
                 type="text"
@@ -534,7 +534,7 @@ export default function ProjectTimelinePage() {
             </div>
 
             {dropdownOpen && (
-              <div className="absolute z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-fpso-border bg-white/95 backdrop-blur-md shadow-card">
+              <div className="absolute z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-fpso-border bg-fpso-card/95 backdrop-blur-md shadow-card">
                 {showNoMatch ? (
                   <div className="px-4 py-6 text-center text-xs text-fpso-muted">No projects match.</div>
                 ) : (
@@ -663,7 +663,7 @@ export default function ProjectTimelinePage() {
               <span className="text-sm text-fpso-muted">Loading timeline…</span>
             </div>
           ) : filteredEvents.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center rounded-lg border border-fpso-border bg-white/70">
+            <div className="flex flex-col items-center justify-center py-16 text-center rounded-lg border border-fpso-border bg-fpso-card/70">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 className="h-12 w-12 text-fpso-dim mb-4"
@@ -690,7 +690,7 @@ export default function ProjectTimelinePage() {
           ) : (
             <div key={selectedId} className="animate-fade-in relative">
               {/* Vertical line */}
-              <div className="absolute left-[15px] top-2 bottom-2 w-0.5 bg-fpso-border" />
+              <div className="absolute left-[5px] top-2 bottom-2 w-0.5 bg-fpso-border" />
 
               <div className="space-y-5">
                 {filteredEvents.map((evt) => {
@@ -709,7 +709,7 @@ export default function ProjectTimelinePage() {
 
                       {/* Event card */}
                       <div
-                        className={`flex-1 min-w-0 rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md transition-all hover:shadow-hover hover:border-fpso-blue/30 cursor-default ${
+                        className={`flex-1 min-w-0 rounded-lg border border-fpso-border bg-fpso-card/70 backdrop-blur-md transition-all hover:shadow-hover hover:border-fpso-blue/30 cursor-default ${
                           hasExtra ? "cursor-pointer" : ""
                         }`}
                         onClick={() => hasExtra && toggleExpand(evt.id)}
@@ -785,7 +785,7 @@ export default function ProjectTimelinePage() {
 
         {/* Project Info Card */}
         {projectInfo && (
-          <section className="rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md p-5">
+          <section className="rounded-lg border border-fpso-border bg-fpso-card/70 backdrop-blur-md p-5">
             <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-fpso-dim">
               Project Info
             </h3>

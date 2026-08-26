@@ -89,7 +89,7 @@ export default function FilterSidebar({
 
       {/* Sidebar — fixed on desktop, overlay on mobile */}
       <aside
-        className={`fixed top-16 left-0 z-40 border-r border-fpso-border bg-white/70 backdrop-blur-md transition-all duration-300 ease-in-out overflow-hidden
+        className={`fixed top-16 left-0 z-40 border-r border-fpso-border bg-fpso-card/70 backdrop-blur-md transition-all duration-300 ease-in-out overflow-hidden
           max-md:shadow-2xl
           ${collapsed ? "max-md:-translate-x-full" : "max-md:translate-x-0"}
         `}
@@ -208,7 +208,7 @@ export default function FilterSidebar({
                       className={`inline-flex items-center rounded-md px-2 py-1 text-[11px] font-medium transition-all border ${
                         active
                           ? ""
-                          : "border-fpso-border bg-white/60 text-fpso-muted hover:border-fpso-blue/40 hover:text-fpso-fg hover:bg-white"
+                          : "border-fpso-border bg-fpso-card/60 text-fpso-muted hover:border-fpso-blue/40 hover:text-fpso-fg hover:bg-white"
                       }`}
                       style={
                         active

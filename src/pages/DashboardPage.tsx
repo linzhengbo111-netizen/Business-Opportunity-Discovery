@@ -386,7 +386,7 @@ function DashboardProjectCard({
                   {/* 待挖掘 badge: timeline has no linked events */}
                   {showAllProjects && !hasTimelineData(project, timelineEventCounts) && (
                     <span
-                      className="inline-flex items-center rounded border border-amber-400/20 bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-400"
+                      className="inline-flex items-center rounded border border-fpso-orange/20 bg-fpso-orange/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-fpso-orange"
                       title="暂无足够商机数据，已加入待挖掘池"
                     >
                       待挖掘
@@ -454,7 +454,7 @@ function DashboardProjectCard({
                 {loading ? (
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="text-[9px] font-semibold uppercase tracking-wider text-fpso-dim/60">商机分析</span>
-                    <span className="inline-flex items-center rounded bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400 animate-pulse ring-1 ring-amber-400/20">
+                    <span className="inline-flex items-center rounded bg-fpso-orange/10 px-1.5 py-0.5 text-[10px] font-medium text-fpso-orange animate-pulse ring-1 ring-fpso-orange/20">
                       AI 分析中…
                     </span>
                   </div>
@@ -1124,7 +1124,7 @@ export default function DashboardPage() {
         >
         {/* 页面标题 — 深灰主体 + 「商机挖掘」青蓝渐变 + 英文副标 */}
         <section className="mb-8">
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-600 md:text-3xl">
+          <h1 className="text-2xl font-semibold tracking-tight text-fpso-fg md:text-3xl">
             {getIndustryTitle(selectedIndustry).replace(/商机挖掘$/, "")}
             <span className="neon-glow">商机挖掘</span>
           </h1>
@@ -1137,7 +1137,7 @@ export default function DashboardPage() {
         <section className="mb-8">
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
             {/* Total Projects */}
-            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md shadow-card transition-all duration-300 p-4 hover:border-fpso-blue/50 hover:bg-white hover:shadow-glow hover:-translate-y-0.5">
+            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-fpso-card/70 backdrop-blur-md shadow-card transition-all duration-300 p-4 hover:border-fpso-blue/50 hover:bg-white hover:shadow-glow hover:-translate-y-0.5">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <Building2 className="h-20 w-20 text-fpso-blue" />
               </div>
@@ -1147,13 +1147,13 @@ export default function DashboardPage() {
                 </span>
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Total Projects</div>
-                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300">{filteredStats.total}</div>
+                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300">{filteredStats.total.toLocaleString()}</div>
                 </div>
               </div>
             </div>
 
             {/* Early (Concept / Planning / Design) */}
-            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md shadow-card transition-all duration-300 p-4 hover:border-fpso-muted/50 hover:bg-white hover:shadow-lift hover:-translate-y-0.5">
+            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-fpso-card/70 backdrop-blur-md shadow-card transition-all duration-300 p-4 hover:border-fpso-muted/50 hover:bg-white hover:shadow-lift hover:-translate-y-0.5">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <CalendarDays className="h-20 w-20 text-fpso-muted" />
               </div>
@@ -1163,14 +1163,14 @@ export default function DashboardPage() {
                 </span>
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Early Phase</div>
-                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300">{filteredStats.early}</div>
+                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300">{filteredStats.early.toLocaleString()}</div>
                   <div className="truncate text-xs text-fpso-dim">Concept · Planning · Design</div>
                 </div>
               </div>
             </div>
 
             {/* Mid (Approval / EPC Award / Procurement) */}
-            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md shadow-card transition-all duration-300 p-4 hover:border-yellow-400/60 hover:bg-white hover:shadow-lift hover:-translate-y-0.5">
+            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-fpso-card/70 backdrop-blur-md shadow-card transition-all duration-300 p-4 hover:border-yellow-400/60 hover:bg-white hover:shadow-lift hover:-translate-y-0.5">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <Hammer className="h-20 w-20 text-yellow-400" />
               </div>
@@ -1180,14 +1180,14 @@ export default function DashboardPage() {
                 </span>
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Mid Phase</div>
-                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300">{filteredStats.mid}</div>
+                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300">{filteredStats.mid.toLocaleString()}</div>
                   <div className="truncate text-xs text-fpso-dim">Approval · EPC Award · Procurement</div>
                 </div>
               </div>
             </div>
 
             {/* Late (Construction / Commissioning / Delivery) */}
-            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md shadow-card transition-all duration-300 p-4 hover:border-fpso-blue/50 hover:bg-white hover:shadow-glow hover:-translate-y-0.5">
+            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-fpso-card/70 backdrop-blur-md shadow-card transition-all duration-300 p-4 hover:border-fpso-blue/50 hover:bg-white hover:shadow-glow hover:-translate-y-0.5">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <Hammer className="h-20 w-20 text-fpso-blue" />
               </div>
@@ -1197,14 +1197,14 @@ export default function DashboardPage() {
                 </span>
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Late Phase</div>
-                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300">{filteredStats.late}</div>
+                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300">{filteredStats.late.toLocaleString()}</div>
                   <div className="truncate text-xs text-fpso-dim">Construction · Commissioning · Delivery</div>
                 </div>
               </div>
             </div>
 
             {/* Added This Week */}
-            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md shadow-card transition-all duration-300 p-4 hover:border-fpso-green/50 hover:bg-white hover:shadow-glow hover:-translate-y-0.5">
+            <div className="group relative overflow-hidden rounded-lg border border-fpso-border bg-fpso-card/70 backdrop-blur-md shadow-card transition-all duration-300 p-4 hover:border-fpso-green/50 hover:bg-white hover:shadow-glow hover:-translate-y-0.5">
               <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
                 <PlusCircle className="h-20 w-20 text-fpso-green" />
               </div>
@@ -1214,7 +1214,7 @@ export default function DashboardPage() {
                 </span>
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold uppercase tracking-widest text-fpso-muted">Added This Week</div>
-                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300">{filteredStats.addedThisWeek}</div>
+                  <div className="font-mono text-4xl font-extrabold text-fpso-blue tabular-nums leading-tight transition-all duration-300">{filteredStats.addedThisWeek.toLocaleString()}</div>
                   <div className="truncate text-xs text-fpso-dim">New Discoveries</div>
                 </div>
               </div>
@@ -1229,7 +1229,7 @@ export default function DashboardPage() {
             <span className="text-xs text-fpso-muted">Equirectangular Projection</span>
           </div>
 
-          <div className="map-container relative w-full overflow-hidden rounded-lg border border-fpso-border bg-white backdrop-blur-md shadow-card hover:shadow-lift transition-shadow duration-300">
+          <div className="map-container relative w-full overflow-hidden rounded-lg border border-fpso-border bg-fpso-card backdrop-blur-md shadow-card hover:shadow-lift transition-shadow duration-300">
             <img
               src="/world-map.png"
               alt="世界地图轮廓"
@@ -1249,7 +1249,7 @@ export default function DashboardPage() {
                   key={dot.country}
                   type="button"
                   onClick={() => handleDotClick(dot.country)}
-                  className="map-pulse absolute z-10 h-2 w-2 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full border-2 border-white bg-[#3b82f6] outline-none focus:ring-2 focus:ring-[#3b82f6]/40"
+                  className="map-pulse absolute z-10 h-2 w-2 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full border-2 border-white bg-[#0284c7] outline-none focus:ring-2 focus:ring-[#0284c7]/40"
                   style={{
                     left: `${dot.x}%`,
                     top: `${dot.y}%`,
@@ -1267,7 +1267,7 @@ export default function DashboardPage() {
         {/* 图表区域 */}
         <section className="mb-10 grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
           {/* 国家分布环形图 */}
-          <div className="group relative flex flex-col overflow-hidden rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md p-5 shadow-card transition-all duration-300 hover:border-fpso-blue/50 hover:bg-white hover:shadow-glow hover:-translate-y-0.5">
+          <div className="group relative flex flex-col overflow-hidden rounded-lg border border-fpso-border bg-fpso-card/70 backdrop-blur-md p-5 shadow-card transition-all duration-300 hover:border-fpso-blue/50 hover:bg-white hover:shadow-glow hover:-translate-y-0.5">
             <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
               <Globe className="h-20 w-20 text-fpso-blue" />
             </div>
@@ -1357,7 +1357,7 @@ export default function DashboardPage() {
           </div>
 
           {/* 状态分布水平条形图 */}
-          <div className="group relative flex flex-col overflow-hidden rounded-lg border border-fpso-border bg-white/70 backdrop-blur-md p-5 shadow-card transition-all duration-300 hover:border-fpso-blue/50 hover:bg-white hover:shadow-glow hover:-translate-y-0.5">
+          <div className="group relative flex flex-col overflow-hidden rounded-lg border border-fpso-border bg-fpso-card/70 backdrop-blur-md p-5 shadow-card transition-all duration-300 hover:border-fpso-blue/50 hover:bg-white hover:shadow-glow hover:-translate-y-0.5">
             <div className="absolute -right-2 -top-3 opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
               <BarChart3 className="h-20 w-20 text-fpso-blue" />
             </div>
@@ -1399,7 +1399,7 @@ export default function DashboardPage() {
                           </span>
                         </div>
                         {/* hover tooltip：状态名 + 数量 */}
-                        <div className="pointer-events-none absolute -top-8 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-md border border-[#e2e8f0] bg-white px-2.5 py-1 text-xs text-fpso-fg opacity-0 shadow-xl transition-opacity duration-200 group-hover/row:opacity-100">
+                        <div className="pointer-events-none absolute -top-8 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-md border border-[#e2e8f0] bg-fpso-card px-2.5 py-1 text-xs text-fpso-fg opacity-0 shadow-xl transition-opacity duration-200 group-hover/row:opacity-100">
                           {d.name} — {d.value} projects
                         </div>
                       </div>
@@ -1424,7 +1424,7 @@ export default function DashboardPage() {
             </span>
           </div>
 
-          <div className="rounded-lg border border-fpso-border bg-white backdrop-blur-md shadow-card hover:shadow-lift transition-shadow duration-300">
+          <div className="rounded-lg border border-fpso-border bg-fpso-card backdrop-blur-md shadow-card hover:shadow-lift transition-shadow duration-300">
             {loading ? (
               <div className="px-5 py-10 text-center text-sm text-fpso-muted">Loading projects…</div>
             ) : filteredProjects.length === 0 ? (
@@ -1482,7 +1482,7 @@ export default function DashboardPage() {
           {/* 模态框本体 */}
           <div
             onClick={(e) => e.stopPropagation()}
-            className="relative z-10 w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl border border-fpso-border bg-white shadow-2xl animate-fade-in"
+            className="relative z-10 w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl border border-fpso-border bg-fpso-card shadow-2xl animate-fade-in"
           >
             {/* 顶部栏 */}
             <div className="flex-shrink-0 flex items-center justify-between border-b border-fpso-border px-6 py-4">

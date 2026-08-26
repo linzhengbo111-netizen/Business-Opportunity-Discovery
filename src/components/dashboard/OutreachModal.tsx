@@ -105,7 +105,7 @@ export default function OutreachModal({ project, onClose }: OutreachModalProps) 
       {/* 弹窗容器 */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative z-10 w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-xl border border-fpso-border bg-white/95 backdrop-blur-md shadow-lift animate-fade-in"
+        className="relative z-10 w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-xl border border-fpso-border bg-fpso-card/95 backdrop-blur-md shadow-lift animate-fade-in"
       >
         {/* header */}
         <div className="flex items-center justify-between gap-3 border-b border-fpso-border px-5 py-4">

@@ -212,7 +212,7 @@ export default function FollowUpStatus({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
-              className="resize-none bg-white border-fpso-border text-fpso-fg text-xs placeholder:text-fpso-muted/50"
+              className="resize-none bg-fpso-card border-fpso-border text-fpso-fg text-xs placeholder:text-fpso-muted/50"
             />
           </div>
 
@@ -229,7 +229,7 @@ export default function FollowUpStatus({
                   placeholder="如: Duplex 2205"
                   value={actualMaterial}
                   onChange={(e) => setActualMaterial(e.target.value)}
-                  className="h-8 bg-white border-fpso-border text-fpso-fg text-xs placeholder:text-fpso-muted/50"
+                  className="h-8 bg-fpso-card border-fpso-border text-fpso-fg text-xs placeholder:text-fpso-muted/50"
                 />
               </div>
               <div className="space-y-1.5">
@@ -238,7 +238,7 @@ export default function FollowUpStatus({
                   type="date"
                   value={actualProcurementDate}
                   onChange={(e) => setActualProcurementDate(e.target.value)}
-                  className="h-8 bg-white border-fpso-border text-fpso-fg text-xs"
+                  className="h-8 bg-fpso-card border-fpso-border text-fpso-fg text-xs"
                 />
               </div>
             </div>
@@ -249,7 +249,7 @@ export default function FollowUpStatus({
                 placeholder="补充说明... (可选)"
                 value={additionalNotes}
                 onChange={(e) => setAdditionalNotes(e.target.value)}
-                className="h-8 bg-white border-fpso-border text-fpso-fg text-xs placeholder:text-fpso-muted/50"
+                className="h-8 bg-fpso-card border-fpso-border text-fpso-fg text-xs placeholder:text-fpso-muted/50"
               />
             </div>
           </div>

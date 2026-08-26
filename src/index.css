@@ -87,7 +87,7 @@
     background-color: hsl(var(--background));
     background-image: var(--gradient-background);
     background-attachment: fixed;
-    font-family: "Inter", "Glow Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: "Inter Variable", "Inter", "Glow Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
 
   .font-mono {
@@ -135,7 +135,7 @@
   .map-pulse:hover {
     animation-play-state: paused;
     transform: translate(-50%, -50%) scale(1.5);
-    box-shadow: 0 0 6px rgba(59, 130, 246, 0.45), 0 0 12px rgba(59, 130, 246, 0.28), 0 0 18px rgba(59, 130, 246, 0.15);
+    box-shadow: 0 0 6px rgba(2, 132, 199, 0.45), 0 0 12px rgba(2, 132, 199, 0.28), 0 0 18px rgba(2, 132, 199, 0.15);
     z-index: 20;
     transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
   }
@@ -166,11 +166,11 @@
   @keyframes map-core-pulse {
     0%, 100% {
       transform: translate(-50%, -50%) scale(1);
-      box-shadow: 0 0 5px rgba(59, 130, 246, 0.4);
+      box-shadow: 0 0 5px rgba(2, 132, 199, 0.4);
     }
     50% {
       transform: translate(-50%, -50%) scale(1.08);
-      box-shadow: 0 0 9px rgba(59, 130, 246, 0.55);
+      box-shadow: 0 0 9px rgba(2, 132, 199, 0.55);
     }
   }
 
