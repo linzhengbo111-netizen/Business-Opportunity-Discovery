@@ -58,13 +58,33 @@ const EPC_KEYWORDS = [
   "Worley", "Aker Solutions", "Petrofac", "Fluor",
 ];
 
+// News outlets / trade media are publishers, not project stakeholders.
+// They must never surface as EPC, owner, or contact. DEMO sources included.
+const NEWS_MEDIA_BLACKLIST = [
+  "reuters", "bloomberg", "paper advance", "offshore energy", "offshore magazine",
+  "world oil", "splash247", "splash 247", "upstream", "rigzone", "energy voice",
+  "tradewinds", "gcaptain", "marine link", "marinelink", "oe digital", "riviera",
+  "world fertilizer", "sugar online", "chemical week", "hydrocarbon processing",
+  "lng prime", "pharmaceutical technology", "world nuclear news", "thinkgeoenergy",
+  "mining.com", "global water intelligence", "demo",
+];
+
+function isNewsMediaName(name: string): boolean {
+  const n = name.toLowerCase();
+  return NEWS_MEDIA_BLACKLIST.some((m) => n.includes(m));
+}
+
 function extractEpcName(procurementChain?: string): string | undefined {
   if (!procurementChain) return undefined;
-  const entities = procurementChain.split(/,\s*/);
+  // Drop any news-media entity before it can reach the contact card.
+  const entities = procurementChain.split(/,\s*/).filter((e) => !isNewsMediaName(e));
+  if (entities.length === 0) return undefined;
   const epc = entities.filter((e) =>
     EPC_KEYWORDS.some((kw) => e.toLowerCase().includes(kw.toLowerCase())),
   );
-  return epc.length > 0 ? epc.join(", ") : undefined;
+  // Keyword match preferred; otherwise trust the curated chain entities —
+  // non-FPSO industries (pulp, chemical, mining...) are never in EPC_KEYWORDS.
+  return (epc.length > 0 ? epc : entities).join(", ");
 }
 
 // ---------------------------------------------------------------------------
@@ -180,7 +200,9 @@ function buildMaterialGrades(project: Project): string[] {
 function buildWhoToContact(project: Project): BattleCardContact {
   const epcContractor = extractEpcName(project.procurementChain);
   const operator = project.operatorName || undefined;
-  const owner = project.source?.name || undefined;
+  // `project.source.name` is the news outlet that reported the story —
+  // never a project stakeholder. Do NOT fall back to it as owner/contact.
+  const owner = undefined;
 
   // Priority: EPC > operator > owner
   let recommendedRole: string;
@@ -239,7 +261,6 @@ function buildNextAction(project: Project): string {
   if (procWindow.confidence === "high" && procWindow.window !== "时间未定") {
     const contact = extractEpcName(project.procurementChain)
       || project.operatorName
-      || project.source?.name
       || "项目方";
     return `立即联系${contact}，发送公司资质和产品目录`;
   }

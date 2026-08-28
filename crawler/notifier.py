@@ -23,6 +23,10 @@ import requests
 
 from ai_push_analyst import analyze_for_push, fetch_project_events
 
+# News-media names must never appear in a contact path. `sanitize_chain`
+# strips them from stored chain values; reuse it for display defense.
+from adapters.media_common import sanitize_chain  # noqa: E402
+
 log = logging.getLogger("fpso-notifier")
 
 # ---- Feishu API endpoints ----
@@ -226,7 +230,7 @@ def _build_card_message(
     summary = (project.get("summary") or "").strip()
     country = (project.get("country") or "").strip() or "待补充"
     phase = (project.get("phase") or project.get("status") or "").strip() or "待补充"
-    chain = (project.get("procurement_chain") or "").strip() or "待补充"
+    chain = sanitize_chain(project.get("procurement_chain") or "") or "待补充"
     source_url = (project.get("source_url") or "").strip()
     source_name = (project.get("source_name") or "").strip()
 

@@ -2110,6 +2110,42 @@ STATUS_PATTERNS = {
     ],
 }
 
+# ---- News media blacklist -----------------------------------------------
+# Trade media and news outlets are publishers, never procurement-chain
+# entities. Any entity name hitting this list is skipped at extraction
+# time and stripped from stored chain values. DEMO sources included.
+NEWS_MEDIA_BLACKLIST = [
+    "reuters", "bloomberg", "paper advance", "offshore energy",
+    "offshore magazine", "world oil", "splash247", "splash 247",
+    "upstream", "rigzone", "energy voice", "tradewinds", "gcaptain",
+    "marine link", "marinelink", "oe digital", "riviera",
+    "world fertilizer", "sugar online", "chemical week",
+    "hydrocarbon processing", "lng prime", "pharmaceutical technology",
+    "world nuclear news", "thinkgeoenergy", "mining.com",
+    "global water intelligence", "demo",
+]
+
+
+def is_news_media_name(name):
+    """True when `name` looks like a news outlet / trade media title."""
+    n = (name or "").strip().lower()
+    if len(n) < 3:
+        return False
+    return any(m in n for m in NEWS_MEDIA_BLACKLIST)
+
+
+def sanitize_chain(chain):
+    """Drop news-media names from a comma/semicolon-separated chain string.
+
+    Used wherever a chain value is persisted or displayed, so a polluted
+    row can never re-enter projects or reach a contact path.
+    """
+    if not chain:
+        return ""
+    parts = [p.strip() for p in re.split(r"[,;]", chain)]
+    return ", ".join(p for p in parts if p and not is_news_media_name(p))
+
+
 # ---- FPSO procurement entity extraction ---------------------------------
 
 PROCUREMENT_ENTITIES = {
@@ -2181,6 +2217,19 @@ PROCUREMENT_ENTITIES = {
 }
 
 
+# Role evidence required before an entity counts as a procurement-chain
+# member. A bare mention ("X's CEO said", "X shares fell") is not enough —
+# the text must show X in an EPC/contractor/shipyard/supplier role.
+PROCUREMENT_ROLE_PATTERNS = [
+    r"epc", r"epcc", r"contract", r"award", r"contractor", r"engineering",
+    r"construction", r"shipyard", r"\byard\b", r"letter of intent", r"\bloi\b",
+    r"tender", r"fabricat", r"conversion", r"supply", r"supplier", r"signed",
+    r"selected", r"wins?", r"secured", r"agreement", r"build",
+]
+
+_ROLE_WINDOW = 160  # context chars examined around each entity mention
+
+
 def extract_procurement(text):
     """Scan article text for known FPSO procurement entities.
 
@@ -2188,6 +2237,13 @@ def extract_procurement(text):
     topsides EPC firms, and equipment suppliers). Uses word-boundary regex
     to avoid false positives on short names (e.g. ABB inside "scabbard").
     Deduplicates substring matches (e.g. "Technip" inside "TechnipFMC").
+
+    Guards:
+    - news-media names are never extracted (NEWS_MEDIA_BLACKLIST);
+    - an entity only counts when the surrounding context shows an explicit
+      role ("EPC contract awarded to X", "contractor X", "engineering by X",
+      "construction by X", shipyard/supplier wording). No role evidence →
+      no extraction — never guess.
 
     Only FPSO-relevant entities are in the dictionary, so non-FPSO articles
     naturally produce empty results.
@@ -2199,9 +2255,15 @@ def extract_procurement(text):
     matches = []
     text_lower = text.lower()
     for entity_name in PROCUREMENT_ENTITIES:
+        if is_news_media_name(entity_name):
+            continue
         pattern = rf"\b{re.escape(entity_name.lower())}\b"
-        if re.search(pattern, text_lower):
-            matches.append(entity_name)
+        for m in re.finditer(pattern, text_lower):
+            window = text_lower[
+                max(0, m.start() - _ROLE_WINDOW):m.end() + _ROLE_WINDOW]
+            if any(re.search(rp, window) for rp in PROCUREMENT_ROLE_PATTERNS):
+                matches.append(entity_name)
+                break
     # Deduplicate: remove shorter entity if it is a substring of
     # a longer matched entity (e.g. "Technip" inside "TechnipFMC").
     if len(matches) > 1:

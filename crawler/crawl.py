@@ -55,6 +55,7 @@ from adapters.media_common import (  # noqa: E402
     extract_project_info,
     extract_corrosive_media,
     country_to_flag,
+    sanitize_chain,
 )
 
 from enricher import enrich_project, compute_enrichment_diff  # noqa: E402
@@ -678,7 +679,8 @@ def promote_accepted_candidates(supabase):
                 "source_date": merged_source_date,
                 "stainless_steel": group[0].get("stainless_steel", ""),
                 "application": group[0].get("application", ""),
-                "procurement_chain": group[0].get("procurement_chain", ""),
+                "procurement_chain": sanitize_chain(
+                    group[0].get("procurement_chain", "")),
                 "water_depth_m": group[0].get("water_depth_m"),
                 "oil_capacity_bpd": group[0].get("oil_capacity_bpd"),
                 "gas_capacity_mmcmd": group[0].get("gas_capacity_mmcmd"),
@@ -1187,7 +1189,8 @@ def auto_ingest_to_projects(supabase, skip_enrich=False):
                 "source_date": merged_source_date,
                 "stainless_steel": group[0].get("stainless_steel", ""),
                 "application": group[0].get("application", ""),
-                "procurement_chain": group[0].get("procurement_chain", ""),
+                "procurement_chain": sanitize_chain(
+                    group[0].get("procurement_chain", "")),
                 "water_depth_m": group[0].get("water_depth_m"),
                 "oil_capacity_bpd": group[0].get("oil_capacity_bpd"),
                 "gas_capacity_mmcmd": group[0].get("gas_capacity_mmcmd"),

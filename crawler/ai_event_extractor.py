@@ -41,6 +41,7 @@ if _SCRIPT_DIR not in sys.path:
 from adapters.media_common import (  # noqa: E402
     extract_project_info,
     normalize_project_name,
+    sanitize_chain,
 )
 from project_phase import (  # noqa: E402
     PHASE_UNKNOWN,
@@ -966,7 +967,8 @@ def run_ai_extraction(supabase, rows, update_existing=True, polite_delay=0.3):
                 "evidence_quote": ev.get("evidence_quote", ""),
                 "publication_date": ev.get("publication_date", ""),
                 "canonical_project_id": ev_canonical,
-                "procurement_chain": row.get("procurement_chain", ""),
+                "procurement_chain": sanitize_chain(
+                    row.get("procurement_chain", "")),
             }
             for field, val in (ev.get("tech_params") or {}).items():
                 ins_payload[field] = val

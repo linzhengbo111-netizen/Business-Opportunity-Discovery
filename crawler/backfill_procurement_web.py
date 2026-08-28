@@ -40,6 +40,10 @@ load_dotenv(os.path.join(_ROOT_DIR, ".env"))
 from supabase import create_client
 
 from ai_event_extractor import call_llm  # noqa: E402
+from adapters.media_common import (  # noqa: E402
+    is_news_media_name,
+    sanitize_chain,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 log = logging.getLogger("procurement-web")
@@ -74,12 +78,16 @@ SYSTEM_PROMPT = (
     "fabrication role, skip it. In particular, the field OPERATOR "
     "(e.g. PETROBRAS as operator) is NOT a procurement-chain entity — "
     "never include it.\n"
-    "3. If the same company appears multiple times or under slightly "
+    "3. NEWS OUTLETS ARE NEVER PROCUREMENT ENTITIES. Reuters, Bloomberg, "
+    "Offshore Energy, World Oil, Paper Advance, Splash247, Upstream, "
+    "Rigzone and any other news/trade-media publisher must never appear "
+    "in the entities list, even when the text mentions them.\n"
+    "4. If the same company appears multiple times or under slightly "
     "different names (e.g. Keppel O&M / Keppel Offshore & Marine), output it "
     "ONCE using the most complete formal name.\n"
-    "4. Return JSON: {\"entities\": [{\"type\": \"<category>\", \"name\": "
+    "5. Return JSON: {\"entities\": [{\"type\": \"<category>\", \"name\": "
     "\"<exact name from text>\"}], \"empty_reason\": \"\"}\n"
-    "5. If nothing qualifies, return {\"entities\": [], \"empty_reason\": "
+    "6. If nothing qualifies, return {\"entities\": [], \"empty_reason\": "
     "\"<why>\"}."
 )
 
@@ -144,7 +152,7 @@ def extract_for(project_name, texts):
     for ent in parsed.get("entities", []):
         name = re.sub(r"\s+", " ", (ent.get("name") or "").strip())
         key = name.lower()
-        if key in seen or not ground(name, source):
+        if key in seen or is_news_media_name(name) or not ground(name, source):
             continue
         seen.add(key)
         entities.append({"type": (ent.get("type") or "vendor").strip(),
@@ -204,7 +212,8 @@ def main():
             results.append((p, [], reason, "no-entities"))
             log.info("[NO-ENTITIES] %-45r %s", name, reason)
             continue
-        chain_str = FIXUPS.get(name, ", ".join(e["name"] for e in entities))
+        chain_str = sanitize_chain(
+            FIXUPS.get(name, ", ".join(e["name"] for e in entities)))
         results.append((p, entities, "", "ok"))
         log.info("[OK] %-45r -> %s", name, chain_str)
         if args.write:

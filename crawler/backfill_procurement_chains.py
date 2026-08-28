@@ -35,7 +35,11 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(_ROOT_DIR, ".env"))
 from supabase import create_client
 
-from adapters.media_common import normalize_project_name  # noqa: E402
+from adapters.media_common import (  # noqa: E402
+    normalize_project_name,
+    is_news_media_name,
+    sanitize_chain,
+)
 from ai_event_extractor import call_llm  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -56,9 +60,13 @@ SYSTEM_PROMPT = (
     "fabrication role, skip it. In particular, the field OPERATOR "
     "(e.g. PETROBRAS as operator) is NOT a procurement-chain entity — "
     "never include it.\n"
-    "3. Return JSON: {\"entities\": [{\"type\": \"<category>\", \"name\": "
+    "3. NEWS OUTLETS ARE NEVER PROCUREMENT ENTITIES. Reuters, Bloomberg, "
+    "Offshore Energy, World Oil, Paper Advance, Splash247, Upstream, "
+    "Rigzone and any other news/trade-media publisher must never appear "
+    "in the entities list, even when the snippets mention them.\n"
+    "4. Return JSON: {\"entities\": [{\"type\": \"<category>\", \"name\": "
     "\"<exact name from text>\"}], \"empty_reason\": \"\"}\n"
-    "4. If nothing qualifies, return {\"entities\": [], \"empty_reason\": "
+    "5. If nothing qualifies, return {\"entities\": [], \"empty_reason\": "
     "\"<why>\"}."
 )
 
@@ -118,6 +126,8 @@ def extract_for(project_name, events):
     entities = []
     for ent in parsed.get("entities", []):
         name = (ent.get("name") or "").strip()
+        if is_news_media_name(name):
+            continue
         if ground(name, source):
             entities.append({
                 "type": (ent.get("type") or "vendor").strip(),
@@ -152,7 +162,7 @@ def main():
         if chain:
             for part in re.split(r"[,;]", chain):
                 part = part.strip()
-                if len(part) >= 3:
+                if len(part) >= 3 and not is_news_media_name(part):
                     direct_chain[cid].add(part)
 
     targets = []
@@ -184,7 +194,12 @@ def main():
             log.info("  [EMPTY] %-45r %s (%d events)",
                      p["name"], reason, len(linked))
             continue
-        chain_str = ", ".join(names)
+        chain_str = sanitize_chain(", ".join(names))
+        if not chain_str:
+            empty.append((p, "all entities news media"))
+            log.info("  [EMPTY] %-45r all entities news media (%d events)",
+                     p["name"], len(linked))
+            continue
         src_tag = "llm" if entities else "events"
         log.info("  [FOUND/%s] %-45r -> %s", src_tag, p["name"], chain_str)
         if args.write:
