@@ -40,7 +40,6 @@ import BattleCardWrapper from "@/components/dashboard/BattleCard";
 import OutreachModal from "@/components/dashboard/OutreachModal";
 import FollowUpStatus from "@/components/dashboard/FollowUpStatus";
 import FeishuPushButton from "@/components/common/FeishuPushButton";
-import GlobalSearch from "@/components/dashboard/GlobalSearch";
 import { Building2, Hammer, Wrench, CalendarDays, PlusCircle, Anchor, Waves, Gauge, Globe, BarChart3, TrendingUp, Heart } from "lucide-react";
 import FilterSidebar from "@/components/dashboard/FilterSidebar";
 import { motion } from "motion/react";
@@ -617,7 +616,7 @@ export default function DashboardPage() {
   const [timelineLoading, setTimelineLoading] = useState(false);
   // AI 个性化分析（同飞书推送）— 规则引擎结果立即显示，AI 返回后更新
   const pushAnalysis = usePushAnalysis(selectedProject);
-  const { version, status: connectionStatus } = useProjectRealtime();
+  const { version } = useProjectRealtime();
   const timelineEventCounts = useTimelineEventCounts(version);
   const { toggleFollowProject, isAuthenticated } = useSubscription();
   const { savedProjects, isSaved, toggleSaved } = useSavedProjects(projects);
@@ -1129,33 +1128,10 @@ export default function DashboardPage() {
     <>
       <PageMeta title={getIndustryTitle(selectedIndustry)} description={`${getIndustryTitle(selectedIndustry)}系统`} />
 
-      <Header rightContent={
-        <div className="flex flex-shrink-0 items-center gap-2">
-          <GlobalSearch
-            projects={projects}
-            value={searchQuery}
-            onChange={setSearchQuery}
-            onSelect={(p) => setSelectedProject(p)}
-          />
-          <span className="relative inline-flex h-2.5 w-2.5">
-            {connectionStatus === "connected" && (
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fpso-green opacity-75" />
-            )}
-            <span
-              className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
-                connectionStatus === "connected" ? "bg-fpso-green live-breath" : "bg-fpso-dim"
-              }`}
-            />
-          </span>
-          <span
-            className={`text-xs font-medium tracking-wider ${
-              connectionStatus === "connected" ? "text-fpso-green" : "text-fpso-dim"
-            }`}
-          >
-            {connectionStatus === "connected" ? "LIVE" : "STALE"}
-          </span>
-        </div>
-      } />
+      <Header
+        onProjectSelect={(p) => setSelectedProject(p)}
+        onSearchChange={setSearchQuery}
+      />
 
       <div className="max-w-7xl mx-auto">
         <FilterSidebar

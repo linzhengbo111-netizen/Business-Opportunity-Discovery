@@ -227,7 +227,7 @@ export default function BattleCardsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
-  const { version, status: connectionStatus } = useProjectRealtime();
+  const { version } = useProjectRealtime();
   const timelineEventCounts = useTimelineEventCounts(version);
   const requireLogin = useRequireLogin();
   const { savedProjects } = useSavedProjects(projects);
@@ -316,7 +316,7 @@ export default function BattleCardsPage() {
   return (
     <div className="min-h-screen text-fpso-fg">
       <PageMeta title="战报中心" description="高质量商机作战卡" />
-      <Header />
+      <Header onProjectSelect={setSelectedProject} />
 
       <div className="max-w-7xl mx-auto">
         {/* 左侧栏 — 收藏项目面板，外壳与商机看板一致 */}
@@ -343,22 +343,16 @@ export default function BattleCardsPage() {
           title={<span className="neon-glow">战报中心</span>}
           subtitle={`高质量商机作战卡 · ${abCards.length} 个项目`}
           actions={
-            <>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-fpso-border bg-fpso-bg/60 px-3 py-1 text-xs font-medium">
-                <span className={`h-1.5 w-1.5 rounded-full ${connectionStatus === "connected" ? "bg-fpso-green" : "bg-fpso-orange"}`} />
-                {connectionStatus === "connected" ? "LIVE" : "STALE"}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExport}
-                disabled={abCards.length === 0}
-                className="border-fpso-blue/30 text-fpso-blue hover:bg-fpso-blue/10"
-              >
-                <Download className="mr-1.5 h-4 w-4" />
-                导出全部 CSV
-              </Button>
-            </>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExport}
+              disabled={abCards.length === 0}
+              className="border-fpso-blue/30 text-fpso-blue hover:bg-fpso-blue/10"
+            >
+              <Download className="mr-1.5 h-4 w-4" />
+              导出全部 CSV
+            </Button>
           }
         />
 

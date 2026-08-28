@@ -465,6 +465,20 @@ export default function ProjectTimelinePage() {
     setProjectInfo(null);
   };
 
+  // 顶部全局搜索选中项目 — 与侧栏选择器同一套选中逻辑
+  const handleHeaderProjectSelect = (p: Project) => {
+    const match = projects.find((o) => o.canonicalId.toLowerCase() === p.name.toLowerCase());
+    if (match) {
+      handleSelectProject(match.canonicalId);
+    } else {
+      // 非规范名 — 走 raw-name 兜底查询，与深链行为一致
+      setSelectedId("");
+      setRawProjectName(p.name);
+      setSearchParams({ project: p.name }, { replace: true });
+      setProjectInfo(null);
+    }
+  };
+
   const selectedDisplayName = selectedId
     ? getDisplayName(selectedId)
     : rawProjectName || "";
@@ -474,16 +488,7 @@ export default function ProjectTimelinePage() {
     <>
       <PageMeta title="项目时间线" description="全球工业项目里程碑时间线" />
 
-      <Header
-        rightContent={
-          <button
-            onClick={() => navigate(-1)}
-            className="text-xs text-fpso-muted hover:text-fpso-fg transition-colors"
-          >
-            ← Back
-          </button>
-        }
-      />
+      <Header onProjectSelect={handleHeaderProjectSelect} />
 
       <div className="max-w-7xl mx-auto">
         {/* 左侧栏 — 项目选择，外壳与商机看板一致 */}
@@ -625,6 +630,14 @@ export default function ProjectTimelinePage() {
         <PageHeader
           title={<span className="neon-glow">项目时间线</span>}
           subtitle="查看项目里程碑和关键事件"
+          actions={
+            <button
+              onClick={() => navigate(-1)}
+              className="text-xs text-fpso-muted hover:text-fpso-fg transition-colors"
+            >
+              ← Back
+            </button>
+          }
         />
 
         {/* Event Type Filters */}

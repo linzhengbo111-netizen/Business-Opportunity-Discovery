@@ -1,7 +1,12 @@
+import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { Radar, FileText, History } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import type { Project } from '@/data/projects';
+import GlobalSearch from '@/components/dashboard/GlobalSearch';
+import { useAllProjects } from '@/hooks/useAllProjects';
+import { useProjectRealtime } from '@/hooks/useProjectRealtime';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,9 +21,34 @@ function linkClass({ isActive }: { isActive: boolean }) {
   return `text-sm font-medium transition-colors ${isActive ? 'text-fpso-blue' : 'text-fpso-muted hover:text-fpso-blue/70'}`;
 }
 
-export default function Header({ rightContent }: { rightContent?: ReactNode }) {
+interface HeaderProps {
+  /** Open the detail view for a project chosen in the top-bar search. */
+  onProjectSelect?: (project: Project) => void;
+  /** Sync search text back to the page (e.g. Dashboard filters its list). */
+  onSearchChange?: (value: string) => void;
+  /** Extra right-side content — only used by internal pages (Database / Review). */
+  rightContent?: ReactNode;
+}
+
+/**
+ * Header — 统一顶部栏，三个页面（商机看板 / 战报中心 / 项目时间线）共用：
+ * logo | 居中导航 | 全局搜索 + LIVE 状态 | 用户区。内容与布局跨页面完全一致。
+ */
+export default function Header({ onProjectSelect, onSearchChange, rightContent }: HeaderProps) {
   const { user, isAuthenticated, login, logout, loading } = useAuth();
   const location = useLocation();
+  const projects = useAllProjects();
+  const { status: connectionStatus } = useProjectRealtime();
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    onSearchChange?.(value);
+  };
+
+  const handleProjectSelect = (project: Project) => {
+    onProjectSelect?.(project);
+  };
 
   // 登录成功后回到当前页面（/auth/callback 回跳用）
   const handleLogin = () => {
@@ -66,8 +96,31 @@ export default function Header({ rightContent }: { rightContent?: ReactNode }) {
           </NavLink>
         </nav>
 
-        {/* right: user controls + external rightContent */}
+        {/* right: global search + LIVE status + user controls — same on every page */}
         <div className="z-10 ml-auto flex flex-shrink-0 items-center gap-4 overflow-hidden">
+          <GlobalSearch
+            projects={projects}
+            value={searchQuery}
+            onChange={handleSearchChange}
+            onSelect={handleProjectSelect}
+          />
+          <span className="relative inline-flex h-2.5 w-2.5">
+            {connectionStatus === "connected" && (
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fpso-green opacity-75" />
+            )}
+            <span
+              className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
+                connectionStatus === "connected" ? "bg-fpso-green live-breath" : "bg-fpso-dim"
+              }`}
+            />
+          </span>
+          <span
+            className={`text-xs font-medium tracking-wider ${
+              connectionStatus === "connected" ? "text-fpso-green" : "text-fpso-dim"
+            }`}
+          >
+            {connectionStatus === "connected" ? "LIVE" : "STALE"}
+          </span>
           {!loading && (
             isAuthenticated && user ? (
               /* Authenticated user: avatar dropdown */
