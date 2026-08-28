@@ -8,6 +8,7 @@ import { useSearchParams } from "react-router-dom";
 import Header from "@/components/common/Header";
 import { ThemeSelect } from "@/components/common/ThemeSelect";
 import PageMeta from "@/components/common/PageMeta";
+import FeishuPushButton from "@/components/common/FeishuPushButton";
 import type { Project } from "@/data/projects";
 import { sampleProjects, COUNTRY_ALIASES, INDUSTRY_OPTIONS, industryLabel, normalizeIndustry, countryToFlagEmoji } from "@/data/projects";
 import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
@@ -682,8 +683,8 @@ export default function DatabasePage() {
               )}
             </div>
 
-            {/* 收藏按钮 — localStorage + Supabase followed_project_ids 双写 */}
-            <div className="mb-4">
+            {/* 收藏按钮 — localStorage + Supabase followed_project_ids 双写；旁边是手动推送到飞书 */}
+            <div className="mb-4 flex items-center gap-2">
               <Button
                 variant={isSaved(selected) ? 'default' : 'outline'}
                 size="sm"
@@ -703,6 +704,7 @@ export default function DatabasePage() {
                 <Heart className={`h-3.5 w-3.5 ${isSaved(selected) ? 'fill-current' : ''}`} />
                 收藏
               </Button>
+              <FeishuPushButton project={selected} />
             </div>
 
             {/* Follow-up Status (S7) */}

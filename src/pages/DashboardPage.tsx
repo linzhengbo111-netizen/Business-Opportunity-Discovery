@@ -37,6 +37,7 @@ import PushAnalysisPanel, { PushSourceBadge } from "@/components/dashboard/PushA
 import BattleCardWrapper from "@/components/dashboard/BattleCard";
 import OutreachModal from "@/components/dashboard/OutreachModal";
 import FollowUpStatus from "@/components/dashboard/FollowUpStatus";
+import FeishuPushButton from "@/components/common/FeishuPushButton";
 import GlobalSearch from "@/components/dashboard/GlobalSearch";
 import { Building2, Hammer, Wrench, CalendarDays, PlusCircle, Anchor, Waves, Gauge, Globe, BarChart3, TrendingUp, Heart } from "lucide-react";
 import FilterSidebar from "@/components/dashboard/FilterSidebar";
@@ -1632,8 +1633,8 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              {/* 收藏按钮 — localStorage + Supabase followed_project_ids 双写 */}
-              <div>
+              {/* 收藏按钮 — localStorage + Supabase followed_project_ids 双写；旁边是手动推送到飞书 */}
+              <div className="flex items-center gap-2">
                 <Button
                   variant={isSaved(selectedProject) ? 'default' : 'outline'}
                   size="sm"
@@ -1653,6 +1654,7 @@ export default function DashboardPage() {
                   <Heart className={`h-3.5 w-3.5 ${isSaved(selectedProject) ? 'fill-current' : ''}`} />
                   收藏
                 </Button>
+                <FeishuPushButton project={selectedProject} />
               </div>
 
               {/* Follow-up Status (S7) */}
