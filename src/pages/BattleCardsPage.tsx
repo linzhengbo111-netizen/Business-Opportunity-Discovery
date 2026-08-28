@@ -310,7 +310,7 @@ export default function BattleCardsPage() {
       <main className="mx-auto max-w-7xl px-4 py-8 md:px-6">
         {/* page header — 统一 PageHeader */}
         <PageHeader
-          title="战报中心"
+          title={<span className="neon-glow">战报中心</span>}
           subtitle={`高质量商机作战卡 · ${abCards.length} 个项目`}
           actions={
             <>

@@ -485,7 +485,7 @@ export default function ProjectTimelinePage() {
       <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
         {/* page header — 统一 PageHeader */}
         <PageHeader
-          title="项目时间线"
+          title={<span className="neon-glow">项目时间线</span>}
           subtitle="查看项目里程碑和关键事件"
         />
 
