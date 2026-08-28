@@ -9,6 +9,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
+import PageHeader from "@/components/common/PageHeader";
 import type { Project } from "@/data/projects";
 import { sampleProjects, COUNTRY_ALIASES, normalizeIndustry } from "@/data/projects";
 import { normalizeProjectName, getDisplayName, sortPriorityFirst, priorityProjectRankByName } from "@/data/project_aliases";
@@ -306,34 +307,30 @@ export default function BattleCardsPage() {
       <PageMeta title="战报中心" description="高质量商机作战卡" />
       <Header />
 
-      <main className="mx-auto max-w-7xl px-6 py-8">
-        {/* page header */}
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-fpso-fg md:text-3xl">
-              战报中心
-            </h1>
-            <p className="mt-1 text-sm text-fpso-muted">
-              高质量商机作战卡 · 评分 ≥ 55 · 已交付除外 · 置顶项目优先 · 其余按评分降序 · {abCards.length} 个项目
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-fpso-border bg-fpso-bg/60 px-3 py-1 text-xs font-medium">
-              <span className={`h-1.5 w-1.5 rounded-full ${connectionStatus === "connected" ? "bg-fpso-green" : "bg-fpso-orange"}`} />
-              {connectionStatus === "connected" ? "LIVE" : "STALE"}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExport}
-              disabled={abCards.length === 0}
-              className="border-fpso-blue/30 text-fpso-blue hover:bg-fpso-blue/10"
-            >
-              <Download className="mr-1.5 h-4 w-4" />
-              导出全部 CSV
-            </Button>
-          </div>
-        </div>
+      <main className="mx-auto max-w-7xl px-4 py-8 md:px-6">
+        {/* page header — 统一 PageHeader */}
+        <PageHeader
+          title="战报中心"
+          subtitle={`高质量商机作战卡 · 评分 ≥ 55 · 已交付除外 · 置顶项目优先 · 其余按评分降序 · ${abCards.length} 个项目`}
+          actions={
+            <>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-fpso-border bg-fpso-bg/60 px-3 py-1 text-xs font-medium">
+                <span className={`h-1.5 w-1.5 rounded-full ${connectionStatus === "connected" ? "bg-fpso-green" : "bg-fpso-orange"}`} />
+                {connectionStatus === "connected" ? "LIVE" : "STALE"}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExport}
+                disabled={abCards.length === 0}
+                className="border-fpso-blue/30 text-fpso-blue hover:bg-fpso-blue/10"
+              >
+                <Download className="mr-1.5 h-4 w-4" />
+                导出全部 CSV
+              </Button>
+            </>
+          }
+        />
 
         {/* loading / empty states */}
         {loading ? (

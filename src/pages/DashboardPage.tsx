@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
+import PageHeader from "@/components/common/PageHeader";
 import type { Project, MaterialMatchResult } from "@/data/projects";
 import { countryCoordinates, sampleProjects, countryToFlagEmoji, COUNTRY_ALIASES, normalizeIndustry, getIndustryTitle, ALL_INDUSTRIES } from "@/data/projects";
 import { normalizeProjectName, getDisplayName, sortPriorityFirst, priorityProjectRankByName } from "@/data/project_aliases";
@@ -1182,24 +1183,25 @@ export default function DashboardPage() {
         />
 
         <main
-          className="flex-1 min-w-0 px-6 py-8 transition-all duration-300 ease-in-out max-md:!ml-0"
+          className="flex-1 min-w-0 px-4 py-8 md:px-6 transition-all duration-300 ease-in-out max-md:!ml-0"
           style={{ marginLeft: sidebarCollapsed ? 48 : 260 }}
         >
-        {/* 页面标题 — 深灰主体 + 「商机挖掘」青蓝渐变 + 英文副标 + 最后更新 */}
-        <section className="mb-10">
-          <h1 className="text-2xl font-semibold tracking-tight text-fpso-fg md:text-3xl">
-            {getIndustryTitle(selectedIndustry).replace(/商机挖掘$/, "")}
-            <span className="neon-glow">商机挖掘</span>
-          </h1>
-          <div className="mt-1.5 flex items-baseline justify-between gap-4">
-            <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-fpso-muted/80">
+        {/* 页面标题 — 统一 PageHeader：行业名 + 「商机挖掘」青蓝渐变 + 英文副标 + 最后更新 */}
+        <PageHeader
+          title={
+            <>
+              {getIndustryTitle(selectedIndustry).replace(/商机挖掘$/, "")}
+              <span className="neon-glow">商机挖掘</span>
+            </>
+          }
+          subtitle={
+            <>
               Global Business Opportunity Discovery
-            </p>
-            <span className="flex-shrink-0 text-xs text-fpso-muted">
-              最后更新: {lastUpdated ? lastUpdated.toLocaleDateString("zh-CN") : "—"}
-            </span>
-          </div>
-        </section>
+              <span className="mx-1.5 text-fpso-border">·</span>
+              最后更新 {lastUpdated ? lastUpdated.toLocaleDateString("zh-CN") : "—"}
+            </>
+          }
+        />
 
         {/* 指标统计带 */}
         <section className="mb-10">

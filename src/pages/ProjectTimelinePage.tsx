@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
+import PageHeader from "@/components/common/PageHeader";
 import { supabase, fetchAllRows } from "@/db/supabase";
 import { phaseFromRow } from "@/lib/project_phase";
 import {
@@ -481,7 +482,13 @@ export default function ProjectTimelinePage() {
         }
       />
 
-      <div className="mx-auto max-w-4xl px-6 py-8">
+      <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
+        {/* page header — 统一 PageHeader */}
+        <PageHeader
+          title="项目时间线"
+          subtitle="查看项目里程碑和关键事件"
+        />
+
         {/* Project Selector */}
         <section className="mb-6">
           <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-fpso-dim">
@@ -818,7 +825,7 @@ export default function ProjectTimelinePage() {
 
       {/* Footer */}
       <footer className="mt-auto border-t border-fpso-border bg-fpso-bg">
-        <div className="mx-auto flex max-w-4xl flex-col items-center justify-between gap-2 px-6 py-5 md:flex-row">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 py-5 md:flex-row md:px-6">
           <span className="text-xs text-fpso-dim">
             Timeline data from candidate_events. For internal analysis only.
           </span>
