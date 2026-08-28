@@ -311,7 +311,7 @@ export default function BattleCardsPage() {
         {/* page header — 统一 PageHeader */}
         <PageHeader
           title="战报中心"
-          subtitle={`高质量商机作战卡 · 评分 ≥ 55 · 已交付除外 · 置顶项目优先 · 其余按评分降序 · ${abCards.length} 个项目`}
+          subtitle={`高质量商机作战卡 · ${abCards.length} 个项目`}
           actions={
             <>
               <span className="inline-flex items-center gap-1.5 rounded-full border border-fpso-border bg-fpso-bg/60 px-3 py-1 text-xs font-medium">
