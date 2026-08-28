@@ -26,7 +26,6 @@ import FollowUpStatus from "@/components/dashboard/FollowUpStatus";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useSavedProjects } from "@/hooks/useSavedProjects";
 import { Heart } from "lucide-react";
-import { useRequireLogin } from "@/hooks/useRequireLogin";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 
@@ -198,10 +197,9 @@ export default function DatabasePage() {
   // AI 个性化分析（同飞书推送）— 规则引擎结果立即显示，AI 返回后更新
   const pushAnalysis = usePushAnalysis(selected);
 
-  // subscription (follow/unfollow)
-  const { isFollowing, toggleFollowProject } = useSubscription();
+  // subscription (followed_project_ids — 飞书推送订阅)
+  const { toggleFollowProject, isAuthenticated } = useSubscription();
   const { isSaved, toggleSaved } = useSavedProjects(projects);
-  const requireLogin = useRequireLogin();
   const { version, status: connectionStatus } = useProjectRealtime();
   const timelineEventCounts = useTimelineEventCounts(version);
 
@@ -684,27 +682,16 @@ export default function DatabasePage() {
               )}
             </div>
 
-            {/* follow / unfollow + 收藏 buttons — login required on follow click */}
-            <div className="mb-4 flex items-center gap-2">
-              <Button
-                variant={isFollowing(selected.name) ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => {
-                  if (!requireLogin()) return;
-                  toggleFollowProject(selected.name);
-                }}
-                className={
-                  isFollowing(selected.name)
-                    ? 'bg-fpso-blue hover:bg-fpso-blue/80 text-primary-foreground text-xs'
-                    : 'border-fpso-blue/30 text-fpso-blue hover:bg-fpso-blue/10 text-xs'
-                }
-              >
-                {isFollowing(selected.name) ? '★ Following' : '☆ Follow'}
-              </Button>
+            {/* 收藏按钮 — localStorage + Supabase followed_project_ids 双写 */}
+            <div className="mb-4">
               <Button
                 variant={isSaved(selected) ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => toggleSaved(selected)}
+                onClick={() => {
+                  toggleSaved(selected);
+                  // 已登录时同步飞书推送订阅（followed_project_ids）
+                  if (isAuthenticated) toggleFollowProject(selected.name);
+                }}
                 aria-label={isSaved(selected) ? '取消收藏' : '收藏'}
                 title={isSaved(selected) ? '取消收藏' : '收藏'}
                 className={

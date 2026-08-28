@@ -616,7 +616,7 @@ export default function DashboardPage() {
   const pushAnalysis = usePushAnalysis(selectedProject);
   const { version, status: connectionStatus } = useProjectRealtime();
   const timelineEventCounts = useTimelineEventCounts(version);
-  const { isFollowing, toggleFollowProject } = useSubscription();
+  const { toggleFollowProject, isAuthenticated } = useSubscription();
   const { savedProjects, isSaved, toggleSaved } = useSavedProjects(projects);
   const requireLogin = useRequireLogin();
 
@@ -1632,27 +1632,16 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              {/* follow / unfollow + 收藏 buttons — login required on follow click */}
-              <div className="flex items-center gap-2">
-                <Button
-                  variant={isFollowing(selectedProject.name) ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => {
-                    if (!requireLogin()) return;
-                    toggleFollowProject(selectedProject.name);
-                  }}
-                  className={
-                    isFollowing(selectedProject.name)
-                      ? 'bg-fpso-blue hover:bg-fpso-blue/80 text-white text-xs'
-                      : 'border-fpso-blue/30 text-fpso-blue hover:bg-fpso-blue/10 text-xs'
-                  }
-                >
-                  {isFollowing(selectedProject.name) ? '★ Following' : '☆ Follow'}
-                </Button>
+              {/* 收藏按钮 — localStorage + Supabase followed_project_ids 双写 */}
+              <div>
                 <Button
                   variant={isSaved(selectedProject) ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => toggleSaved(selectedProject)}
+                  onClick={() => {
+                    toggleSaved(selectedProject);
+                    // 已登录时同步飞书推送订阅（followed_project_ids）
+                    if (isAuthenticated) toggleFollowProject(selectedProject.name);
+                  }}
                   aria-label={isSaved(selectedProject) ? '取消收藏' : '收藏'}
                   title={isSaved(selectedProject) ? '取消收藏' : '收藏'}
                   className={

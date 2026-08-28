@@ -199,23 +199,14 @@ export function useSubscription() {
 
       if (current.includes(projectName)) {
         updated = current.filter((id) => id !== projectName);
-        toast.info(`Unfollowed "${projectName}"`);
       } else {
         updated = [...current, projectName];
-        toast.success(`Following "${projectName}"`);
       }
 
+      // 无 toast — 收藏按钮统一由 useSavedProjects 提示，避免双 toast
       await saveSubscription({ followed_project_ids: updated });
     },
     [subscription, saveSubscription, user?.open_id],
-  );
-
-  // Check if a project is followed
-  const isFollowing = useCallback(
-    (projectName: string): boolean => {
-      return subscription?.followed_project_ids?.includes(projectName) || false;
-    },
-    [subscription],
   );
 
   return {
@@ -225,7 +216,6 @@ export function useSubscription() {
     fetchSubscription,
     saveSubscription,
     toggleFollowProject,
-    isFollowing,
     isAuthenticated,
   };
 }

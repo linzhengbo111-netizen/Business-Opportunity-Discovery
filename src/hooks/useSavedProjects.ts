@@ -39,6 +39,12 @@ function persistKeys(keys: string[]): void {
   }
 }
 
+/** 直接按项目名从 localStorage 收藏中移除（供无 Project 对象的场景，如 Settings 徽章）。 */
+export function removeSavedByName(name: string): void {
+  const key = projectKey(name);
+  persistKeys(loadSavedKeys().filter((k) => k !== key));
+}
+
 export function useSavedProjects(projects: Project[]) {
   const [savedKeys, setSavedKeys] = useState<string[]>(loadSavedKeys);
 

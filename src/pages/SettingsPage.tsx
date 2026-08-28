@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '@/components/common/Header';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription, INDUSTRY_OPTIONS } from '@/hooks/useSubscription';
+import { removeSavedByName } from '@/hooks/useSavedProjects';
 import { useRequireLogin } from '@/hooks/useRequireLogin';
 import { useFollowUp, FOLLOW_UP_STATUS_LABELS, FOLLOW_UP_STATUS_COLORS, type FollowUp, type FollowUpStatus } from '@/hooks/useFollowUp';
 import { Button } from '@/components/ui/button';
@@ -24,7 +25,6 @@ export default function SettingsPage() {
     countries,
     saveSubscription,
     toggleFollowProject,
-    isFollowing,
   } = useSubscription();
 
   const { getUserFollowUps } = useFollowUp();
@@ -238,7 +238,7 @@ export default function SettingsPage() {
             <CardTitle className="text-fpso-fg">Followed Projects</CardTitle>
             <CardDescription>
               Projects you are following will trigger [Update] notifications
-              when new events are detected. Use the follow button on project pages.
+              when new events are detected. Use the 收藏 button on project pages.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -250,7 +250,11 @@ export default function SettingsPage() {
                     key={name}
                     variant="outline"
                     className="border-fpso-blue/30 text-fpso-blue cursor-pointer hover:bg-fpso-blue/10"
-                    onClick={() => toggleFollowProject(name)}
+                    onClick={() => {
+                      toggleFollowProject(name);
+                      removeSavedByName(name);
+                      toast.info(`已取消收藏 "${name}"`);
+                    }}
                   >
                     {name} ✕
                   </Badge>
@@ -258,7 +262,7 @@ export default function SettingsPage() {
               </div>
             ) : (
               <p className="text-sm text-fpso-muted">
-                No followed projects yet. Visit the Database and click the follow
+                No followed projects yet. Visit the Database and click the 收藏
                 button on any project to start tracking updates.
               </p>
             )}
