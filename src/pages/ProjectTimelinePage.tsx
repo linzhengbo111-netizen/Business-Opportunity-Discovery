@@ -135,8 +135,8 @@ export default function ProjectTimelinePage() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   // "待挖掘项目" collapsed group — expanded only on explicit click.
   const [minedOpen, setMinedOpen] = useState(false);
-  // 左侧栏 — 默认展开（项目选择是本页主导航；移动端为可关闭浮层）
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // 左侧栏 — 默认折叠，与商机看板 / 战报中心一致
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
 
   // Timeline
   const [events, setEvents] = useState<TimelineEventFull[]>([]);
