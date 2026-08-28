@@ -24,6 +24,8 @@ import PushAnalysisPanel, { PushSourceBadge } from "@/components/dashboard/PushA
 import BattleCardWrapper from "@/components/dashboard/BattleCard";
 import FollowUpStatus from "@/components/dashboard/FollowUpStatus";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useSavedProjects } from "@/hooks/useSavedProjects";
+import { Heart } from "lucide-react";
 import { useRequireLogin } from "@/hooks/useRequireLogin";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -198,6 +200,7 @@ export default function DatabasePage() {
 
   // subscription (follow/unfollow)
   const { isFollowing, toggleFollowProject } = useSubscription();
+  const { isSaved, toggleSaved } = useSavedProjects(projects);
   const requireLogin = useRequireLogin();
   const { version, status: connectionStatus } = useProjectRealtime();
   const timelineEventCounts = useTimelineEventCounts(version);
@@ -681,8 +684,8 @@ export default function DatabasePage() {
               )}
             </div>
 
-            {/* follow / unfollow button — login required on click */}
-            <div className="mb-4">
+            {/* follow / unfollow + 收藏 buttons — login required on follow click */}
+            <div className="mb-4 flex items-center gap-2">
               <Button
                 variant={isFollowing(selected.name) ? 'default' : 'outline'}
                 size="sm"
@@ -697,6 +700,21 @@ export default function DatabasePage() {
                 }
               >
                 {isFollowing(selected.name) ? '★ Following' : '☆ Follow'}
+              </Button>
+              <Button
+                variant={isSaved(selected) ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => toggleSaved(selected)}
+                aria-label={isSaved(selected) ? '取消收藏' : '收藏'}
+                title={isSaved(selected) ? '取消收藏' : '收藏'}
+                className={
+                  isSaved(selected)
+                    ? 'bg-fpso-gold hover:bg-fpso-gold/80 text-white text-xs'
+                    : 'border-fpso-gold/40 text-fpso-gold hover:bg-fpso-gold/10 text-xs'
+                }
+              >
+                <Heart className={`h-3.5 w-3.5 ${isSaved(selected) ? 'fill-current' : ''}`} />
+                收藏
               </Button>
             </div>
 

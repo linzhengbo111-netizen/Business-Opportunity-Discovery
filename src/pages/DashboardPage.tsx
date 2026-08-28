@@ -32,12 +32,13 @@ import {
 } from "@/lib/project_phase";
 import { analyzeProjectScenario, assessOpportunity, type AIResult, type ScenarioAnalysis, type OpportunityAssessment } from "@/lib/ai_analyst";
 import { usePushAnalysis, usePushAnalysisState } from "@/hooks/usePushAnalysis";
+import { useSavedProjects } from "@/hooks/useSavedProjects";
 import PushAnalysisPanel, { PushSourceBadge } from "@/components/dashboard/PushAnalysisPanel";
 import BattleCardWrapper from "@/components/dashboard/BattleCard";
 import OutreachModal from "@/components/dashboard/OutreachModal";
 import FollowUpStatus from "@/components/dashboard/FollowUpStatus";
 import GlobalSearch from "@/components/dashboard/GlobalSearch";
-import { Building2, Hammer, Wrench, CalendarDays, PlusCircle, Anchor, Waves, Gauge, Globe, BarChart3, TrendingUp } from "lucide-react";
+import { Building2, Hammer, Wrench, CalendarDays, PlusCircle, Anchor, Waves, Gauge, Globe, BarChart3, TrendingUp, Heart } from "lucide-react";
 import FilterSidebar from "@/components/dashboard/FilterSidebar";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
@@ -616,6 +617,7 @@ export default function DashboardPage() {
   const { version, status: connectionStatus } = useProjectRealtime();
   const timelineEventCounts = useTimelineEventCounts(version);
   const { isFollowing, toggleFollowProject } = useSubscription();
+  const { savedProjects, isSaved, toggleSaved } = useSavedProjects(projects);
   const requireLogin = useRequireLogin();
 
   // ---- 从 Supabase 获取项目数据 ----
@@ -1171,6 +1173,11 @@ export default function DashboardPage() {
           filteredCount={filteredProjects.length}
           showAllProjects={showAllProjects}
           onShowAllProjectsChange={setShowAllProjects}
+          savedProjects={savedProjects}
+          onOpenProject={(project) => {
+            setSelectedProject(project);
+            setModalTab("overview");
+          }}
         />
 
         <main
@@ -1625,8 +1632,8 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              {/* follow / unfollow button — login required on click */}
-              <div>
+              {/* follow / unfollow + 收藏 buttons — login required on follow click */}
+              <div className="flex items-center gap-2">
                 <Button
                   variant={isFollowing(selectedProject.name) ? 'default' : 'outline'}
                   size="sm"
@@ -1641,6 +1648,21 @@ export default function DashboardPage() {
                   }
                 >
                   {isFollowing(selectedProject.name) ? '★ Following' : '☆ Follow'}
+                </Button>
+                <Button
+                  variant={isSaved(selectedProject) ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => toggleSaved(selectedProject)}
+                  aria-label={isSaved(selectedProject) ? '取消收藏' : '收藏'}
+                  title={isSaved(selectedProject) ? '取消收藏' : '收藏'}
+                  className={
+                    isSaved(selectedProject)
+                      ? 'bg-fpso-gold hover:bg-fpso-gold/80 text-white text-xs'
+                      : 'border-fpso-gold/40 text-fpso-gold hover:bg-fpso-gold/10 text-xs'
+                  }
+                >
+                  <Heart className={`h-3.5 w-3.5 ${isSaved(selectedProject) ? 'fill-current' : ''}`} />
+                  收藏
                 </Button>
               </div>
 
