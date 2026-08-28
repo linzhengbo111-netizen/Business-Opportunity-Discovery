@@ -29,10 +29,17 @@ export default function Header({ rightContent }: { rightContent?: ReactNode }) {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-fpso-border/80 bg-fpso-card/60 backdrop-blur-xl shadow-card">
       <div className="relative mx-auto flex h-16 max-w-7xl items-center px-6">
-        {/* left: title */}
-        <div className="z-10 flex-shrink-0">
+        {/* left: logo + title */}
+        <div className="z-10 flex flex-shrink-0 items-center gap-2.5">
+          <img
+            src="/images/logo/site-logo.png"
+            alt="迈拓控股"
+            width={42}
+            height={36}
+            className="h-9 w-auto rounded-md"
+          />
           <span className="text-lg font-bold tracking-tight neon-glow md:text-xl">
-            Business Opportunity Discovery
+            迈拓控股
           </span>
         </div>
 
