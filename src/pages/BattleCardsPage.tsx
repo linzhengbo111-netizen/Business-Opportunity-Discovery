@@ -10,6 +10,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
 import PageHeader from "@/components/common/PageHeader";
+import SidebarShell, { SIDEBAR_EXPANDED, SIDEBAR_COLLAPSED } from "@/components/common/SidebarShell";
+import SavedProjectsPanel from "@/components/common/SavedProjectsPanel";
 import type { Project } from "@/data/projects";
 import { sampleProjects, COUNTRY_ALIASES, normalizeIndustry } from "@/data/projects";
 import { normalizeProjectName, getDisplayName, sortPriorityFirst, priorityProjectRankByName } from "@/data/project_aliases";
@@ -23,6 +25,7 @@ import { scoreOpportunity, scoreBadgeClass } from "@/lib/opportunity_scorer";
 import { generateBattleCard, type BattleCard } from "@/lib/battle_card";
 import { exportOpportunityList } from "@/lib/export_opportunities";
 import { usePushAnalysisState } from "@/hooks/usePushAnalysis";
+import { useSavedProjects } from "@/hooks/useSavedProjects";
 import { PushSourceBadge } from "@/components/dashboard/PushAnalysisPanel";
 import BattleCardWrapper from "@/components/dashboard/BattleCard";
 import { useRequireLogin } from "@/hooks/useRequireLogin";
@@ -223,9 +226,17 @@ export default function BattleCardsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const { version, status: connectionStatus } = useProjectRealtime();
   const timelineEventCounts = useTimelineEventCounts(version);
   const requireLogin = useRequireLogin();
+  const { savedProjects } = useSavedProjects(projects);
+
+  // 收藏面板迷你筛选器用国家列表
+  const countries = useMemo(
+    () => [...new Set(projects.map((p) => p.country.trim()).filter(Boolean))].sort(),
+    [projects],
+  );
 
   // ---- 从 Supabase 获取项目数据（projects 表，空则兜底 sampleProjects）----
   useEffect(() => {
@@ -307,7 +318,26 @@ export default function BattleCardsPage() {
       <PageMeta title="战报中心" description="高质量商机作战卡" />
       <Header />
 
-      <main className="mx-auto max-w-7xl px-4 py-8 md:px-6">
+      <div className="max-w-7xl mx-auto">
+        {/* 左侧栏 — 收藏项目面板，外壳与商机看板一致 */}
+        <SidebarShell
+          collapsed={sidebarCollapsed}
+          onToggle={() => setSidebarCollapsed((v) => !v)}
+          collapsedLabel="Saved"
+        >
+          <div className="px-4 pt-4">
+            <SavedProjectsPanel
+              countries={countries}
+              savedProjects={savedProjects}
+              onOpenProject={(project) => setSelectedProject(project)}
+            />
+          </div>
+        </SidebarShell>
+
+      <main
+        className="flex-1 min-w-0 px-4 py-8 md:px-6 transition-all duration-300 ease-in-out max-md:!ml-0"
+        style={{ marginLeft: sidebarCollapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED }}
+      >
         {/* page header — 统一 PageHeader */}
         <PageHeader
           title={<span className="neon-glow">战报中心</span>}
@@ -353,6 +383,7 @@ export default function BattleCardsPage() {
           </div>
         )}
       </main>
+      </div>
 
       {/* full battle card dialog */}
       <Dialog open={selectedProject !== null} onOpenChange={(open) => !open && setSelectedProject(null)}>

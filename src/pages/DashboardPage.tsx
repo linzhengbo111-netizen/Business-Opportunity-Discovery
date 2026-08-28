@@ -12,6 +12,7 @@ import {
 import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
 import PageHeader from "@/components/common/PageHeader";
+import { SIDEBAR_EXPANDED, SIDEBAR_COLLAPSED } from "@/components/common/SidebarShell";
 import type { Project, MaterialMatchResult } from "@/data/projects";
 import { countryCoordinates, sampleProjects, countryToFlagEmoji, COUNTRY_ALIASES, normalizeIndustry, getIndustryTitle, ALL_INDUSTRIES } from "@/data/projects";
 import { normalizeProjectName, getDisplayName, sortPriorityFirst, priorityProjectRankByName } from "@/data/project_aliases";
@@ -1184,7 +1185,7 @@ export default function DashboardPage() {
 
         <main
           className="flex-1 min-w-0 px-4 py-8 md:px-6 transition-all duration-300 ease-in-out max-md:!ml-0"
-          style={{ marginLeft: sidebarCollapsed ? 48 : 260 }}
+          style={{ marginLeft: sidebarCollapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED }}
         >
         {/* 页面标题 — 统一 PageHeader：行业名 + 「商机挖掘」青蓝渐变 + 英文副标 + 最后更新 */}
         <PageHeader

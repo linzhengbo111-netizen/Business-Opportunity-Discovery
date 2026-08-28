@@ -9,6 +9,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
 import PageHeader from "@/components/common/PageHeader";
+import SidebarShell, { SIDEBAR_EXPANDED, SIDEBAR_COLLAPSED } from "@/components/common/SidebarShell";
 import { supabase, fetchAllRows } from "@/db/supabase";
 import { phaseFromRow } from "@/lib/project_phase";
 import {
@@ -134,6 +135,8 @@ export default function ProjectTimelinePage() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   // "待挖掘项目" collapsed group — expanded only on explicit click.
   const [minedOpen, setMinedOpen] = useState(false);
+  // 左侧栏 — 默认展开（项目选择是本页主导航；移动端为可关闭浮层）
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Timeline
   const [events, setEvents] = useState<TimelineEventFull[]>([]);
@@ -482,18 +485,19 @@ export default function ProjectTimelinePage() {
         }
       />
 
-      <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
-        {/* page header — 统一 PageHeader */}
-        <PageHeader
-          title={<span className="neon-glow">项目时间线</span>}
-          subtitle="查看项目里程碑和关键事件"
-        />
-
-        {/* Project Selector */}
-        <section className="mb-6">
-          <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-fpso-dim">
-            Project
-          </label>
+      <div className="max-w-7xl mx-auto">
+        {/* 左侧栏 — 项目选择，外壳与商机看板一致 */}
+        <SidebarShell
+          collapsed={sidebarCollapsed}
+          onToggle={() => setSidebarCollapsed((v) => !v)}
+          collapsedLabel="Projects"
+        >
+          {/* Project Selector */}
+          <div className="px-4 pt-4 pb-6">
+            <section>
+              <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-fpso-dim">
+                Project
+              </label>
           <div className="relative">
             <div className="flex items-center rounded-lg border border-fpso-border bg-fpso-card/70 backdrop-blur-md hover:border-fpso-blue/30 transition-colors">
               <Search className="ml-3 h-4 w-4 text-fpso-dim flex-shrink-0" />
@@ -609,7 +613,19 @@ export default function ProjectTimelinePage() {
               </div>
             )}
           </div>
-        </section>
+            </section>
+          </div>
+        </SidebarShell>
+
+      <main
+        className="flex-1 min-w-0 px-4 py-8 md:px-6 transition-all duration-300 ease-in-out max-md:!ml-0"
+        style={{ marginLeft: sidebarCollapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED }}
+      >
+        {/* page header — 统一 PageHeader */}
+        <PageHeader
+          title={<span className="neon-glow">项目时间线</span>}
+          subtitle="查看项目里程碑和关键事件"
+        />
 
         {/* Event Type Filters */}
         <section className="mb-8">
@@ -821,6 +837,7 @@ export default function ProjectTimelinePage() {
             </div>
           </section>
         )}
+      </main>
       </div>
 
       {/* Footer */}
