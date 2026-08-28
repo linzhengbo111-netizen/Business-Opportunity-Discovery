@@ -66,6 +66,7 @@ from ai_event_extractor import (  # noqa: E402
     log_stats,
     PHASES_SET,
 )
+from ai_epc_extractor import extract_epc_chain  # noqa: E402
 from backfill_phases import run_phase_backfill, log_phase_stats  # noqa: E402
 
 # Tier 1 — 线索发现 (media)
@@ -499,10 +500,12 @@ def _phase_of_candidate(c):
     return _LEGACY_STATUS_TO_PHASE.get(stripped.lower())
 
 
-def promote_accepted_candidates(supabase):
+def promote_accepted_candidates(supabase, skip_ai_epc=False):
     """
     Move candidate_events rows with review_status IN ('accepted','auto_accepted')
     into projects table.
+
+    skip_ai_epc=True forces the rule-engine EPC extraction (no LLM calls).
 
     Normalization + merge logic:
     1. For each accepted candidate, call normalize_project_name() to resolve
@@ -668,6 +671,47 @@ def promote_accepted_candidates(supabase):
 
                 log.info("  Merging %d candidates → %s", len(group), effective_name[:60])
 
+            # ---- Existing row + Delivered guard (checked before AI work) ----
+            existing = project_table.select(
+                "id, phase, industry, procurement_chain, operator_name"
+            ).eq("name", effective_name).execute()
+            existing_row = existing.data[0] if existing.data else {}
+            existing_phase = existing_row.get("phase", "") or existing_row.get("status", "")
+            # Skip if already Delivered in projects table and candidate date is old
+            if existing_phase == "Delivery" and merged_source_date < "2023-01-01":
+                log.info("  SKIP (Delivered + old date): %s | %s",
+                         effective_name[:60], merged_source_date)
+                continue
+
+            # ---- EPC extraction: AI first, rule engine fallback ----
+            epc_project = {
+                "name": effective_name,
+                "country": merged_country,
+                "industry": existing_row.get("industry")
+                    or group[0].get("industry", ""),
+                "procurement_chain": sanitize_chain(
+                    existing_row.get("procurement_chain")
+                    or group[0].get("procurement_chain", "")),
+            }
+            try:
+                epc = extract_epc_chain(epc_project, group, supabase=supabase,
+                                        use_ai=not skip_ai_epc)
+            except Exception:
+                log.warning("  EPC extraction crashed: %s",
+                            effective_name[:60], exc_info=True)
+                epc = {"procurement_chain": sanitize_chain(
+                           group[0].get("procurement_chain", "")),
+                       "owner_operator": None, "source": "rules",
+                       "confidence": "low", "evidence": "", "reasoning": ""}
+
+            # Union of AI/rules chain, existing chain, and the raw event
+            # chain — AI entities first, deduped, never erase known data.
+            chain = sanitize_chain(", ".join(dict.fromkeys(
+                p.strip() for src in (epc["procurement_chain"],
+                                      existing_row.get("procurement_chain"),
+                                      group[0].get("procurement_chain", ""))
+                for p in re.split(r"[,;]", src or "") if p.strip())))
+
             project_data = {
                 "name": effective_name,
                 "country": merged_country,
@@ -679,8 +723,7 @@ def promote_accepted_candidates(supabase):
                 "source_date": merged_source_date,
                 "stainless_steel": group[0].get("stainless_steel", ""),
                 "application": group[0].get("application", ""),
-                "procurement_chain": sanitize_chain(
-                    group[0].get("procurement_chain", "")),
+                "procurement_chain": chain,
                 "water_depth_m": group[0].get("water_depth_m"),
                 "oil_capacity_bpd": group[0].get("oil_capacity_bpd"),
                 "gas_capacity_mmcmd": group[0].get("gas_capacity_mmcmd"),
@@ -689,17 +732,10 @@ def promote_accepted_candidates(supabase):
                 "operator_name": group[0].get("operator_name", ""),
                 "basin": group[0].get("basin", ""),
             }
-
-            # ---- Skip Delivered projects with old dates (pre-2023 noise) ----
-            existing = project_table.select("id, phase").eq("name", effective_name).execute()
-            existing_phase = ""
-            if existing.data:
-                existing_phase = existing.data[0].get("phase", "") or existing.data[0].get("status", "")
-            # Skip if already Delivered in projects table and candidate date is old
-            if existing_phase == "Delivery" and merged_source_date < "2023-01-01":
-                log.info("  SKIP (Delivered + old date): %s | %s",
-                         effective_name[:60], merged_source_date)
-                continue
+            # Owner/operator discovered by the AI fills the operator field
+            # when the events carried none.
+            if not project_data["operator_name"] and epc.get("owner_operator"):
+                project_data["operator_name"] = epc["owner_operator"]
 
             if existing.data:
                 project_table.update(project_data).eq("name", effective_name).execute()
@@ -805,7 +841,7 @@ def backfill_source_urls(supabase):
 # ========================================================================
 
 
-def auto_promote_candidates(supabase):
+def auto_promote_candidates(supabase, skip_ai_epc=False):
     """Auto-accept all pending candidate_events, then promote to projects."""
     log.info("=" * 54)
     log.info("AUTO-PROMOTE MODE")
@@ -834,7 +870,7 @@ def auto_promote_candidates(supabase):
         return 0, 0
 
     # Promote
-    return promote_accepted_candidates(supabase)
+    return promote_accepted_candidates(supabase, skip_ai_epc=skip_ai_epc)
 
 
 # ========================================================================
@@ -995,13 +1031,15 @@ def _merge_corrosive_media(group):
     return None
 
 
-def auto_ingest_to_projects(supabase, skip_enrich=False):
+def auto_ingest_to_projects(supabase, skip_enrich=False, skip_ai_epc=False):
     """After auto_classify, upsert all accepted/auto_accepted candidates
     directly into projects table with AI confidence labels.
 
     - Maps confidence from source priority + event_type.
     - Skips media (tier=1) candidates that match REJECT_KEYWORDS.
     - Normalizes project names and merges duplicates.
+    - Extracts the EPC/shipyard/operator chain with the AI (DeepSeek),
+      falling back to the rule engine (skip_ai_epc=True forces rules only).
     - Enriches projects by searching public web sources for missing tech specs
       (set skip_enrich=True to disable).
     """
@@ -1178,6 +1216,46 @@ def auto_ingest_to_projects(supabase, skip_enrich=False):
 
                 log.info("  Merging %d candidates → %s", len(group), effective_name[:60])
 
+            # ---- Skip Delivered projects with old dates (pre-2023 noise) ----
+            existing = project_table.select(
+                "id, phase, industry, procurement_chain, operator_name"
+            ).eq("name", effective_name).execute()
+            existing_row = existing.data[0] if existing.data else {}
+            existing_phase = existing_row.get("phase", "") or existing_row.get("status", "")
+            if existing_phase == "Delivery" and merged_source_date < "2023-01-01":
+                log.info("  SKIP (Delivered + old date): %s | %s",
+                         effective_name[:60], merged_source_date)
+                continue
+
+            # ---- EPC extraction: AI first, rule engine fallback ----
+            epc_project = {
+                "name": effective_name,
+                "country": merged_country,
+                "industry": existing_row.get("industry")
+                    or group[0].get("industry", ""),
+                "procurement_chain": sanitize_chain(
+                    existing_row.get("procurement_chain")
+                    or group[0].get("procurement_chain", "")),
+            }
+            try:
+                epc = extract_epc_chain(epc_project, group, supabase=supabase,
+                                        use_ai=not skip_ai_epc)
+            except Exception:
+                log.warning("  EPC extraction crashed: %s",
+                            effective_name[:60], exc_info=True)
+                epc = {"procurement_chain": sanitize_chain(
+                           group[0].get("procurement_chain", "")),
+                       "owner_operator": None, "source": "rules",
+                       "confidence": "low", "evidence": "", "reasoning": ""}
+
+            # Union of AI/rules chain, existing chain, and the raw event
+            # chain — AI entities first, deduped, never erase known data.
+            chain = sanitize_chain(", ".join(dict.fromkeys(
+                p.strip() for src in (epc["procurement_chain"],
+                                      existing_row.get("procurement_chain"),
+                                      group[0].get("procurement_chain", ""))
+                for p in re.split(r"[,;]", src or "") if p.strip())))
+
             project_data = {
                 "name": effective_name,
                 "country": merged_country,
@@ -1189,8 +1267,7 @@ def auto_ingest_to_projects(supabase, skip_enrich=False):
                 "source_date": merged_source_date,
                 "stainless_steel": group[0].get("stainless_steel", ""),
                 "application": group[0].get("application", ""),
-                "procurement_chain": sanitize_chain(
-                    group[0].get("procurement_chain", "")),
+                "procurement_chain": chain,
                 "water_depth_m": group[0].get("water_depth_m"),
                 "oil_capacity_bpd": group[0].get("oil_capacity_bpd"),
                 "gas_capacity_mmcmd": group[0].get("gas_capacity_mmcmd"),
@@ -1200,21 +1277,15 @@ def auto_ingest_to_projects(supabase, skip_enrich=False):
                 "basin": group[0].get("basin", ""),
                 "confidence": confidence,
             }
+            # Owner/operator discovered by the AI fills the operator field
+            # when the events carried none.
+            if not project_data["operator_name"] and epc.get("owner_operator"):
+                project_data["operator_name"] = epc["owner_operator"]
 
             # ---- Merge corrosive_media from all candidates in group ----
             corrosive_merged = _merge_corrosive_media(group)
             if corrosive_merged:
                 project_data["corrosive_media"] = corrosive_merged
-
-            # ---- Skip Delivered projects with old dates (pre-2023 noise) ----
-            existing = project_table.select("id, phase").eq("name", effective_name).execute()
-            existing_phase = ""
-            if existing.data:
-                existing_phase = existing.data[0].get("phase", "") or existing.data[0].get("status", "")
-            if existing_phase == "Delivery" and merged_source_date < "2023-01-01":
-                log.info("  SKIP (Delivered + old date): %s | %s",
-                         effective_name[:60], merged_source_date)
-                continue
 
             # ---- Confidence guard: Delivery/Commissioning stay 'low' ----
             # Migration 016 downgraded delivered projects, but later auto-ingest
@@ -1315,7 +1386,8 @@ def auto_ingest_to_projects(supabase, skip_enrich=False):
 
 def run_all_adapters(dry_run=False, local_only=False, skip_classify=False,
                      skip_ingest=False, skip_enrich=False, anp_download=False,
-                     skip_ai_extract=False, ai_extract_limit=50):
+                     skip_ai_extract=False, ai_extract_limit=50,
+                     skip_ai_epc=False):
     """Run all 15 adapters sequentially with polite delays. Continue-on-error.
     After crawl: auto-classify pending, then auto-ingest into projects,
     then AI event extraction on newly crawled ARTICLE_MENTION rows.
@@ -1392,7 +1464,9 @@ def run_all_adapters(dry_run=False, local_only=False, skip_classify=False,
         # ---- Auto-ingest accepted → projects ----
         if not skip_ingest:
             log.info("")
-            ingest_result = auto_ingest_to_projects(supabase, skip_enrich=skip_enrich)
+            ingest_result = auto_ingest_to_projects(supabase,
+                                                    skip_enrich=skip_enrich,
+                                                    skip_ai_epc=skip_ai_epc)
             log.info("")
 
     # ---- AI event extraction for newly crawled articles ----
@@ -1518,6 +1592,12 @@ def main():
         help="Skip the AI event extraction step after crawl.",
     )
     parser.add_argument(
+        "--skip-ai-epc",
+        action="store_true",
+        help="Skip AI EPC extraction during promote/auto-ingest "
+             "(rule engine only).",
+    )
+    parser.add_argument(
         "--backfill-phases",
         action="store_true",
         help="AI-classify lifecycle phases for all projects and write "
@@ -1535,7 +1615,8 @@ def main():
 
     # Standalone auto-ingest (no crawl)
     if args.auto_ingest:
-        new, updated, skipped = auto_ingest_to_projects(supabase, skip_enrich=args.skip_enrich)
+        new, updated, skipped = auto_ingest_to_projects(
+            supabase, skip_enrich=args.skip_enrich, skip_ai_epc=args.skip_ai_epc)
         log.info("Standalone auto-ingest: %d new, %d updated, %d skipped.",
                  new, updated, skipped)
         return
@@ -1573,13 +1654,13 @@ def main():
 
     # Promote mode
     if args.promote:
-        new, updated = promote_accepted_candidates(supabase)
+        new, updated = promote_accepted_candidates(supabase, skip_ai_epc=args.skip_ai_epc)
         log.info("Promote complete: %d new, %d updated in projects.", new, updated)
         return
 
     # Auto-promote mode
     if args.auto_promote:
-        new, updated = auto_promote_candidates(supabase)
+        new, updated = auto_promote_candidates(supabase, skip_ai_epc=args.skip_ai_epc)
         log.info("Auto-promote complete: %d new, %d updated in projects.", new, updated)
         return
 
@@ -1607,7 +1688,8 @@ def main():
                      skip_enrich=args.skip_enrich,
                      anp_download=args.anp_download,
                      skip_ai_extract=args.skip_ai_extract,
-                     ai_extract_limit=args.ai_limit)
+                     ai_extract_limit=args.ai_limit,
+                     skip_ai_epc=args.skip_ai_epc)
 
 
 if __name__ == "__main__":

@@ -2224,7 +2224,7 @@ PROCUREMENT_ROLE_PATTERNS = [
     r"epc", r"epcc", r"contract", r"award", r"contractor", r"engineering",
     r"construction", r"shipyard", r"\byard\b", r"letter of intent", r"\bloi\b",
     r"tender", r"fabricat", r"conversion", r"supply", r"supplier", r"signed",
-    r"selected", r"wins?", r"secured", r"agreement", r"build",
+    r"selected", r"wins?", r"secured", r"agreement", r"build", r"built",
 ]
 
 _ROLE_WINDOW = 160  # context chars examined around each entity mention
