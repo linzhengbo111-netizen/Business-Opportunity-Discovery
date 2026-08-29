@@ -22,7 +22,7 @@ import { useTimelineEventCounts } from "@/hooks/useTimelineEventCounts";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useRequireLogin } from "@/hooks/useRequireLogin";
 import { matchMaterials, specsFromRow, hasAnySpecs, parseCorrosiveMedia, getCorrosiveMediaTags, getCorrosiveMediaDetails } from "@/lib/material_matcher";
-import { isMilestoneEvent, isRegulatoryEvent } from "@/lib/event_types";
+import { isMilestoneEvent } from "@/lib/event_types";
 import { exportOpportunityList } from "@/lib/export_opportunities";
 import { filterMatureProjects, hasTimelineData } from "@/lib/project_maturity";
 import { projectMatchesSearch } from "@/lib/project_search";
@@ -615,8 +615,6 @@ export default function DashboardPage() {
   const [aiAssessment, setAiAssessment] = useState<AIResult<OpportunityAssessment> | null>(null);
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(false);
-  // 「只看里程碑」— 默认关闭；切换项目时重置
-  const [milestoneOnly, setMilestoneOnly] = useState(false);
   // AI 个性化分析（同飞书推送）— 规则引擎结果立即显示，AI 返回后更新
   const pushAnalysis = usePushAnalysis(selectedProject);
   const { version } = useProjectRealtime();
@@ -962,7 +960,6 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!selectedProject) {
       setTimelineEvents([]);
-      setMilestoneOnly(false);
       return;
     }
     const projectName = selectedProject.name;
@@ -1063,11 +1060,11 @@ export default function DashboardPage() {
     return `${head}（共 ${timelineEvents.length} 条）`;
   }, [timelineEvents]);
 
-  /** Timeline events after the 「只看里程碑」 filter. */
-  const visibleTimelineEvents = useMemo(() => {
-    if (!milestoneOnly) return timelineEvents;
-    return timelineEvents.filter((e) => isMilestoneEvent(e.eventType));
-  }, [timelineEvents, milestoneOnly]);
+  /** 时间线只显示关键里程碑事件 — 监管备案等类型保留在库里但不渲染。 */
+  const visibleTimelineEvents = useMemo(
+    () => timelineEvents.filter((e) => isMilestoneEvent(e.eventType)),
+    [timelineEvents],
+  );
 
   // ---- AI 分析（LLM 可用时返回 AI 结果，否则 fallback 到规则引擎）----
   /** Name candidates for fuzzy timeline matching: core name (text before
@@ -2005,38 +2002,14 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 <div>
-                  {/* 「只看里程碑」切换 */}
-                  <div className="mb-3 flex items-center justify-end">
-                    <label className="inline-flex cursor-pointer items-center gap-2 select-none">
-                      <span className={`text-xs ${milestoneOnly ? "text-fpso-blue" : "text-fpso-muted"}`}>
-                        只看里程碑
-                      </span>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={milestoneOnly}
-                        onClick={() => setMilestoneOnly((v) => !v)}
-                        className={`relative h-4.5 w-8 rounded-full transition-colors ${
-                          milestoneOnly ? "bg-fpso-blue" : "bg-fpso-border"
-                        }`}
-                      >
-                        <span
-                          className={`absolute top-0.5 h-3.5 w-3.5 rounded-full bg-white shadow transition-all ${
-                            milestoneOnly ? "left-4" : "left-0.5"
-                          }`}
-                        />
-                      </button>
-                    </label>
-                  </div>
-
                   {visibleTimelineEvents.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-10 text-center">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-fpso-dim mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      <p className="text-sm text-fpso-muted">暂无关键里程碑</p>
+                      <p className="text-sm text-fpso-muted">暂无关键里程碑事件</p>
                       <p className="text-xs text-fpso-dim mt-1">
-                        该项目暂时没有合同授予、FID、投产、交付等关键里程碑事件，关闭「只看里程碑」可查看全部事件。
+                        该项目暂时没有合同授予、FID、投产、交付等关键里程碑事件，现有记录以监管备案为主，已自动隐藏。
                       </p>
                     </div>
                   ) : (
@@ -2046,14 +2019,8 @@ export default function DashboardPage() {
                   <div className="space-y-4">
                     {visibleTimelineEvents.map((evt) => (
                       <div key={evt.id} className="relative flex gap-4">
-                        {/* 圆点 — 里程碑大点 + 光晕；监管类小点 + 降透明度 */}
-                        <div className={`relative z-10 flex-shrink-0 rounded-full border-2 border-fpso-card ${timelineDotColor(evt.eventType)} ${
-                          isMilestoneEvent(evt.eventType)
-                            ? "mt-0.5 h-3.5 w-3.5 shadow-[0_0_10px_rgba(5,150,105,0.45)]"
-                            : isRegulatoryEvent(evt.eventType)
-                              ? "mt-1 h-2.5 w-2.5 opacity-50"
-                              : "mt-1 h-2.5 w-2.5"
-                        }`} />
+                        {/* 圆点 — 关键里程碑统一大点 + 光晕 */}
+                        <div className={`relative z-10 mt-0.5 h-3.5 w-3.5 flex-shrink-0 rounded-full border-2 border-fpso-card ${timelineDotColor(evt.eventType)} shadow-[0_0_10px_rgba(5,150,105,0.45)]`} />
                         {/* 内容卡片 */}
                         <div className="flex-1 min-w-0 rounded-md border border-fpso-border bg-fpso-bg/40 backdrop-blur-md px-3 py-2.5">
                           <div className="flex items-center justify-between gap-2 mb-1">

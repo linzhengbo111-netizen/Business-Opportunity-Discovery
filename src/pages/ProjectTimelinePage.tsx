@@ -22,7 +22,7 @@ import {
 } from "@/data/project_aliases";
 import type { Project } from "@/data/projects";
 import { countryToFlagEmoji, COUNTRY_ALIASES, normalizeIndustry } from "@/data/projects";
-import { isMilestoneEvent, isRegulatoryEvent } from "@/lib/event_types";
+import { isMilestoneEvent } from "@/lib/event_types";
 import { Search, ChevronDown, ChevronRight, ExternalLink, Anchor, Waves, Gauge } from "lucide-react";
 
 // ---- Types ----
@@ -146,8 +146,6 @@ export default function ProjectTimelinePage() {
   const [activeCategories, setActiveCategories] = useState<Set<EventCategory>>(
     new Set(CATEGORY_OPTIONS.map((c) => c.key)),
   );
-  // 「只看里程碑」— 默认关闭，显示全部事件
-  const [milestoneOnly, setMilestoneOnly] = useState(false);
 
   // Project info
   const [projectInfo, setProjectInfo] = useState<Project | null>(null);
@@ -389,17 +387,21 @@ export default function ProjectTimelinePage() {
     return () => { cancelled = true; };
   }, [queryTarget, isCanonical]);
 
-  // Filter events by active categories; 「只看里程碑」 stacks on top.
+  // 时间线只显示关键里程碑事件 — 监管备案等类型保留在库里但不渲染。
+  // Category chips 在此之上继续收窄。
   const filteredEvents = useMemo(() => {
-    let list = events;
+    let list = events.filter((e) => isMilestoneEvent(e.eventType));
     if (activeCategories.size !== CATEGORY_OPTIONS.length) {
       list = list.filter((e) => activeCategories.has(categorizeEvent(e.eventType)));
     }
-    if (milestoneOnly) {
-      list = list.filter((e) => isMilestoneEvent(e.eventType));
-    }
     return list;
-  }, [events, activeCategories, milestoneOnly]);
+  }, [events, activeCategories]);
+
+  // 未过滤前的里程碑数量 — 区分「无关键里程碑」与「被筛选条件清空」两种空态。
+  const milestoneCount = useMemo(
+    () => events.filter((e) => isMilestoneEvent(e.eventType)).length,
+    [events],
+  );
 
   // Split project options by accepted-event coverage: projects with at least
   // one accepted event stay in the main list; zero-event projects collapse
@@ -678,36 +680,14 @@ export default function ProjectTimelinePage() {
 
         {/* Timeline */}
         <section className="mb-10">
-          <div className="mb-6 flex items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold text-fpso-fg">
-              Timeline
-              {selectedDisplayName && (
-                <span className="ml-2 text-xs font-normal text-fpso-dim">
-                  — {selectedDisplayName}
-                </span>
-              )}
-            </h2>
-            <label className="inline-flex cursor-pointer items-center gap-2 select-none">
-              <span className={`text-xs ${milestoneOnly ? "text-fpso-blue" : "text-fpso-muted"}`}>
-                只看里程碑
+          <h2 className="mb-6 text-sm font-semibold text-fpso-fg">
+            Timeline
+            {selectedDisplayName && (
+              <span className="ml-2 text-xs font-normal text-fpso-dim">
+                — {selectedDisplayName}
               </span>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={milestoneOnly}
-                onClick={() => setMilestoneOnly((v) => !v)}
-                className={`relative h-4.5 w-8 rounded-full transition-colors ${
-                  milestoneOnly ? "bg-fpso-blue" : "bg-fpso-border"
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 h-3.5 w-3.5 rounded-full bg-white shadow transition-all ${
-                    milestoneOnly ? "left-4" : "left-0.5"
-                  }`}
-                />
-              </button>
-            </label>
-          </div>
+            )}
+          </h2>
 
           {loading || countsLoading ? (
             <div className="flex items-center justify-center py-16">
@@ -732,16 +712,16 @@ export default function ProjectTimelinePage() {
               <p className="text-sm text-fpso-muted">
                 {events.length === 0
                   ? "该项目暂无时间线事件。"
-                  : milestoneOnly
-                    ? "暂无关键里程碑"
+                  : milestoneCount === 0
+                    ? "暂无关键里程碑事件"
                     : "没有符合当前筛选条件的事件。"}
               </p>
               <p className="text-xs text-fpso-dim mt-1 max-w-md leading-relaxed">
                 {events.length === 0
                   ? "可能是早期阶段项目尚无公开里程碑，或历史已交付/噪音项目未收录事件。时间线仅显示已审核通过（accepted）的事件，未审核或已拒绝的事件不会展示。"
-                  : milestoneOnly
-                    ? "该项目暂时没有合同授予、FID、投产、交付等关键里程碑事件，关闭「只看里程碑」可查看全部事件。"
-                    : "时间线数据来自 candidate_events，仅显示已审核通过（accepted）的事件。"}
+                  : milestoneCount === 0
+                    ? "该项目暂时没有合同授予、FID、投产、交付等关键里程碑事件，现有记录以监管备案为主，已自动隐藏。"
+                    : "时间线只显示合同授予、FID、投产、交付等关键里程碑事件；监管备案类事件已隐藏。数据来自 candidate_events，仅显示已审核通过（accepted）的事件。"}
               </p>
             </div>
           ) : (
@@ -753,26 +733,17 @@ export default function ProjectTimelinePage() {
                 {filteredEvents.map((evt) => {
                   const expanded = expandedIds.has(evt.id);
                   const dotColor = timelineDotStyle(evt.eventType);
-                  const milestone = isMilestoneEvent(evt.eventType);
-                  const regulatory = isRegulatoryEvent(evt.eventType);
                   const hasEvidence = Boolean(evt.evidenceQuote);
                   const hasExtra = hasEvidence;
 
                   return (
                     <div key={evt.id} className="relative flex gap-5">
-                      {/* Dot — 里程碑大点 + 强光晕；监管类小点 + 降饱和 */}
+                      {/* Dot — 关键里程碑统一大点 + 强光晕 */}
                       <div
-                        className={`relative z-10 flex-shrink-0 rounded-full border-2 border-fpso-card ${
-                          milestone ? "mt-1 h-3.5 w-3.5" : "mt-1.5 h-3 w-3"
-                        }`}
+                        className="relative z-10 mt-1 h-3.5 w-3.5 flex-shrink-0 rounded-full border-2 border-fpso-card"
                         style={{
                           backgroundColor: dotColor,
-                          opacity: regulatory && !milestone ? 0.55 : 1,
-                          boxShadow: milestone
-                            ? `0 0 12px ${dotColor}, 0 0 4px ${dotColor}`
-                            : regulatory
-                              ? `0 0 4px ${dotColor}40`
-                              : `0 0 8px ${dotColor}80`,
+                          boxShadow: `0 0 12px ${dotColor}, 0 0 4px ${dotColor}`,
                         }}
                       />
 
