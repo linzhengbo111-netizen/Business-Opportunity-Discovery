@@ -749,25 +749,41 @@ export function inferProductNeeds(description: string): InferredProductNeed[] {
     }
   }
 
-  // Post-processing: if PIPE or TUBE is recommended, auto-add FLANGES.
-  // Piping systems inherently require flanged connections.
-  const PIPE_TUBE_TYPES: ProductType[] = [
+  // Post-processing: 管子 / 管件 / 法兰 are mutually reinforcing — a real
+  // piping project needs all three, so auto-add whichever family is missing.
+  const PIPE_TYPES: ProductType[] = [
     "SEAMLESS_PIPE",
     "WELDED_PIPE",
     "SEAMLESS_TUBE",
     "WELDED_TUBE",
   ];
-  if (
-    results.some((r) => PIPE_TUBE_TYPES.includes(r.productType)) &&
-    !results.some((r) => r.productType === "FLANGES")
-  ) {
-    results.push({
-      productType: "FLANGES",
-      label: "法兰",
-      confidence: "medium",
-      trigger: "管道系统配套",
-      source: "AI推断",
-    });
+  const FITTING_TYPES: ProductType[] = [
+    "PIPE_FITTINGS",
+    "FORGED_FITTINGS",
+    "CAST_FITTINGS",
+  ];
+  const COMPLETION_RULES: {
+    family: ProductType[];
+    add: ProductType;
+    label: string;
+  }[] = [
+    { family: PIPE_TYPES, add: "SEAMLESS_PIPE", label: "无缝管" },
+    { family: FITTING_TYPES, add: "PIPE_FITTINGS", label: "管件" },
+    { family: ["FLANGES"], add: "FLANGES", label: "法兰" },
+  ];
+  for (const rule of COMPLETION_RULES) {
+    if (
+      results.some((r) => rule.family.includes(r.productType)) &&
+      !results.some((r) => r.productType === rule.add)
+    ) {
+      results.push({
+        productType: rule.add,
+        label: rule.label,
+        confidence: "medium",
+        trigger: "管道系统配套",
+        source: "AI推断",
+      });
+    }
   }
 
   return results;
