@@ -22,7 +22,7 @@ import { useTimelineEventCounts } from "@/hooks/useTimelineEventCounts";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useRequireLogin } from "@/hooks/useRequireLogin";
 import { matchMaterials, specsFromRow, parseCorrosiveMedia, getCorrosiveMediaTags, getCorrosiveMediaDetails } from "@/lib/material_matcher";
-import { isMilestoneEvent } from "@/lib/event_types";
+import { sortTimelineEvents } from "@/lib/event_types";
 import { exportOpportunityList } from "@/lib/export_opportunities";
 import { filterMatureProjects, hasTimelineData } from "@/lib/project_maturity";
 import { projectMatchesSearch } from "@/lib/project_search";
@@ -1083,9 +1083,9 @@ export default function DashboardPage() {
     return `${head}（共 ${timelineEvents.length} 条）`;
   }, [timelineEvents]);
 
-  /** 时间线只显示关键里程碑事件 — 监管备案等类型保留在库里但不渲染。 */
+  /** 显示全部事件类型，按日期升序，DELIVERED 恒排最后。 */
   const visibleTimelineEvents = useMemo(
-    () => timelineEvents.filter((e) => isMilestoneEvent(e.eventType)),
+    () => sortTimelineEvents(timelineEvents),
     [timelineEvents],
   );
 
@@ -2054,25 +2054,13 @@ export default function DashboardPage() {
                   </p>
                 </div>
               ) : (
-                <div>
-                  {visibleTimelineEvents.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-10 text-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-fpso-dim mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <p className="text-sm text-fpso-muted">暂无关键里程碑事件</p>
-                      <p className="text-xs text-fpso-dim mt-1">
-                        该项目暂时没有合同授予、FID、投产、交付等关键里程碑事件，现有记录以监管备案为主，已自动隐藏。
-                      </p>
-                    </div>
-                  ) : (
                 <div className="relative">
                   {/* 竖线 */}
                   <div className="absolute left-[4px] top-1 bottom-1 w-0.5 bg-fpso-border" />
                   <div className="space-y-4">
                     {visibleTimelineEvents.map((evt) => (
                       <div key={evt.id} className="relative flex gap-4">
-                        {/* 圆点 — 关键里程碑统一大点 + 光晕 */}
+                        {/* 圆点 — 事件圆点 + 光晕 */}
                         <div className={`relative z-10 mt-0.5 h-3.5 w-3.5 flex-shrink-0 rounded-full border-2 border-fpso-card ${timelineDotColor(evt.eventType)} shadow-[0_0_10px_rgba(5,150,105,0.45)]`} />
                         {/* 内容卡片 */}
                         <div className="flex-1 min-w-0 rounded-md border border-fpso-border bg-fpso-bg/40 backdrop-blur-md px-3 py-2.5">
@@ -2113,8 +2101,6 @@ export default function DashboardPage() {
                       </div>
                     ))}
                   </div>
-                </div>
-                  )}
                 </div>
               )}
 

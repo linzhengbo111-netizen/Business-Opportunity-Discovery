@@ -2,23 +2,23 @@
  * Event type classification shared by the timeline views
  * (ProjectTimelinePage and the Dashboard project modal).
  *
- * Timelines show ONLY key milestone events. Regulatory filings, permits,
- * EIA submissions and the like stay in the database but are not rendered —
- * they flood the timeline without adding procurement signal.
+ * Timelines show ALL accepted event types — regulatory filings, permits,
+ * EIA submissions included — sorted by publication date ascending.
+ * The single exception: DELIVERED events always go last, regardless of
+ * date; multiple DELIVERED events sort by date among themselves.
  */
 
-/** Key milestone whitelist — the only event types rendered on timelines. */
-export const MILESTONE_EVENT_TYPES: ReadonlySet<string> = new Set([
-  "CONTRACT_AWARDED",
-  "FPSO_CONTRACT_AWARDED",
-  "FID_CONFIRMED",
-  "FIRST_OIL",
-  "PRODUCTION_START",
-  "CONSTRUCTION_UPDATE",
-  "DELIVERED",
-]);
-
-/** Contract awards, FID, first oil, production start, delivery, construction. */
-export function isMilestoneEvent(eventType: string): boolean {
-  return MILESTONE_EVENT_TYPES.has(eventType.toUpperCase());
+/**
+ * Timeline ordering — ascending by publication date, DELIVERED always last.
+ * Empty dates sort first; ties keep their input order (stable sort).
+ */
+export function sortTimelineEvents<T extends { eventType: string; publicationDate: string }>(
+  events: T[],
+): T[] {
+  return [...events].sort((a, b) => {
+    const aDelivered = a.eventType.toUpperCase() === "DELIVERED";
+    const bDelivered = b.eventType.toUpperCase() === "DELIVERED";
+    if (aDelivered !== bDelivered) return aDelivered ? 1 : -1;
+    return (a.publicationDate || "").localeCompare(b.publicationDate || "");
+  });
 }

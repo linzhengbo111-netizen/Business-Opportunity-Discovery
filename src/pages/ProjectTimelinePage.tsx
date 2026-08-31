@@ -22,7 +22,7 @@ import {
 } from "@/data/project_aliases";
 import type { Project } from "@/data/projects";
 import { countryToFlagEmoji, COUNTRY_ALIASES, normalizeIndustry } from "@/data/projects";
-import { isMilestoneEvent } from "@/lib/event_types";
+import { sortTimelineEvents } from "@/lib/event_types";
 import { Search, ChevronDown, ChevronRight, ExternalLink, Anchor, Waves, Gauge } from "lucide-react";
 
 // ---- Types ----
@@ -387,21 +387,15 @@ export default function ProjectTimelinePage() {
     return () => { cancelled = true; };
   }, [queryTarget, isCanonical]);
 
-  // 时间线只显示关键里程碑事件 — 监管备案等类型保留在库里但不渲染。
+  // 显示全部事件类型，按日期升序，DELIVERED 恒排最后。
   // Category chips 在此之上继续收窄。
   const filteredEvents = useMemo(() => {
-    let list = events.filter((e) => isMilestoneEvent(e.eventType));
+    let list = events;
     if (activeCategories.size !== CATEGORY_OPTIONS.length) {
       list = list.filter((e) => activeCategories.has(categorizeEvent(e.eventType)));
     }
-    return list;
+    return sortTimelineEvents(list);
   }, [events, activeCategories]);
-
-  // 未过滤前的里程碑数量 — 区分「无关键里程碑」与「被筛选条件清空」两种空态。
-  const milestoneCount = useMemo(
-    () => events.filter((e) => isMilestoneEvent(e.eventType)).length,
-    [events],
-  );
 
   // Split project options by accepted-event coverage: projects with at least
   // one accepted event stay in the main list; zero-event projects collapse
@@ -712,16 +706,12 @@ export default function ProjectTimelinePage() {
               <p className="text-sm text-fpso-muted">
                 {events.length === 0
                   ? "该项目暂无时间线事件。"
-                  : milestoneCount === 0
-                    ? "暂无关键里程碑事件"
-                    : "没有符合当前筛选条件的事件。"}
+                  : "没有符合当前筛选条件的事件。"}
               </p>
               <p className="text-xs text-fpso-dim mt-1 max-w-md leading-relaxed">
                 {events.length === 0
                   ? "可能是早期阶段项目尚无公开里程碑，或历史已交付/噪音项目未收录事件。时间线仅显示已审核通过（accepted）的事件，未审核或已拒绝的事件不会展示。"
-                  : milestoneCount === 0
-                    ? "该项目暂时没有合同授予、FID、投产、交付等关键里程碑事件，现有记录以监管备案为主，已自动隐藏。"
-                    : "时间线只显示合同授予、FID、投产、交付等关键里程碑事件；监管备案类事件已隐藏。数据来自 candidate_events，仅显示已审核通过（accepted）的事件。"}
+                  : "数据来自 candidate_events，仅显示已审核通过（accepted）的事件。"}
               </p>
             </div>
           ) : (
@@ -738,7 +728,7 @@ export default function ProjectTimelinePage() {
 
                   return (
                     <div key={evt.id} className="relative flex gap-5">
-                      {/* Dot — 关键里程碑统一大点 + 强光晕 */}
+                      {/* Dot — 事件圆点 + 光晕 */}
                       <div
                         className="relative z-10 mt-1 h-3.5 w-3.5 flex-shrink-0 rounded-full border-2 border-fpso-card"
                         style={{
