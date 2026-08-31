@@ -37,6 +37,7 @@ import { analyzeProjectScenario, assessOpportunity, type AIResult, type Scenario
 import { usePushAnalysis, usePushAnalysisState } from "@/hooks/usePushAnalysis";
 import { useSavedProjects } from "@/hooks/useSavedProjects";
 import { PushSourceBadge } from "@/components/dashboard/PushAnalysisPanel";
+import { SourceLinkBadge } from "@/components/common/SourceLinkBadge";
 import BattleCardWrapper from "@/components/dashboard/BattleCard";
 import OutreachModal from "@/components/dashboard/OutreachModal";
 import FollowUpStatus from "@/components/dashboard/FollowUpStatus";
@@ -552,6 +553,7 @@ function DashboardProjectCard({
                     ) : (
                       <span className="text-[11px] text-fpso-dim">{project.source.name || "—"}</span>
                     )}
+                    <SourceLinkBadge url={project.source.url} />
                     <span className="text-[10px] text-fpso-dim font-mono tabular-nums">{project.source.date}</span>
                     {(() => {
                       const candidates = [project.source.date, project.createdAt].filter(Boolean) as string[];
@@ -1675,10 +1677,10 @@ export default function DashboardPage() {
                 <div className="grid grid-cols-2 gap-2">
                   {(() => {
                     const cells: { label: string; value: string | null; icon: React.ReactNode }[] = [
-                      { label: "Operator", value: specs.operatorName, icon: <Building2 className="h-3.5 w-3.5" /> },
-                      { label: "Field", value: specs.fieldName, icon: <MapPin className="h-3.5 w-3.5" /> },
-                      { label: "Basin", value: specs.basin, icon: <Layers className="h-3.5 w-3.5" /> },
-                      { label: "Hull Type", value: specs.hullType, icon: <Ship className="h-3.5 w-3.5" /> },
+                      { label: "Operator", value: specs.operatorName ?? null, icon: <Building2 className="h-3.5 w-3.5" /> },
+                      { label: "Field", value: specs.fieldName ?? null, icon: <MapPin className="h-3.5 w-3.5" /> },
+                      { label: "Basin", value: specs.basin ?? null, icon: <Layers className="h-3.5 w-3.5" /> },
+                      { label: "Hull Type", value: specs.hullType ?? null, icon: <Ship className="h-3.5 w-3.5" /> },
                       { label: "Water Depth", value: specs.waterDepthM != null ? `${specs.waterDepthM.toLocaleString()} m` : null, icon: <Anchor className="h-3.5 w-3.5" /> },
                       { label: "Oil Capacity", value: specs.oilCapacityBpd != null ? `${specs.oilCapacityBpd.toLocaleString()} bpd` : null, icon: <Gauge className="h-3.5 w-3.5" /> },
                       { label: "Gas Capacity", value: specs.gasCapacityMmcmd != null ? `${specs.gasCapacityMmcmd.toLocaleString()} MMcmd` : null, icon: <Waves className="h-3.5 w-3.5" /> },
@@ -1739,6 +1741,7 @@ export default function DashboardPage() {
                   ) : (
                     <span className="text-xs text-fpso-dim">{selectedProject.source.name || "—"}</span>
                   )}
+                  <SourceLinkBadge url={selectedProject.source.url} />
                   {selectedProject.source.date && (
                     <span className="text-[11px] text-fpso-dim font-mono tabular-nums">
                       抓取日期 {selectedProject.source.date}

@@ -1,0 +1,225 @@
+{
+ "changes": [
+  {
+   "id": 1435,
+   "name": "BARNACLE",
+   "old": "https://www.thegazette.co.uk/notice/3375643",
+   "new": "https://www.rigzone.com/news/equinor_starts_3rd_uk_development_in_2019-10-dec-2019-160532-article/"
+  },
+  {
+   "id": 1554,
+   "name": "TALBOT",
+   "old": "https://www.offshore-mag.com/production/article/14290898/harbour-scaling-back-uk-offshore-investments",
+   "new": "https://www.subseaintel.com/news/14775"
+  },
+  {
+   "id": 1534,
+   "name": "TOLMOUNT",
+   "old": "https://www.worldpipelines.com/business-news/20082018/premier-oil-approves-north-sea-gas-field-development/",
+   "new": "https://www.rigzone.com/news/north_sea_tolmount_main_gas_field_gets_green_light-20-aug-2018-156673-article/"
+  },
+  {
+   "id": 1878,
+   "name": "INDE LEMAN FDPA",
+   "old": "https://www.vesselfinder.com/tr/news/17349-KCI-to-design-platform-from-jack-up-rig-for-Perenco",
+   "new": "https://www.nsenergybusiness.com/news/rever-offshore-perenco-contract/"
+  },
+  {
+   "id": 1869,
+   "name": "STELLA & HARRIER VORLICH FDPA",
+   "old": "https://www.offshore-mag.com/regional-reports/article/16802642/ithaca-taking-control-of-north-sea-greater-stella-area",
+   "new": "https://www.offshore-mag.com/field-development/article/16803109/bp-gets-go-ahead-for-north-sea-subsea-tieback"
+  },
+  {
+   "id": 1532,
+   "name": "LANCASTER EPS",
+   "old": "https://www.offshore-energy.biz/hurricane-energy-gets-nod-for-lancaster-development/",
+   "new": "https://www.offshore-energy.biz/first-oil-flows-from-hurricane-energys-lancaster-field/"
+  },
+  {
+   "id": 1538,
+   "name": "ALLIGN",
+   "old": "https://www.climateaction.org/news/bp-get-green-light-for-north-sea-oil-project",
+   "new": "https://www.ogj.com/exploration-development/article/17296943/bp-granted-approval-for-alligin-development"
+  },
+  {
+   "id": 1539,
+   "name": "FINLAGGAN",
+   "old": "https://www.offshore-mag.com/field-development/article/16803711/oga-approves-finlaggan-tieback-in-the-north-sea",
+   "new": "https://www.ogj.com/exploration-development/article/17295879/zennor-developing-finlaggan-field-off-uk"
+  },
+  {
+   "id": 1531,
+   "name": "UTGARD [UK]",
+   "old": "https://www.havtil.no/tilsyn/samtykker/2017/statoil-modifikasjonar-pa-sleipner/",
+   "new": "https://www.ogj.com/general-interest/government/article/14039030/equinor-gets-approval-for-start-up-of-utgard-field-production"
+  },
+  {
+   "id": 1536,
+   "name": "GARTEN",
+   "old": "https://www.offshore-energy.biz/first-oil-flows-from-apaches-garten-development/",
+   "new": "https://www.ogj.com/drilling-production/production-operations/field-start-ups/article/17296779/apache-starts-production-from-garten-development-in-uk-north-sea"
+  },
+  {
+   "id": 1541,
+   "name": "COLUMBUS",
+   "old": "https://www.offshore-mag.com/field-development/article/16803740/oga-sanctions-north-sea-columbus-shearwater-tieback",
+   "new": "https://www.oilfieldtechnology.com/offshore-and-subsea/25112021/production-begins-from-columbus-field/"
+  },
+  {
+   "id": 1540,
+   "name": "ARRAN",
+   "old": "https://www.naturalgasworld.com/shell-takes-uk-arran-fid-65046",
+   "new": "https://www.ogj.com/exploration-development/article/17296874/shell-partners-to-invest-in-arran-field-in-uk-north-sea"
+  },
+  {
+   "id": 1544,
+   "name": "LAVERDA",
+   "old": "https://www.thegazette.co.uk/notice/3348311",
+   "new": "https://geoexpro.com/harbour-kicks-off-development-drilling-at-laverda/"
+  },
+  {
+   "id": 1543,
+   "name": "SEAGULL",
+   "old": "https://www.offshore-energy.biz/neptune-sanctions-seagull-project-in-north-sea/",
+   "new": "https://www.ogj.com/exploration-development/article/17278650/neptune-to-develop-seagull-field-off-uk"
+  },
+  {
+   "id": 1546,
+   "name": "SILLIMANITE",
+   "old": "https://www.offshore-technology.com/projects/sillimanite-gas-field-north-sea/",
+   "new": "https://www.ogj.com/drilling-production/production-operations/article/14195461/wintershall-produces-first-gas-from-sillimanite-south-field"
+  },
+  {
+   "id": 1547,
+   "name": "BLYTHE",
+   "old": "https://shareprices.com/rns/project-corporate-update-fdp-approval-f7joykqi3g8copo/",
+   "new": "https://www.offshore-mag.com/production/article/14295156/iog-starts-up-second-north-sea-blythe-gas-well"
+  },
+  {
+   "id": 1548,
+   "name": "ELGOOD",
+   "old": "https://www.offshore-technology.com/news/iog-secures-fdp-approval/",
+   "new": "https://www.offshore-mag.com/regional-reports/north-sea-europe/article/14244717/iog-starts-up-second-north-sea-saturn-banks-gas-field"
+  },
+  {
+   "id": 1549,
+   "name": "SOUTHWARK",
+   "old": "https://www.thegazette.co.uk/notice/3559517",
+   "new": "https://www.offshore-mag.com/drilling-completion/article/14285652/iog-alters-startup-timetable-for-north-sea-southwark-wells"
+  },
+  {
+   "id": 1550,
+   "name": "EVELYN",
+   "old": "https://www.oedigital.com/news/485467-uk-tailwind-sanctions-evelyn-development",
+   "new": "https://www.offshore-mag.com/field-development/article/14198046/oil-and-gas-authority-sanctions-north-sea-evelyn-triton-subsea-tieback"
+  },
+  {
+   "id": 1551,
+   "name": "ABIGAIL",
+   "old": "https://www.nsenergybusiness.com/projects/abigail-field-development-north-sea/",
+   "new": "https://www.offshore-energy.biz/green-light-for-north-sea-development-with-first-oil-expected-this-year/"
+  },
+  {
+   "id": 1552,
+   "name": "JACKDAW",
+   "old": "https://www.nsenergybusiness.com/news/shell-secures-final-regulatory-approval-for-jackdaw-gas-field/",
+   "new": "https://www.ogj.com/exploration-development/article/14277588/shell-receives-approval-for-jackdaw"
+  },
+  {
+   "id": 1553,
+   "name": "TOMMELITEN A",
+   "old": "https://www.conocophillips.no/nn/nyheter-og-media/story/plan-for-utbygging-og-drift-av-tommeliten-a-godkjent/",
+   "new": "https://www.conocophillips.no/news-media/story/tommeliten-a-plan-for-development-and-operation-approved/"
+  },
+  {
+   "id": 1557,
+   "name": "ALWYN EAST",
+   "old": "https://www.gov.uk/government/publications/alwyn-east-development",
+   "new": "https://www.subseaintel.com/news/15323"
+  },
+  {
+   "id": 1555,
+   "name": "TEAL WEST",
+   "old": "https://anasuria.co.uk/2026/07/teal-west-first-oil/",
+   "new": "https://anasuria.co.uk/2023/08/approval-of-the-teal-west-development/"
+  },
+  {
+   "id": 1556,
+   "name": "MURLACH [pt of Marnock-Skua]",
+   "old": "https://aberdeenbusinessnews.co.uk/murlach-oil-and-gas-field-approved/",
+   "new": "https://jpt.spe.org/bps-murlach-development-receives-regulatory-go"
+  },
+  {
+   "id": 1867,
+   "name": "BUZZARD Phase 2 FDPA",
+   "old": "https://www.nstauthority.co.uk/news-publications/buzzard-phase-2-approval/",
+   "new": "https://www.offshore-mag.com/drilling-completion/article/16802583/buzzard-phase-ii-in-the-north-sea-cleared-to-move-forward"
+  },
+  {
+   "id": 1873,
+   "name": "SHEARWATER Replumb FDPA",
+   "old": "https://www.worldpipelines.com/project-news/11122018/shell-to-further-invest-in-north-sea-gas-hub-at-shearwater/",
+   "new": "https://www.offshore-mag.com/field-development/article/16803458/subsea-7-to-install-re-routed-north-sea-shearwater-pipeline"
+  },
+  {
+   "id": 1877,
+   "name": "SEYMOUR HORST",
+   "old": "https://www.thegazette.co.uk/notice/3492267",
+   "new": "https://www.offshore-mag.com/production/article/14067781/chrysaor-seeks-sanction-for-two-new-uk-north-sea-production-wells"
+  },
+  {
+   "id": 1884,
+   "name": "LANCASTER FDPA",
+   "old": "https://www.offshore-mag.com/drilling-completion/article/16801581/hurricane-details-agenda-for-phased-lancaster-project-west-of-shetland",
+   "new": "https://www.subseaintel.com/news/11342"
+  },
+  {
+   "id": 1886,
+   "name": "CATCHER FDPA",
+   "old": "https://www.nstauthority.co.uk/media/n5xe0ayq/offshore-field-consents-as-at-march-2026.xlsx",
+   "new": "https://www.oedigital.com/news/489980-harbour-energy-books-maersk-drilling-jack-up-for-3-well-campaign-in-uk-north-sea"
+  },
+  {
+   "id": 1883,
+   "name": "MAGNUS FDPA",
+   "old": "https://www.nstauthority.co.uk/media/n5xe0ayq/offshore-field-consents-as-at-march-2026.xlsx",
+   "new": "https://www.offshore-mag.com/production/article/14033753/enquest-seeking-to-prove-more-oil-at-north-sea-magnus-field"
+  },
+  {
+   "id": 1537,
+   "name": "VORLICH",
+   "old": "https://www.nstauthority.co.uk/media/n5xe0ayq/offshore-field-consents-as-at-march-2026.xlsx",
+   "new": "https://www.ogj.com/exploration-development/article/17296420/bp-wins-approval-for-vorlich-development"
+  },
+  {
+   "id": 1870,
+   "name": "DUNLIN BYPASS FDPA (x6 fields)",
+   "old": "https://www.nstauthority.co.uk/media/n5xe0ayq/offshore-field-consents-as-at-march-2026.xlsx",
+   "new": "https://www.offshore-mag.com/production/article/14039478/enquest-installs-two-replacement-north-sea-pipelines"
+  },
+  {
+   "id": 1880,
+   "name": "BACCHUS FDPA",
+   "old": "https://www.nstauthority.co.uk/media/n5xe0ayq/offshore-field-consents-as-at-march-2026.xlsx",
+   "new": "https://www.thegazette.co.uk/notice/3686328"
+  }
+ ],
+ "dropped": [
+  {
+   "id": 1862,
+   "url": "https://www.rigzone.com/News/Print/151249/Centrica_To_Produce_30_Bcf_Of_Gas_From_Rough_Site_By_1Q_2018",
+   "code": "202"
+  },
+  {
+   "id": 1863,
+   "url": "https://www.rigzone.com/News/Print/153149/Penguins_FID_Marks_End_of_Cautious_North_Sea_Era",
+   "code": "202"
+  },
+  {
+   "id": 1542,
+   "url": "https://www.rigzone.com/News/Print/160216/Apache_Progresses_High_Volume_North_Sea_Wells",
+   "code": "202"
+  }
+ ]
+}

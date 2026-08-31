@@ -10,6 +10,7 @@ import Header from "@/components/common/Header";
 import PageMeta from "@/components/common/PageMeta";
 import PageHeader from "@/components/common/PageHeader";
 import SidebarShell, { SIDEBAR_EXPANDED, SIDEBAR_COLLAPSED } from "@/components/common/SidebarShell";
+import { SourceLinkBadge } from "@/components/common/SourceLinkBadge";
 import { supabase, fetchAllRows } from "@/db/supabase";
 import { phaseFromRow } from "@/lib/project_phase";
 import {
@@ -803,6 +804,7 @@ export default function ProjectTimelinePage() {
                               {evt.sourceName || "—"}
                             </span>
                           )}
+                          <SourceLinkBadge url={evt.sourceUrl} />
                         </div>
                       </div>
                     </div>
