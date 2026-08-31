@@ -21,7 +21,7 @@ import { useProjectRealtime } from "@/hooks/useProjectRealtime";
 import { useTimelineEventCounts } from "@/hooks/useTimelineEventCounts";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useRequireLogin } from "@/hooks/useRequireLogin";
-import { matchMaterials, specsFromRow, hasAnySpecs, parseCorrosiveMedia, getCorrosiveMediaTags, getCorrosiveMediaDetails } from "@/lib/material_matcher";
+import { matchMaterials, specsFromRow, parseCorrosiveMedia, getCorrosiveMediaTags, getCorrosiveMediaDetails } from "@/lib/material_matcher";
 import { isMilestoneEvent } from "@/lib/event_types";
 import { exportOpportunityList } from "@/lib/export_opportunities";
 import { filterMatureProjects, hasTimelineData } from "@/lib/project_maturity";
@@ -36,12 +36,12 @@ import {
 import { analyzeProjectScenario, assessOpportunity, type AIResult, type ScenarioAnalysis, type OpportunityAssessment } from "@/lib/ai_analyst";
 import { usePushAnalysis, usePushAnalysisState } from "@/hooks/usePushAnalysis";
 import { useSavedProjects } from "@/hooks/useSavedProjects";
-import PushAnalysisPanel, { PushSourceBadge } from "@/components/dashboard/PushAnalysisPanel";
+import { PushSourceBadge } from "@/components/dashboard/PushAnalysisPanel";
 import BattleCardWrapper from "@/components/dashboard/BattleCard";
 import OutreachModal from "@/components/dashboard/OutreachModal";
 import FollowUpStatus from "@/components/dashboard/FollowUpStatus";
 import FeishuPushButton from "@/components/common/FeishuPushButton";
-import { Building2, Hammer, Wrench, CalendarDays, PlusCircle, Anchor, Waves, Gauge, Globe, BarChart3, TrendingUp, Heart } from "lucide-react";
+import { Building2, Hammer, Wrench, CalendarDays, PlusCircle, Anchor, Waves, Gauge, Globe, BarChart3, TrendingUp, Heart, MapPin, Layers, Ship } from "lucide-react";
 import FilterSidebar from "@/components/dashboard/FilterSidebar";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
@@ -1560,7 +1560,6 @@ export default function DashboardPage() {
           operatorName: selectedProject.operatorName,
           basin: selectedProject.basin,
         };
-        const showSpecs = hasAnySpecs(specs);
 
         return (
         <div
@@ -1573,7 +1572,7 @@ export default function DashboardPage() {
           {/* 模态框本体 */}
           <div
             onClick={(e) => e.stopPropagation()}
-            className="relative z-10 w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl border border-fpso-border bg-fpso-card shadow-2xl animate-fade-in"
+            className="relative z-10 w-full max-w-2xl max-h-[85vh] flex flex-col rounded-xl border border-fpso-border bg-fpso-card shadow-2xl animate-fade-in"
           >
             {/* 顶部栏 */}
             <div className="flex-shrink-0 flex items-center justify-between border-b border-fpso-border px-6 py-4">
@@ -1668,53 +1667,53 @@ export default function DashboardPage() {
                 <FeishuPushButton project={selectedProject} />
               </div>
 
-              {/* Follow-up Status (S7) */}
-              <div className="mb-5">
-                <FollowUpStatus
-                  projectId={selectedProject.name}
-                  projectName={selectedProject.name}
-                />
+              {/* ② 关键参数速览 — Summary 拆解为结构化网格 */}
+              <div className="border-t border-fpso-border pt-4">
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-fpso-dim">
+                  Key Parameters
+                </h4>
+                <div className="grid grid-cols-2 gap-2">
+                  {(() => {
+                    const cells: { label: string; value: string | null; icon: React.ReactNode }[] = [
+                      { label: "Operator", value: specs.operatorName, icon: <Building2 className="h-3.5 w-3.5" /> },
+                      { label: "Field", value: specs.fieldName, icon: <MapPin className="h-3.5 w-3.5" /> },
+                      { label: "Basin", value: specs.basin, icon: <Layers className="h-3.5 w-3.5" /> },
+                      { label: "Hull Type", value: specs.hullType, icon: <Ship className="h-3.5 w-3.5" /> },
+                      { label: "Water Depth", value: specs.waterDepthM != null ? `${specs.waterDepthM.toLocaleString()} m` : null, icon: <Anchor className="h-3.5 w-3.5" /> },
+                      { label: "Oil Capacity", value: specs.oilCapacityBpd != null ? `${specs.oilCapacityBpd.toLocaleString()} bpd` : null, icon: <Gauge className="h-3.5 w-3.5" /> },
+                      { label: "Gas Capacity", value: specs.gasCapacityMmcmd != null ? `${specs.gasCapacityMmcmd.toLocaleString()} MMcmd` : null, icon: <Waves className="h-3.5 w-3.5" /> },
+                    ];
+                    return cells.map((c) => (
+                      <div key={c.label} className="flex items-center gap-2 rounded-md border border-fpso-border bg-fpso-bg/40 px-2.5 py-2">
+                        <span className="text-fpso-dim/70 flex-shrink-0">{c.icon}</span>
+                        <div className="min-w-0">
+                          <div className="text-[10px] font-semibold uppercase tracking-wider text-fpso-dim leading-none">{c.label}</div>
+                          <div className={`mt-1 truncate text-xs font-medium text-fpso-fg ${c.value ? "font-mono tabular-nums" : "text-fpso-dim/60 italic font-sans"}`}>
+                            {c.value ?? "—"}
+                          </div>
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
+                {/* 查看原文 — ANP 原始摘要折叠框 */}
+                {selectedProject.summary && (
+                  <details className="group mt-2">
+                    <summary className="cursor-pointer select-none text-xs font-medium text-fpso-blue hover:text-fpso-blue/80 transition-colors">
+                      查看原文（ANP 原始摘要）
+                    </summary>
+                    <p className="mt-2 border-l-2 border-fpso-blue/20 pl-3 text-xs leading-relaxed text-fpso-muted">
+                      {selectedProject.summary}
+                    </p>
+                  </details>
+                )}
               </div>
 
-              {/* 完整摘要 */}
-              <div>
-                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">Summary</h4>
-                <p className="text-sm leading-relaxed text-fpso-fg">
-                  {selectedProject.summary || <span className="text-fpso-dim italic">暂无数据</span>}
-                </p>
-              </div>
-
-              {/* 不锈钢牌号 */}
-              <div>
-                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">Supply Chain Material Matching</h4>
-                <p className="text-sm text-fpso-fg">
-                  {selectedProject.stainlessSteel ? (
-                    <span className="rounded bg-fpso-blue/10 px-2 py-0.5 text-xs font-medium text-fpso-blue">
-                      {selectedProject.stainlessSteel}
-                    </span>
-                  ) : (
-                    <span className="text-fpso-dim italic">暂无数据</span>
-                  )}
-                </p>
-              </div>
-
-              {/* 应用场景 */}
-              <div>
-                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">Application Scenario</h4>
-                <p className="text-sm text-fpso-fg">
-                  {selectedProject.application ? (
-                    <span className="rounded bg-fpso-orange/10 px-2 py-0.5 text-xs font-medium text-fpso-orange">
-                      {selectedProject.application}
-                    </span>
-                  ) : (
-                    <span className="text-fpso-dim italic">暂无数据</span>
-                  )}
-                </p>
-              </div>
-
-              {/* 采购链 — always visible, missing data marked instead of hidden */}
-              <div>
-                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">Procurement Chain</h4>
+              {/* ③ 采购链与来源 */}
+              <div className="border-t border-fpso-border pt-4">
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-fpso-dim">
+                  Procurement Chain &amp; Source
+                </h4>
                 {selectedProject.procurementChain ? (
                   <div className="flex flex-wrap gap-1.5">
                     {selectedProject.procurementChain.split(/,\s*/).filter(Boolean).map((entity) => (
@@ -1724,286 +1723,315 @@ export default function DashboardPage() {
                     ))}
                   </div>
                 ) : (
-                  <span className="text-fpso-dim italic">暂无数据</span>
+                  <span className="text-xs text-fpso-dim italic">暂无采购链数据</span>
                 )}
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                  {selectedProject.source.url ? (
+                    <a
+                      href={selectedProject.source.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-fpso-blue underline-offset-2 hover:underline"
+                    >
+                      {selectedProject.source.name || selectedProject.source.url}
+                      <span className="text-[0.9em] leading-none">↗</span>
+                    </a>
+                  ) : (
+                    <span className="text-xs text-fpso-dim">{selectedProject.source.name || "—"}</span>
+                  )}
+                  {selectedProject.source.date && (
+                    <span className="text-[11px] text-fpso-dim font-mono tabular-nums">
+                      抓取日期 {selectedProject.source.date}
+                    </span>
+                  )}
+                </div>
               </div>
 
-              {/* Technical Specs & Material Matching — always visible, missing data marked */}
-              <div>
-                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-fpso-dim">
-                  Technical Specs &amp; Material Matching
-                </h4>
+              {/* ④ 商机分析 — 评分 + 采购时间窗 + AI 机会判断合并 */}
+              <div className="border-t border-fpso-border pt-4">
                 {(() => {
-                  if (!showSpecs) return null;
+                  const scoreResult = scoreOpportunity(selectedProject);
+                  const pw = pushAnalysis?.procurement_window;
                   return (
-                    <div className="mb-3 overflow-hidden rounded-md border border-fpso-border">
-                      <table className="w-full text-xs">
-                        <tbody>
-                          {specs.waterDepthM != null && (
-                            <tr className="border-b border-fpso-border">
-                              <td className="px-3 py-1.5 text-fpso-muted font-medium">Water Depth</td>
-                              <td className="px-3 py-1.5 text-fpso-fg font-mono">{specs.waterDepthM.toLocaleString()} m</td>
-                            </tr>
-                          )}
-                          {specs.oilCapacityBpd != null && (
-                            <tr className="border-b border-fpso-border">
-                              <td className="px-3 py-1.5 text-fpso-muted font-medium">Oil Capacity</td>
-                              <td className="px-3 py-1.5 text-fpso-fg font-mono">{specs.oilCapacityBpd.toLocaleString()} bpd</td>
-                            </tr>
-                          )}
-                          {specs.gasCapacityMmcmd != null && (
-                            <tr className="border-b border-fpso-border">
-                              <td className="px-3 py-1.5 text-fpso-muted font-medium">Gas Capacity</td>
-                              <td className="px-3 py-1.5 text-fpso-fg font-mono">{specs.gasCapacityMmcmd.toLocaleString()} MMcmd</td>
-                            </tr>
-                          )}
-                          {specs.hullType && (
-                            <tr className="border-b border-fpso-border">
-                              <td className="px-3 py-1.5 text-fpso-muted font-medium">Hull Type</td>
-                              <td className="px-3 py-1.5 text-fpso-fg">{specs.hullType}</td>
-                            </tr>
-                          )}
-                          {specs.fieldName && (
-                            <tr className="border-b border-fpso-border">
-                              <td className="px-3 py-1.5 text-fpso-muted font-medium">Field</td>
-                              <td className="px-3 py-1.5 text-fpso-fg">{specs.fieldName}</td>
-                            </tr>
-                          )}
-                          {specs.operatorName && (
-                            <tr className="border-b border-fpso-border">
-                              <td className="px-3 py-1.5 text-fpso-muted font-medium">Operator</td>
-                              <td className="px-3 py-1.5 text-fpso-fg">{specs.operatorName}</td>
-                            </tr>
-                          )}
-                          {specs.basin && (
-                            <tr>
-                              <td className="px-3 py-1.5 text-fpso-muted font-medium">Basin</td>
-                              <td className="px-3 py-1.5 text-fpso-fg">{specs.basin}</td>
-                            </tr>
-                          )}
-                          {/* Corrosive Media */}
-                          <tr>
-                            <td className="px-3 py-1.5 text-fpso-muted font-medium align-top">Corrosive Media</td>
-                            <td className="px-3 py-1.5">
-                              {(() => {
-                                const cmTags = getCorrosiveMediaTags(selectedProject.corrosiveMedia);
-                                const cmDetails = getCorrosiveMediaDetails(selectedProject.corrosiveMedia);
-                                if (cmTags.length === 0) {
-                                  return <span className="text-fpso-dim text-[11px] italic">No corrosive media data available</span>;
-                                }
-                                return (
-                                  <div className="flex flex-wrap items-center gap-1.5">
-                                    {cmTags.map((tag) => (
-                                      <span
-                                        key={tag.key}
-                                        className={`inline-flex items-center text-[10px] px-1.5 py-0.5 rounded border ${tag.className}`}
-                                      >
-                                        {tag.label}
-                                      </span>
-                                    ))}
-                                    {cmDetails && (
-                                      <span className="text-[11px] text-fpso-muted ml-1">{cmDetails}</span>
-                                    )}
+                    <div className="space-y-4">
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-fpso-dim">
+                        Opportunity Analysis
+                      </h4>
+                      {/* 机会评分 — 大数字 + 等级徽章 + 一句话总结 */}
+                      <div className="rounded-md border border-fpso-border bg-fpso-bg/40 p-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-3xl font-bold text-fpso-fg font-mono tabular-nums">
+                              {scoreResult.totalScore}
+                            </span>
+                            <span className="text-xs text-fpso-dim">/100</span>
+                            <span className={`ml-1 inline-flex items-center rounded px-2 py-0.5 text-xs font-bold uppercase ${scoreBadgeClass(scoreResult.grade)}`}>
+                              Grade {scoreResult.grade}
+                            </span>
+                          </div>
+                          <p className="max-w-[55%] text-right text-xs text-fpso-muted leading-relaxed">
+                            {scoreResult.summary}
+                          </p>
+                        </div>
+                        <div className="mt-2 h-2 w-full rounded-full bg-fpso-bg overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${
+                              scoreResult.grade === "A" ? "bg-fpso-green" :
+                              scoreResult.grade === "B" ? "bg-fpso-blue" :
+                              scoreResult.grade === "C" ? "bg-fpso-orange" : "bg-fpso-muted"
+                            }`}
+                            style={{ width: `${scoreResult.totalScore}%` }}
+                          />
+                        </div>
+                        <p className="mt-2 text-xs text-fpso-fg">
+                          <span className="font-semibold text-fpso-blue">Action: </span>
+                          {scoreResult.recommendedAction}
+                        </p>
+                        {/* 评分维度详情（折叠） */}
+                        <details className="group mt-2">
+                          <summary className="cursor-pointer select-none text-xs font-medium text-fpso-blue hover:text-fpso-blue/80 transition-colors">
+                            Show dimension details
+                          </summary>
+                          <div className="mt-2 space-y-2 pl-2 border-l-2 border-fpso-blue/20">
+                            {[
+                              { key: "procurement", label: "Procurement Probability" },
+                              { key: "factoryMatch", label: "Factory Match" },
+                              { key: "reachability", label: "Reachability" },
+                              { key: "value", label: "Project Value" },
+                              { key: "confidence", label: "Information Confidence" },
+                            ].map(({ key, label }) => {
+                              const dim = scoreResult.dimensions[key as keyof typeof scoreResult.dimensions];
+                              return (
+                                <div key={key}>
+                                  <div className="flex items-center justify-between mb-0.5">
+                                    <span className="text-xs text-fpso-muted">{label}</span>
+                                    <span className="text-xs font-mono font-bold text-fpso-fg">{dim.score}/20</span>
                                   </div>
-                                );
-                              })()}
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
+                                  <div className="h-1.5 w-full rounded-full bg-fpso-bg overflow-hidden mb-0.5">
+                                    <div
+                                      className="h-full rounded-full bg-fpso-blue/60"
+                                      style={{ width: `${(dim.score / 20) * 100}%` }}
+                                    />
+                                  </div>
+                                  <p className="text-[11px] text-fpso-dim leading-relaxed">{dim.reasoning}</p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </details>
+                      </div>
+
+                      {/* 采购时间窗 — AI 范围 + 置信度 + 推理依据 */}
+                      {pw && pw.range !== "待补充" && (
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs text-fpso-muted">采购时间窗</span>
+                            <span className="rounded bg-fpso-blue/10 px-2 py-0.5 text-xs font-semibold text-fpso-blue">
+                              {pw.range}
+                            </span>
+                            <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${pw.confidence === "high" ? "bg-fpso-green/15 text-fpso-green" : pw.confidence === "medium" ? "bg-fpso-orange/15 text-fpso-orange" : "bg-fpso-muted/15 text-fpso-muted"}`}>
+                              置信度 {pw.confidence === "high" ? "高" : pw.confidence === "medium" ? "中" : "低"}
+                            </span>
+                            {pushAnalysis && <PushSourceBadge source={pushAnalysis.source} />}
+                          </div>
+                          {pw.reasoning && (
+                            <blockquote className="mt-1.5 border-l-2 border-fpso-green/40 pl-3 text-xs leading-relaxed text-fpso-green/80 italic">
+                              {pw.reasoning}
+                            </blockquote>
+                          )}
+                        </div>
+                      )}
+
+                      {/* AI 机会判断 */}
+                      {aiAssessment?.source === "ai" && (
+                        <div className="rounded-md border border-fpso-green/15 bg-fpso-green/[0.05] p-2.5">
+                          <div className="mb-1 flex items-center justify-between">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-fpso-dim">
+                              AI 机会判断
+                            </span>
+                            <SourceBadge source="ai" />
+                          </div>
+                          <p className="text-xs leading-relaxed text-fpso-fg/90">{aiAssessment.data.verdict}</p>
+                          {aiAssessment.data.rationale && (
+                            <p className="mt-1 text-[11px] leading-relaxed text-fpso-green/80">{aiAssessment.data.rationale}</p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* AI 商机摘要（飞书推送同源） */}
+                      {pushAnalysis?.source === "ai" && pushAnalysis.ai_summary && (
+                        <div className="rounded-md border border-fpso-green/15 bg-fpso-green/[0.05] p-2.5">
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-fpso-dim">
+                            AI 商机摘要
+                          </span>
+                          <p className="mt-1 text-xs leading-relaxed text-fpso-fg/90">{pushAnalysis.ai_summary}</p>
+                        </div>
+                      )}
                     </div>
                   );
                 })()}
-                  <div className="mt-2">
-                    {/* AI 个性化分析（同飞书推送）— 每条推荐附理由，规则兜底 */}
-                    <PushAnalysisPanel analysis={pushAnalysis} />
-                  </div>
               </div>
 
-              {/* Opportunity Score (S5) */}
-              {(() => {
-                const scoreResult = scoreOpportunity(selectedProject);
-                return (
-                  <div>
-                    <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-fpso-dim">
-                      Opportunity Score
-                    </h4>
-                    {/* Progress bar */}
-                    <div className="mb-2">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-bold text-fpso-fg">
-                          {scoreResult.totalScore}<span className="text-fpso-dim font-normal">/100</span>
+              {/* ⑤ 材质与产品推荐 */}
+              <div className="border-t border-fpso-border pt-4">
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-fpso-dim">
+                  Materials &amp; Products
+                </h4>
+                <div className="space-y-3">
+                  {/* 静态匹配上下文 — 不锈钢牌号 / 应用场景 / 腐蚀介质 */}
+                  {(selectedProject.stainlessSteel || selectedProject.application) && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {selectedProject.stainlessSteel && (
+                        <span className="rounded bg-fpso-blue/10 px-2 py-0.5 text-xs font-medium text-fpso-blue">
+                          {selectedProject.stainlessSteel}
                         </span>
-                        <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-bold uppercase ${scoreBadgeClass(scoreResult.grade)}`}>
-                          Grade {scoreResult.grade}
+                      )}
+                      {selectedProject.application && (
+                        <span className="rounded bg-fpso-orange/10 px-2 py-0.5 text-xs font-medium text-fpso-orange">
+                          {selectedProject.application}
                         </span>
-                      </div>
-                      <div className="h-3 w-full rounded-full bg-fpso-bg overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-500 ${
-                            scoreResult.grade === "A" ? "bg-fpso-green" :
-                            scoreResult.grade === "B" ? "bg-fpso-blue" :
-                            scoreResult.grade === "C" ? "bg-fpso-orange" : "bg-fpso-muted"
-                          }`}
-                          style={{ width: `${scoreResult.totalScore}%` }}
-                        />
-                      </div>
+                      )}
                     </div>
-                    {/* Summary */}
-                    <p className="text-xs text-fpso-muted mb-2">{scoreResult.summary}</p>
-                    <p className="text-xs text-fpso-fg mb-3">
-                      <span className="font-semibold text-fpso-blue">Action: </span>
-                      {scoreResult.recommendedAction}
-                    </p>
-                    {/* AI 采购时间窗推理依据 — AI 成功时在评分区下展示引用块 */}
-                    {pushAnalysis?.source === "ai" && pushAnalysis.procurement_window.reasoning && (
-                      <div className="mb-3">
-                        <div className="mb-1 flex items-center gap-2">
-                          <span className="text-[10px] font-semibold uppercase tracking-wider text-fpso-dim">
-                            采购时间窗推理依据
-                          </span>
-                          <PushSourceBadge source="ai" />
+                  )}
+                  {(() => {
+                    const cmTags = getCorrosiveMediaTags(selectedProject.corrosiveMedia);
+                    const cmDetails = getCorrosiveMediaDetails(selectedProject.corrosiveMedia);
+                    if (cmTags.length > 0 || cmDetails) {
+                      return (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {cmTags.map((tag) => (
+                            <span
+                              key={tag.key}
+                              className={`inline-flex items-center text-[10px] px-1.5 py-0.5 rounded border ${tag.className}`}
+                            >
+                              {tag.label}
+                            </span>
+                          ))}
+                          {cmDetails && (
+                            <span className="text-[11px] text-fpso-muted ml-1">{cmDetails}</span>
+                          )}
                         </div>
-                        <blockquote className="border-l-2 border-fpso-green/40 pl-3 text-xs leading-relaxed text-fpso-green/80 italic">
-                          {pushAnalysis.procurement_window.reasoning}
-                        </blockquote>
+                      );
+                    }
+                    return null;
+                  })()}
+                  {/* AI 推荐材质 — 每条附理由 */}
+                  {pushAnalysis && pushAnalysis.recommended_materials.length > 0 && (
+                    <div>
+                      <div className="mb-1.5 flex items-center gap-2">
+                        <span className="text-xs text-fpso-muted">推荐材质</span>
+                        <PushSourceBadge source={pushAnalysis.source} />
                       </div>
-                    )}
-                    {/* AI 机会判断（仅 AI 成功时展示，规则结果已在上方展示） */}
-                    {aiAssessment?.source === "ai" && (
-                      <div className="mb-3 rounded-md border border-fpso-green/15 bg-fpso-green/[0.05] p-2.5">
-                        <div className="mb-1 flex items-center justify-between">
-                          <span className="text-[10px] font-semibold uppercase tracking-wider text-fpso-dim">
-                            AI 机会判断
-                          </span>
-                          <SourceBadge source="ai" />
-                        </div>
-                        <p className="text-xs leading-relaxed text-fpso-fg/90">{aiAssessment.data.verdict}</p>
-                        {aiAssessment.data.rationale && (
-                          <p className="mt-1 text-[11px] leading-relaxed text-fpso-green/80">{aiAssessment.data.rationale}</p>
+                      <ul className="space-y-1.5">
+                        {pushAnalysis.recommended_materials.map((m) => (
+                          <li key={m.grade} className="flex items-start gap-2">
+                            <span className="inline-flex flex-shrink-0 items-center rounded bg-fpso-blue/10 px-2 py-0.5 text-xs font-mono font-medium text-fpso-blue">
+                              {m.grade}
+                            </span>
+                            {m.reason && (
+                              <span className="text-[11px] leading-relaxed text-fpso-dim">{m.reason}</span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {/* AI 推荐产品 — 每条附理由 */}
+                  {pushAnalysis && pushAnalysis.recommended_products.length > 0 && (
+                    <div>
+                      <div className="mb-1.5 flex items-center gap-2">
+                        <span className="text-xs text-fpso-muted">推荐产品</span>
+                        <PushSourceBadge source={pushAnalysis.source} />
+                      </div>
+                      <ul className="space-y-1.5">
+                        {pushAnalysis.recommended_products.map((p) => (
+                          <li key={p.product} className="flex items-start gap-2">
+                            <span className="inline-flex flex-shrink-0 items-center rounded bg-fpso-orange/10 px-2 py-0.5 text-xs font-medium text-fpso-orange">
+                              {p.product}
+                            </span>
+                            {p.reason && (
+                              <span className="text-[11px] leading-relaxed text-fpso-dim">{p.reason}</span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ⑥ 行动区 — AI 分析摘要 + 作战卡/开发信 + Follow-up */}
+              <div className="border-t border-fpso-border pt-4">
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-fpso-dim">
+                  Actions
+                </h4>
+                <div className="space-y-3">
+                  {/* AI 分析摘要 */}
+                  <div>
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-fpso-dim">AI 分析摘要</span>
+                      {aiScenario && <SourceBadge source={aiScenario.source} />}
+                    </div>
+                    {!aiScenario ? (
+                      <p className="text-xs italic text-fpso-dim">AI 分析中…</p>
+                    ) : (
+                      <div className="space-y-2 rounded-md border border-fpso-blue/10 bg-fpso-blue/[0.04] p-3">
+                        <p className="text-xs leading-relaxed text-fpso-fg/90">{aiScenario.data.scenario}</p>
+                        {aiScenario.data.keyPoints.length > 0 && (
+                          <ul className="space-y-1">
+                            {aiScenario.data.keyPoints.map((k) => (
+                              <li key={k} className="text-[11px] leading-relaxed text-fpso-blue/80">• {k}</li>
+                            ))}
+                          </ul>
+                        )}
+                        {aiScenario.data.risks.length > 0 && (
+                          <ul className="space-y-1">
+                            {aiScenario.data.risks.map((r) => (
+                              <li key={r} className="text-[11px] leading-relaxed text-fpso-orange/80">⚠ {r}</li>
+                            ))}
+                          </ul>
+                        )}
+                        {aiScenario.data.infoGaps.length > 0 && (
+                          <ul className="space-y-1">
+                            {aiScenario.data.infoGaps.map((g) => (
+                              <li key={g} className="text-[11px] leading-relaxed text-fpso-muted/80">∅ {g}</li>
+                            ))}
+                          </ul>
                         )}
                       </div>
                     )}
-                    {/* Battle Card + Outreach buttons */}
-                    <div className="mb-3 flex flex-wrap items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setBattleCardProject(selectedProject)}
-                          className="inline-flex items-center gap-1.5 rounded-md border border-fpso-green/20 bg-fpso-green/5 px-3 py-1.5 text-xs font-medium text-fpso-green hover:bg-fpso-green/10 hover:border-fpso-green/30 transition-colors"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                          生成作战卡
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setOutreachProject(selectedProject)}
-                          className="inline-flex items-center gap-1.5 rounded-md border border-fpso-orange/20 bg-fpso-orange/5 px-3 py-1.5 text-xs font-medium text-fpso-orange hover:bg-fpso-orange/10 hover:border-fpso-orange/30 transition-colors"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                          </svg>
-                          生成开发信
-                        </button>
-                      </div>
-                    {/* Expandable dimensions via native <details> */}
-                    <details className="group">
-                      <summary className="text-xs font-medium text-fpso-blue hover:text-fpso-blue/80 transition-colors cursor-pointer select-none mb-2">
-                        Show dimension details
-                      </summary>
-                      <div className="space-y-2 pl-2 border-l-2 border-fpso-blue/20">
-                        {[
-                          { key: "procurement", label: "Procurement Probability" },
-                          { key: "factoryMatch", label: "Factory Match" },
-                          { key: "reachability", label: "Reachability" },
-                          { key: "value", label: "Project Value" },
-                          { key: "confidence", label: "Information Confidence" },
-                        ].map(({ key, label }) => {
-                          const dim = scoreResult.dimensions[key as keyof typeof scoreResult.dimensions];
-                          return (
-                            <div key={key}>
-                              <div className="flex items-center justify-between mb-0.5">
-                                <span className="text-xs text-fpso-muted">{label}</span>
-                                <span className="text-xs font-mono font-bold text-fpso-fg">{dim.score}/20</span>
-                              </div>
-                              <div className="h-1.5 w-full rounded-full bg-fpso-bg overflow-hidden mb-0.5">
-                                <div
-                                  className="h-full rounded-full bg-fpso-blue/60"
-                                  style={{ width: `${(dim.score / 20) * 100}%` }}
-                                />
-                              </div>
-                              <p className="text-[11px] text-fpso-dim leading-relaxed">{dim.reasoning}</p>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </details>
                   </div>
-                );
-              })()}
-
-              {/* AI 分析（S8）— LLM 不可用时展示规则引擎 fallback 并标注来源 */}
-              <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-fpso-dim">AI 分析</h4>
-                  {aiScenario && <SourceBadge source={aiScenario.source} />}
+                  {/* 生成作战卡 + 生成开发信 */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setBattleCardProject(selectedProject)}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-fpso-green/20 bg-fpso-green/5 px-3 py-1.5 text-xs font-medium text-fpso-green hover:bg-fpso-green/10 hover:border-fpso-green/30 transition-colors"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      生成作战卡
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setOutreachProject(selectedProject)}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-fpso-orange/20 bg-fpso-orange/5 px-3 py-1.5 text-xs font-medium text-fpso-orange hover:bg-fpso-orange/10 hover:border-fpso-orange/30 transition-colors"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      生成开发信
+                    </button>
+                  </div>
+                  {/* Follow-up Status */}
+                  <div className="border-t border-fpso-border pt-3">
+                    <FollowUpStatus
+                      projectId={selectedProject.name}
+                      projectName={selectedProject.name}
+                    />
+                  </div>
                 </div>
-                {!aiScenario ? (
-                  <p className="text-xs italic text-fpso-dim">AI 分析中…</p>
-                ) : (
-                  <div className="space-y-2 rounded-md border border-fpso-blue/10 bg-fpso-blue/[0.04] p-3">
-                    <p className="text-xs leading-relaxed text-fpso-fg/90">{aiScenario.data.scenario}</p>
-                    {aiScenario.data.keyPoints.length > 0 && (
-                      <ul className="space-y-1">
-                        {aiScenario.data.keyPoints.map((k) => (
-                          <li key={k} className="text-[11px] leading-relaxed text-fpso-blue/80">• {k}</li>
-                        ))}
-                      </ul>
-                    )}
-                    {aiScenario.data.risks.length > 0 && (
-                      <ul className="space-y-1">
-                        {aiScenario.data.risks.map((r) => (
-                          <li key={r} className="text-[11px] leading-relaxed text-fpso-orange/80">⚠ {r}</li>
-                        ))}
-                      </ul>
-                    )}
-                    {aiScenario.data.infoGaps.length > 0 && (
-                      <ul className="space-y-1">
-                        {aiScenario.data.infoGaps.map((g) => (
-                          <li key={g} className="text-[11px] leading-relaxed text-fpso-muted/80">∅ {g}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* 来源链接 */}
-              <div>
-                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">Source</h4>
-                {selectedProject.source.url ? (
-                  <a
-                    href={selectedProject.source.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-sm text-fpso-blue underline-offset-2 hover:underline"
-                  >
-                    {selectedProject.source.name || selectedProject.source.url}
-                    <span className="text-xs">↗</span>
-                  </a>
-                ) : (
-                  <span className="text-sm text-fpso-dim">—</span>
-                )}
-              </div>
-
-              {/* 抓取日期 */}
-              <div>
-                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fpso-dim">Fetch Date</h4>
-                <p className="text-sm text-fpso-dim font-mono text-xs">
-                  {selectedProject.source.date || "—"}
-                </p>
               </div>
             </div>
             )}
