@@ -77,8 +77,8 @@ type EventCategory = "PRODUCTION" | "CONTRACT" | "EIA" | "REGULATORY" | "OTHER";
 const CATEGORY_OPTIONS: { key: EventCategory; label: string; color: string }[] = [
   { key: "PRODUCTION", label: "投产", color: "#059669" },
   { key: "CONTRACT", label: "合同", color: "#0284c7" },
-  { key: "EIA", label: "EIA/计划", color: "#ea580c" },
-  { key: "REGULATORY", label: "监管/许可", color: "#db2777" },
+  { key: "EIA", label: "EIA", color: "#ea580c" },
+  { key: "REGULATORY", label: "监管", color: "#7c3aed" },
   { key: "OTHER", label: "其他", color: "#64748b" },
 ];
 
@@ -632,9 +632,24 @@ export default function ProjectTimelinePage() {
         className="flex-1 min-w-0 px-4 py-8 md:px-6 transition-all duration-300 ease-in-out max-md:!ml-0"
         style={{ marginLeft: sidebarCollapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED }}
       >
-        {/* page header — 统一 PageHeader */}
+        {/* page header — 标题: 项目时间线 · 项目名 + 事件总数徽章 */}
         <PageHeader
-          title={<span className="neon-glow">项目时间线</span>}
+          title={
+            <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="neon-glow">项目时间线</span>
+              {selectedDisplayName && (
+                <>
+                  <span className="font-normal text-fpso-dim">·</span>
+                  <span className="text-fpso-fg">{selectedDisplayName}</span>
+                </>
+              )}
+              {!loading && (
+                <span className="ml-1 inline-flex items-center rounded-full bg-fpso-dim/10 px-2.5 py-0.5 text-[11px] font-normal text-fpso-dim">
+                  {events.length} 事件
+                </span>
+              )}
+            </span>
+          }
           subtitle="查看项目里程碑和关键事件"
           actions={
             <button
@@ -646,11 +661,8 @@ export default function ProjectTimelinePage() {
           }
         />
 
-        {/* Event Type Filters */}
+        {/* Event Type Filters — 胶囊筛选器，位于标题正下方 */}
         <section className="mb-8">
-          <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-fpso-dim">
-            Event Type
-          </label>
           <div className="flex flex-wrap gap-2">
             {CATEGORY_OPTIONS.map((cat) => {
               const active = activeCategories.has(cat.key);
@@ -659,11 +671,13 @@ export default function ProjectTimelinePage() {
                   key={cat.key}
                   type="button"
                   onClick={() => toggleCategory(cat.key)}
-                  className="inline-flex items-center rounded-md px-3 py-1.5 text-xs font-medium transition-all border"
+                  aria-pressed={active}
+                  className="inline-flex items-center rounded-full border px-3.5 py-1.5 text-xs font-medium transition-all"
                   style={{
-                    borderColor: active ? cat.color : "rgb(30 40 68 / 0.6)",
-                    backgroundColor: active ? `${cat.color}18` : "transparent",
-                    color: active ? cat.color : "#64748b",
+                    borderColor: cat.color,
+                    backgroundColor: active ? cat.color : "transparent",
+                    color: active ? "#ffffff" : cat.color,
+                    opacity: active ? 1 : 0.7,
                   }}
                 >
                   {cat.label}
@@ -675,15 +689,6 @@ export default function ProjectTimelinePage() {
 
         {/* Timeline */}
         <section className="mb-10">
-          <h2 className="mb-6 text-sm font-semibold text-fpso-fg">
-            Timeline
-            {selectedDisplayName && (
-              <span className="ml-2 text-xs font-normal text-fpso-dim">
-                — {selectedDisplayName}
-              </span>
-            )}
-          </h2>
-
           {loading || countsLoading ? (
             <div className="flex items-center justify-center py-16">
               <span className="text-sm text-fpso-muted">Loading timeline…</span>
@@ -738,23 +743,17 @@ export default function ProjectTimelinePage() {
                         }}
                       />
 
-                      {/* Event card */}
+                      {/* Event card — 层级: 加粗标题 + 日期 + 摘要; 右下角弱化来源 */}
                       <div
                         className={`flex-1 min-w-0 rounded-lg border border-fpso-border bg-fpso-card/70 backdrop-blur-md transition-all hover:shadow-hover hover:border-fpso-blue/30 cursor-default ${
                           hasExtra ? "cursor-pointer" : ""
                         }`}
                         onClick={() => hasExtra && toggleExpand(evt.id)}
                       >
-                        {/* Header row */}
-                        <div className="flex items-center justify-between gap-3 px-4 py-3">
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <span
-                              className="inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold"
-                              style={{
-                                backgroundColor: `${dotColor}18`,
-                                color: dotColor,
-                              }}
-                            >
+                        {/* 标题（加粗）+ 日期 */}
+                        <div className="flex items-center justify-between gap-3 px-4 pt-3">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-sm font-bold text-fpso-fg leading-snug">
                               {formatEventType(evt.eventType)}
                             </span>
                             {hasExtra && (
@@ -767,34 +766,34 @@ export default function ProjectTimelinePage() {
                               </span>
                             )}
                           </div>
-                          <span className="text-[10px] text-fpso-dim font-mono flex-shrink-0 tabular-nums">
-                            {evt.publicationDate || "—"}
+                          <span className="text-[11px] text-fpso-dim font-mono flex-shrink-0 tabular-nums">
+                            {evt.publicationDate || "日期未披露"}
                           </span>
                         </div>
 
                         {/* Summary */}
                         {evt.summary && (
-                          <p className="px-4 pb-1 text-xs text-fpso-fg/80 leading-relaxed">
+                          <p className="px-4 pt-1.5 text-xs text-fpso-fg/80 leading-relaxed">
                             {evt.summary}
                           </p>
                         )}
 
                         {/* Expandable evidence */}
                         {expanded && evt.evidenceQuote && (
-                          <blockquote className="mx-4 mb-3 border-l-2 border-fpso-blue/30 pl-3 text-[11px] text-fpso-muted italic leading-relaxed">
+                          <blockquote className="mx-4 mt-2 mb-3 border-l-2 border-fpso-blue/30 pl-3 text-[11px] text-fpso-muted italic leading-relaxed">
                             &ldquo;{evt.evidenceQuote}&rdquo;
                           </blockquote>
                         )}
 
-                        {/* Source link */}
-                        <div className="px-4 pb-3 flex items-center gap-1.5">
+                        {/* 右下角: 来源名称 + 链接类型徽章（弱化，小号灰字） */}
+                        <div className="px-4 pt-2 pb-3 flex items-center justify-end gap-2">
                           {evt.sourceUrl ? (
                             <a
                               href={evt.sourceUrl}
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
-                              className="text-[10px] text-fpso-blue/70 hover:text-fpso-blue hover:underline inline-flex items-center gap-1 transition-colors"
+                              className="text-[10px] text-fpso-dim hover:text-fpso-muted hover:underline inline-flex items-center gap-1 transition-colors"
                             >
                               {evt.sourceName || evt.sourceUrl}
                               <ExternalLink className="h-3 w-3" />
