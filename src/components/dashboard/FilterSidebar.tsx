@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { RotateCcw, Download, ChevronDown } from "lucide-react";
+import { RotateCcw, Download } from "lucide-react";
 import type { Project } from "@/data/projects";
 import { INDUSTRY_OPTIONS, industryLabel } from "@/data/projects";
 import { Switch } from "@/components/ui/switch";
@@ -151,8 +150,14 @@ export default function FilterSidebar({
           />
         </FilterGroup>
 
-        {/* Phase filter — 折叠筛选 + All Phases 下拉（参考收藏项目面板） */}
-        <PhaseFilterGroup selectedPhase={selectedPhase} onPhaseChange={onPhaseChange} />
+        {/* Phase filter — All Phases 单选下拉，与 Region/Industry 同格式 */}
+        <FilterGroup label="Phase">
+          <ThemeSelect
+            value={selectedPhase}
+            onChange={onPhaseChange}
+            options={PHASE_FILTER_OPTIONS}
+          />
+        </FilterGroup>
 
         {/* Export button */}
         {onExport && (
@@ -213,54 +218,3 @@ function FilterGroup({ label, children }: { label: string; children: React.React
   );
 }
 
-/**
- * Phase 折叠筛选组 — 样式与收藏项目面板一致：
- * 标题行（Phase + 选中徽章 + 折叠箭头）+ All Phases 单选下拉。
- */
-function PhaseFilterGroup({
-  selectedPhase,
-  onPhaseChange,
-}: {
-  selectedPhase: string;
-  onPhaseChange: (phase: string) => void;
-}) {
-  const [expanded, setExpanded] = useState(true);
-
-  return (
-    <div className="rounded-lg border border-fpso-border bg-fpso-bg/50 p-3">
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        aria-expanded={expanded}
-        className="flex w-full items-center justify-between gap-2 text-left"
-        title={expanded ? "收起 Phase 筛选" : "展开 Phase 筛选"}
-      >
-        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-fpso-dim">
-          Phase
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          {selectedPhase !== ALL_PHASES && (
-            <span className="rounded bg-fpso-blue/10 px-1.5 py-0.5 text-[10px] font-medium text-fpso-blue">
-              {selectedPhase}
-            </span>
-          )}
-          <ChevronDown
-            className={`h-3.5 w-3.5 text-fpso-muted transition-transform duration-200 ${
-              expanded ? "" : "-rotate-90"
-            }`}
-          />
-        </span>
-      </button>
-
-      {expanded && (
-        <div className="mt-2">
-          <ThemeSelect
-            value={selectedPhase}
-            onChange={onPhaseChange}
-            options={PHASE_FILTER_OPTIONS}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
