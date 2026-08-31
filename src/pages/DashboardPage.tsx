@@ -311,12 +311,16 @@ function DashboardProjectCard({
   milestoneMap,
   timelineEventCounts,
   showAllProjects,
+  isSaved,
+  onToggleSaved,
 }: {
   project: Project;
   onOpen: (p: Project) => void;
   milestoneMap: Map<string, { label: string; year: string }>;
   timelineEventCounts: Map<string, number>;
   showAllProjects: boolean;
+  isSaved: boolean;
+  onToggleSaved: (p: Project) => void;
 }) {
   const rowRef = useRef<HTMLDivElement | null>(null);
   const [inView, setInView] = useState(false);
@@ -362,10 +366,29 @@ function DashboardProjectCard({
                     {project.name}
                   </h3>
                 </div>
-                <span className="inline-flex flex-shrink-0 items-center gap-1 rounded bg-fpso-bg/80 px-1.5 py-0.5 text-[11px] text-fpso-muted ring-1 ring-fpso-border/50">
-                  {project.flag && <span className="text-xs leading-none">{project.flag}</span>}
-                  <span className="max-w-[100px] truncate">{project.country}</span>
-                </span>
+                <div className="flex flex-shrink-0 items-center gap-1.5">
+                  {/* 收藏标记 — 列表内直接可见，点击切换收藏不打开详情 */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleSaved(project);
+                    }}
+                    aria-label={isSaved ? "取消收藏" : "收藏"}
+                    title={isSaved ? "取消收藏" : "收藏"}
+                    className={`flex-shrink-0 rounded p-0.5 transition-colors ${
+                      isSaved
+                        ? "text-fpso-gold"
+                        : "text-fpso-dim/40 opacity-0 group-hover:opacity-100 hover:text-fpso-gold"
+                    }`}
+                  >
+                    <Heart className={`h-4 w-4 ${isSaved ? "fill-current" : ""}`} />
+                  </button>
+                  <span className="inline-flex flex-shrink-0 items-center gap-1 rounded bg-fpso-bg/80 px-1.5 py-0.5 text-[11px] text-fpso-muted ring-1 ring-fpso-border/50">
+                    {project.flag && <span className="text-xs leading-none">{project.flag}</span>}
+                    <span className="max-w-[100px] truncate">{project.country}</span>
+                  </span>
+                </div>
               </div>
 
               {/* Rows 2-6 — uniform vertical rhythm, aligned under the name */}
@@ -1506,6 +1529,8 @@ export default function DashboardPage() {
                   milestoneMap={milestoneMap}
                   timelineEventCounts={timelineEventCounts}
                   showAllProjects={showAllProjects}
+                  isSaved={isSaved(project)}
+                  onToggleSaved={toggleSaved}
                 />
               ))
             )}
