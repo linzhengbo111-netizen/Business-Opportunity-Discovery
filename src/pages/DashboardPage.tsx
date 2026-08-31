@@ -43,7 +43,7 @@ import OutreachModal from "@/components/dashboard/OutreachModal";
 import FollowUpStatus from "@/components/dashboard/FollowUpStatus";
 import FeishuPushButton from "@/components/common/FeishuPushButton";
 import { Building2, Hammer, Wrench, CalendarDays, PlusCircle, Anchor, Waves, Gauge, Globe, BarChart3, TrendingUp, Heart, MapPin, Layers, Ship } from "lucide-react";
-import FilterSidebar from "@/components/dashboard/FilterSidebar";
+import FilterSidebar, { ALL_PHASES } from "@/components/dashboard/FilterSidebar";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 
@@ -623,10 +623,8 @@ export default function DashboardPage() {
   const [selectedCountry, setSelectedCountry] = useState("All Countries");
   const [selectedIndustry, setSelectedIndustry] = useState("All Industries");
   const [selectedConfidence, setSelectedConfidence] = useState("High & Medium");
-  const [selectedPhases, setSelectedPhases] = useState<Set<string>>(
-    // Default: all 10 phase chips selected (9 lifecycle phases + Unknown) — no phase hidden by default.
-    () => new Set([...PHASES, PHASE_UNKNOWN]),
-  );
+  // Phase filter — 单值下拉（All Phases = 不过滤），与收藏项目面板一致。
+  const [selectedPhase, setSelectedPhase] = useState<string>(ALL_PHASES);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   // Default: show all projects (mature filter off until user opts in via sidebar).
   const [showAllProjects, setShowAllProjects] = useState(true);
@@ -810,10 +808,10 @@ export default function DashboardPage() {
       );
       result = [...result, ...pinnedExcluded];
     }
-    if (selectedPhases.size > 0) {
+    if (selectedPhase !== ALL_PHASES) {
       const beforePhaseFilter = result;
-      result = result.filter((p) => selectedPhases.has(phaseLabel(p.phase)));
-      // 置顶项目豁免阶段筛选：即使其阶段未勾选也强制保留，
+      result = result.filter((p) => phaseLabel(p.phase) === selectedPhase);
+      // 置顶项目豁免阶段筛选：即使其阶段未选中也强制保留，
       // 其余项目照常遵守阶段筛选。
       const pinnedExcluded = beforePhaseFilter.filter(
         (p) => !result.includes(p) && priorityProjectRankByName(p.name) >= 0,
@@ -847,7 +845,7 @@ export default function DashboardPage() {
       return diff !== 0 ? diff : a.name.localeCompare(b.name);
     });
     return [...pinned, ...rest];
-  }, [projects, selectedCountry, selectedIndustry, selectedConfidence, selectedPhases, timelineEventCounts, showAllProjects, searchQuery]);
+  }, [projects, selectedCountry, selectedIndustry, selectedConfidence, selectedPhase, timelineEventCounts, showAllProjects, searchQuery]);
 
   const filteredStats = useMemo(() => getStats(filteredProjects), [filteredProjects]);
 
@@ -1132,20 +1130,11 @@ export default function DashboardPage() {
     setSelectedIndustry(value);
   }
 
-  function togglePhase(phase: string) {
-    setSelectedPhases((prev) => {
-      const next = new Set(prev);
-      if (next.has(phase)) next.delete(phase);
-      else next.add(phase);
-      return next;
-    });
-  }
-
   function clearAllFilters() {
     setSelectedCountry("All Countries");
     setSelectedIndustry("All Industries");
     setSelectedConfidence("High & Medium");
-    setSelectedPhases(new Set([...PHASES, PHASE_UNKNOWN]));
+    setSelectedPhase(ALL_PHASES);
   }
 
   /** Handle CSV export of factory-qualified projects in current view. */
@@ -1174,11 +1163,11 @@ export default function DashboardPage() {
           selectedCountry={selectedCountry}
           selectedIndustry={selectedIndustry}
           selectedConfidence={selectedConfidence}
-          selectedPhases={selectedPhases}
+          selectedPhase={selectedPhase}
           onCountryChange={setSelectedCountry}
           onIndustryChange={handleIndustryChange}
           onConfidenceChange={setSelectedConfidence}
-          onPhaseToggle={togglePhase}
+          onPhaseChange={setSelectedPhase}
           onClear={clearAllFilters}
           onExport={handleExport}
           filteredCount={filteredProjects.length}

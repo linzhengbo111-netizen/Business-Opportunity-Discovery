@@ -1,19 +1,23 @@
-import { RotateCcw, Download } from "lucide-react";
+import { useState } from "react";
+import { RotateCcw, Download, ChevronDown } from "lucide-react";
 import type { Project } from "@/data/projects";
 import { INDUSTRY_OPTIONS, industryLabel } from "@/data/projects";
 import { Switch } from "@/components/ui/switch";
 import { ThemeSelect } from "@/components/common/ThemeSelect";
 import SidebarShell from "@/components/common/SidebarShell";
 import SavedProjectsPanel, { getCountryFlag } from "@/components/common/SavedProjectsPanel";
-import { PHASES, PHASE_UNKNOWN, PHASE_HEX, phaseLabel } from "@/lib/project_phase";
+import { PHASES, PHASE_UNKNOWN } from "@/lib/project_phase";
 
 const CONFIDENCE_OPTIONS = ["High & Medium", "High", "Medium", "Low", "All"] as const;
 
-/** 10 phase filter chips — 9 lifecycle phases + Unknown. */
-const PHASE_CHIP_OPTIONS = [
-  ...PHASES.map((label) => ({ label, color: PHASE_HEX[label] })),
-  { label: PHASE_UNKNOWN, color: PHASE_HEX[PHASE_UNKNOWN] },
-] as const;
+export const ALL_PHASES = "All Phases";
+
+/** 阶段下拉选项 — 与收藏项目面板的 All Phases 筛选一致。 */
+const PHASE_FILTER_OPTIONS = [
+  { value: ALL_PHASES, label: ALL_PHASES },
+  ...PHASES.map((label) => ({ value: label, label })),
+  { value: PHASE_UNKNOWN, label: PHASE_UNKNOWN },
+];
 
 interface FilterSidebarProps {
   collapsed: boolean;
@@ -23,11 +27,11 @@ interface FilterSidebarProps {
   selectedCountry: string;
   selectedIndustry: string;
   selectedConfidence: string;
-  selectedPhases: Set<string>;
+  selectedPhase: string;
   onCountryChange: (value: string) => void;
   onIndustryChange: (value: string) => void;
   onConfidenceChange: (value: string) => void;
-  onPhaseToggle: (phase: string) => void;
+  onPhaseChange: (phase: string) => void;
   onClear: () => void;
   /** Called when user clicks the export button. */
   onExport?: () => void;
@@ -50,11 +54,11 @@ export default function FilterSidebar({
   selectedCountry,
   selectedIndustry,
   selectedConfidence,
-  selectedPhases,
+  selectedPhase,
   onCountryChange,
   onIndustryChange,
   onConfidenceChange,
-  onPhaseToggle,
+  onPhaseChange,
   onClear,
   onExport,
   filteredCount = 0,
@@ -67,7 +71,7 @@ export default function FilterSidebar({
     selectedCountry !== "All Countries" ||
     selectedIndustry !== "All Industries" ||
     selectedConfidence !== "All" ||
-    (selectedPhases.size > 0 && selectedPhases.size < PHASE_CHIP_OPTIONS.length);
+    selectedPhase !== ALL_PHASES;
 
   const exportDisabled = !onExport || filteredCount === 0;
 
@@ -147,33 +151,8 @@ export default function FilterSidebar({
           />
         </FilterGroup>
 
-        {/* Phase multi-select — 10 chips */}
-        <FilterGroup label="Phase">
-          <div className="flex flex-wrap gap-1.5">
-            {PHASE_CHIP_OPTIONS.map((s) => {
-              const active = selectedPhases.has(s.label);
-              return (
-                <button
-                  key={s.label}
-                  type="button"
-                  onClick={() => onPhaseToggle(s.label)}
-                  className={`inline-flex items-center rounded-md px-2 py-1 text-[11px] font-medium transition-all border ${
-                    active
-                      ? ""
-                      : "border-fpso-border bg-fpso-card/60 text-fpso-muted hover:border-fpso-blue/40 hover:text-fpso-fg hover:bg-white"
-                  }`}
-                  style={
-                    active
-                      ? { borderColor: s.color, backgroundColor: `${s.color}18`, color: s.color }
-                      : undefined
-                  }
-                >
-                  {s.label}
-                </button>
-              );
-            })}
-          </div>
-        </FilterGroup>
+        {/* Phase filter — 折叠筛选 + All Phases 下拉（参考收藏项目面板） */}
+        <PhaseFilterGroup selectedPhase={selectedPhase} onPhaseChange={onPhaseChange} />
 
         {/* Export button */}
         {onExport && (
@@ -230,6 +209,58 @@ function FilterGroup({ label, children }: { label: string; children: React.React
         {label}
       </label>
       {children}
+    </div>
+  );
+}
+
+/**
+ * Phase 折叠筛选组 — 样式与收藏项目面板一致：
+ * 标题行（Phase + 选中徽章 + 折叠箭头）+ All Phases 单选下拉。
+ */
+function PhaseFilterGroup({
+  selectedPhase,
+  onPhaseChange,
+}: {
+  selectedPhase: string;
+  onPhaseChange: (phase: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(true);
+
+  return (
+    <div className="rounded-lg border border-fpso-border bg-fpso-bg/50 p-3">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+        className="flex w-full items-center justify-between gap-2 text-left"
+        title={expanded ? "收起 Phase 筛选" : "展开 Phase 筛选"}
+      >
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-fpso-dim">
+          Phase
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          {selectedPhase !== ALL_PHASES && (
+            <span className="rounded bg-fpso-blue/10 px-1.5 py-0.5 text-[10px] font-medium text-fpso-blue">
+              {selectedPhase}
+            </span>
+          )}
+          <ChevronDown
+            className={`h-3.5 w-3.5 text-fpso-muted transition-transform duration-200 ${
+              expanded ? "" : "-rotate-90"
+            }`}
+          />
+        </span>
+      </button>
+
+      {expanded && (
+        <div className="mt-2">
+          <ThemeSelect
+            value={selectedPhase}
+            onChange={onPhaseChange}
+            options={PHASE_FILTER_OPTIONS}
+          />
+        </div>
+      )}
     </div>
   );
 }
