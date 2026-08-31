@@ -44,8 +44,12 @@ import FollowUpStatus from "@/components/dashboard/FollowUpStatus";
 import FeishuPushButton from "@/components/common/FeishuPushButton";
 import { Building2, Hammer, Wrench, CalendarDays, PlusCircle, Anchor, Waves, Gauge, Globe, BarChart3, TrendingUp, Heart, MapPin, Layers, Ship } from "lucide-react";
 import FilterSidebar, { ALL_PHASES } from "@/components/dashboard/FilterSidebar";
+import ProjectPagination from "@/components/dashboard/ProjectPagination";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
+
+/** 项目列表每页条数。置顶项目豁免分页，不占用名额：第 1 页 = 置顶 + 20 条非置顶。 */
+const PROJECTS_PER_PAGE = 20;
 
 /** A single timeline milestone from candidate_events. */
 interface TimelineEvent {
@@ -629,6 +633,7 @@ export default function DashboardPage() {
   // Default: show all projects (mature filter off until user opts in via sidebar).
   const [showAllProjects, setShowAllProjects] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
   const [milestoneMap, setMilestoneMap] = useState<Map<string, { label: string; year: string }>>(new Map());
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [modalTab, setModalTab] = useState<"overview" | "timeline">("overview");
@@ -846,6 +851,43 @@ export default function DashboardPage() {
     });
     return [...pinned, ...rest];
   }, [projects, selectedCountry, selectedIndustry, selectedConfidence, selectedPhase, timelineEventCounts, showAllProjects, searchQuery]);
+
+  // ---- 分页（置顶项目豁免，只对非置顶项目切片）----
+  // filteredProjects 已置顶在前，前 pinnedCount 条即置顶项目。
+  // useMemo 缓存切片结果，翻页/筛选不重复计算。
+  const pagination = useMemo(() => {
+    const pinnedCount = filteredProjects.filter(
+      (p) => priorityProjectRankByName(p.name) >= 0,
+    ).length;
+    const pinned = filteredProjects.slice(0, pinnedCount);
+    const rest = filteredProjects.slice(pinnedCount);
+    const totalPages = Math.max(1, Math.ceil(rest.length / PROJECTS_PER_PAGE));
+    const safePage = Math.min(Math.max(1, page), totalPages);
+    const start = (safePage - 1) * PROJECTS_PER_PAGE;
+    const pageRest = rest.slice(start, start + PROJECTS_PER_PAGE);
+    // 第 1 页 = 置顶 + 本页非置顶；其余页只有非置顶。
+    const visible = safePage === 1 ? [...pinned, ...pageRest] : pageRest;
+    // 范围按完整有序列表（含置顶偏移）展示，与“共 N 条”口径一致。
+    const rangeStart = safePage === 1 ? 1 : pinnedCount + start + 1;
+    const rangeEnd = pinnedCount + start + pageRest.length;
+    return { visible, page: safePage, totalPages, rangeStart, rangeEnd, pinnedCount };
+  }, [filteredProjects, page]);
+
+  // 任一筛选条件变化：回到第 1 页。
+  useEffect(() => {
+    setPage(1);
+  }, [selectedCountry, selectedIndustry, selectedConfidence, selectedPhase, searchQuery, showAllProjects]);
+
+  // 数据收缩（如实时更新删除项目）导致页码越界时夹回末页。
+  useEffect(() => {
+    if (page > pagination.totalPages) setPage(pagination.totalPages);
+  }, [page, pagination.totalPages]);
+
+  const listSectionRef = useRef<HTMLElement | null>(null);
+  const handlePageChange = (next: number) => {
+    setPage(next);
+    listSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   const filteredStats = useMemo(() => getStats(filteredProjects), [filteredProjects]);
 
@@ -1492,7 +1534,7 @@ export default function DashboardPage() {
         </section>
 
         {/* 项目列表 */}
-        <section>
+        <section ref={listSectionRef} className="scroll-mt-20">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-base font-medium text-fpso-fg">
               项目列表
@@ -1512,7 +1554,7 @@ export default function DashboardPage() {
                 No projects found for the selected industry and country.
               </div>
             ) : (
-              filteredProjects.map((project) => (
+              pagination.visible.map((project) => (
                 <DashboardProjectCard
                   key={project.name}
                   project={project}
@@ -1526,6 +1568,17 @@ export default function DashboardPage() {
               ))
             )}
           </div>
+
+          {!loading && filteredProjects.length > 0 && (
+            <ProjectPagination
+              page={pagination.page}
+              totalPages={pagination.totalPages}
+              rangeStart={pagination.rangeStart}
+              rangeEnd={pagination.rangeEnd}
+              totalCount={filteredProjects.length}
+              onPageChange={handlePageChange}
+            />
+          )}
         </section>
       </main>
       </div>
