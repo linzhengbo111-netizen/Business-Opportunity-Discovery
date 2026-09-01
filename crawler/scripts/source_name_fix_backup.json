@@ -1,0 +1,842 @@
+[
+  {
+    "table": "projects",
+    "id": 1939,
+    "key": "Basra Ethane Cracker & Derivatives",
+    "old_name": "Hydrocarbon Processing",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/general-interest/companies/article/17245314/shell-iraq-ink-deal-for-petrochemicals-complex"
+  },
+  {
+    "table": "projects",
+    "id": 1940,
+    "key": "Ludwigshafen Chlor-Alkali Replacement",
+    "old_name": "Chemical Week",
+    "new_name": "Hydrocarbon Processing",
+    "url": "https://www.hydrocarbonprocessing.com/news/2012/12/basf-taps-technip-asahi-kasei-for-expansion-work-on-german-chlorine-plant"
+  },
+  {
+    "table": "projects",
+    "id": 1947,
+    "key": "Trinidad Melamine & Urea Tie-in",
+    "old_name": "World Fertilizer",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/refining-processing/article/17282023/work-starts-on-tt-urea-melamine-complex"
+  },
+  {
+    "table": "projects",
+    "id": 846,
+    "key": "Payara (FPSO Prosperity)",
+    "old_name": "Guyana EPA Oil & Gas Documents",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/production/article/14301518/exxon-mobil-starts-production-through-payara-fpso-offshore-guyana"
+  },
+  {
+    "table": "projects",
+    "id": 1053,
+    "key": "Whiptail (FPSO Jaguar)",
+    "old_name": "Guyana EPA Oil & Gas Documents",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/regional-reports/latin-america/article/55018103/exxonmobil-issues-fid-for-whiptail-project"
+  },
+  {
+    "table": "projects",
+    "id": 847,
+    "key": "Liza Phase 2 (FPSO Liza Unity)",
+    "old_name": "Guyana EPA Oil & Gas Documents",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/production/article/14233727/exxonmobil-starts-up-liza-phase-2-offshore-guyana"
+  },
+  {
+    "table": "projects",
+    "id": 848,
+    "key": "Liza Phase 1 (FPSO Liza Destiny)",
+    "old_name": "Guyana EPA Oil & Gas Documents",
+    "new_name": "Offshore Energy",
+    "url": "https://www.offshore-energy.biz/exxonmobil-makes-history-in-guyana-as-liza-destiny-fpso-produces-first-oil/"
+  },
+  {
+    "table": "projects",
+    "id": 852,
+    "key": "Yellowtail (FPSO ONE GUYANA)",
+    "old_name": "Guyana EPA Oil & Gas Documents",
+    "new_name": "Rigzone",
+    "url": "https://www.rigzone.com/news/exxonmobil_partners_start_producing_oil_at_yellowtail-11-aug-2025-181424-article/"
+  },
+  {
+    "table": "projects",
+    "id": 1435,
+    "key": "BARNACLE",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Rigzone",
+    "url": "https://www.rigzone.com/news/equinor_starts_3rd_uk_development_in_2019-10-dec-2019-160532-article/"
+  },
+  {
+    "table": "projects",
+    "id": 806,
+    "key": "FPSO ALMIRANTE TAMANDARE",
+    "old_name": "ANP FPSO CSV",
+    "new_name": "Petrobras Agencia",
+    "url": "https://agencia.petrobras.com.br/en/w/negocio/fpso-almirante-tamandare-inicia-producao-no-pre-sal"
+  },
+  {
+    "table": "projects",
+    "id": 822,
+    "key": "FPSO SEPETIBA",
+    "old_name": "ANP FPSO CSV",
+    "new_name": "OE Digital",
+    "url": "https://www.oedigital.com/news/473742-sbm-offshore-inks-fpso-sepetiba-contracts"
+  },
+  {
+    "table": "projects",
+    "id": 1866,
+    "key": "SHEARWATER FRAM FDP ADDENDUM",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Energy",
+    "url": "https://www.offshore-energy.biz/shell-takes-fram-field-fid/"
+  },
+  {
+    "table": "projects",
+    "id": 1920,
+    "key": "FLYNDRE ([UK]",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "World Oil",
+    "url": "https://www.worldoil.com/news/2017/3/27/maersk-oil-reports-first-oil-from-flyndre-field-uk"
+  },
+  {
+    "table": "projects",
+    "id": 1532,
+    "key": "LANCASTER EPS",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Energy",
+    "url": "https://www.offshore-energy.biz/first-oil-flows-from-hurricane-energys-lancaster-field/"
+  },
+  {
+    "table": "projects",
+    "id": 845,
+    "key": "Uaru (FPSO Errea Wittu)",
+    "old_name": "Guyana EPA Oil & Gas Documents",
+    "new_name": "OE Digital",
+    "url": "https://www.oedigital.com/news/542313-fifth-fpso-for-exxon-arrives-in-guyana"
+  },
+  {
+    "table": "projects",
+    "id": 1534,
+    "key": "TOLMOUNT",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Rigzone",
+    "url": "https://www.rigzone.com/news/north_sea_tolmount_main_gas_field_gets_green_light-20-aug-2018-156673-article/"
+  },
+  {
+    "table": "projects",
+    "id": 1886,
+    "key": "CATCHER FDPA",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "OE Digital",
+    "url": "https://www.oedigital.com/news/489980-harbour-energy-books-maersk-drilling-jack-up-for-3-well-campaign-in-uk-north-sea"
+  },
+  {
+    "table": "projects",
+    "id": 1539,
+    "key": "FINLAGGAN",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/exploration-development/article/17295879/zennor-developing-finlaggan-field-off-uk"
+  },
+  {
+    "table": "projects",
+    "id": 1883,
+    "key": "MAGNUS FDPA",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/production/article/14033753/enquest-seeking-to-prove-more-oil-at-north-sea-magnus-field"
+  },
+  {
+    "table": "projects",
+    "id": 1869,
+    "key": "STELLA & HARRIER VORLICH FDPA",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/field-development/article/16803109/bp-gets-go-ahead-for-north-sea-subsea-tieback"
+  },
+  {
+    "table": "projects",
+    "id": 841,
+    "key": "Hammerhead",
+    "old_name": "Guyana EPA Oil & Gas Documents",
+    "new_name": "OE Digital",
+    "url": "https://www.oedigital.com/news/530296-exxonmobil-makes-fid-on-hammerhead"
+  },
+  {
+    "table": "projects",
+    "id": 1538,
+    "key": "ALLIGN",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/exploration-development/article/17296943/bp-granted-approval-for-alligin-development"
+  },
+  {
+    "table": "projects",
+    "id": 1560,
+    "key": "Belinda",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/subsea/article/55020788/serica-energy-serica-commits-to-north-sea-belinda-triton-tieback"
+  },
+  {
+    "table": "projects",
+    "id": 1530,
+    "key": "CALLATER",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/subsea/article/16801541/apache-progressing-north-sea-callater-tieback"
+  },
+  {
+    "table": "projects",
+    "id": 1531,
+    "key": "UTGARD [UK]",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/general-interest/government/article/14039030/equinor-gets-approval-for-start-up-of-utgard-field-production"
+  },
+  {
+    "table": "projects",
+    "id": 1536,
+    "key": "GARTEN",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/drilling-production/production-operations/field-start-ups/article/17296779/apache-starts-production-from-garten-development-in-uk-north-sea"
+  },
+  {
+    "table": "projects",
+    "id": 1541,
+    "key": "COLUMBUS",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Oilfield Technology",
+    "url": "https://www.oilfieldtechnology.com/offshore-and-subsea/25112021/production-begins-from-columbus-field/"
+  },
+  {
+    "table": "projects",
+    "id": 1537,
+    "key": "VORLICH",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/exploration-development/article/17296420/bp-wins-approval-for-vorlich-development"
+  },
+  {
+    "table": "projects",
+    "id": 1540,
+    "key": "ARRAN",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/exploration-development/article/17296874/shell-partners-to-invest-in-arran-field-in-uk-north-sea"
+  },
+  {
+    "table": "projects",
+    "id": 1543,
+    "key": "SEAGULL",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/exploration-development/article/17278650/neptune-to-develop-seagull-field-off-uk"
+  },
+  {
+    "table": "projects",
+    "id": 1546,
+    "key": "SILLIMANITE",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/drilling-production/production-operations/article/14195461/wintershall-produces-first-gas-from-sillimanite-south-field"
+  },
+  {
+    "table": "projects",
+    "id": 1547,
+    "key": "BLYTHE",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/production/article/14295156/iog-starts-up-second-north-sea-blythe-gas-well"
+  },
+  {
+    "table": "projects",
+    "id": 1548,
+    "key": "ELGOOD",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/regional-reports/north-sea-europe/article/14244717/iog-starts-up-second-north-sea-saturn-banks-gas-field"
+  },
+  {
+    "table": "projects",
+    "id": 1549,
+    "key": "SOUTHWARK",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/drilling-completion/article/14285652/iog-alters-startup-timetable-for-north-sea-southwark-wells"
+  },
+  {
+    "table": "projects",
+    "id": 1552,
+    "key": "JACKDAW",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/exploration-development/article/14277588/shell-receives-approval-for-jackdaw"
+  },
+  {
+    "table": "projects",
+    "id": 1551,
+    "key": "ABIGAIL",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Energy",
+    "url": "https://www.offshore-energy.biz/green-light-for-north-sea-development-with-first-oil-expected-this-year/"
+  },
+  {
+    "table": "projects",
+    "id": 1550,
+    "key": "EVELYN",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/field-development/article/14198046/oil-and-gas-authority-sanctions-north-sea-evelyn-triton-subsea-tieback"
+  },
+  {
+    "table": "projects",
+    "id": 1559,
+    "key": "Victory",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/drilling-production/production-operations/news/55320515/shell-begins-gas-production-from-north-sea-victory-field"
+  },
+  {
+    "table": "projects",
+    "id": 1558,
+    "key": "Rosebank (FPSO Rosebank)",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Equinor",
+    "url": "https://www.equinor.com/energy/rosebank"
+  },
+  {
+    "table": "projects",
+    "id": 1931,
+    "key": "Tartaruga Verde",
+    "old_name": "ANP 开发计划",
+    "new_name": "MODEC",
+    "url": "https://www.modec.com/news/2018/20180626.html"
+  },
+  {
+    "table": "projects",
+    "id": 809,
+    "key": "FPSO BACALHAU",
+    "old_name": "ANP FPSO CSV",
+    "new_name": "MODEC",
+    "url": "https://www.modec.com/news/2025/20251016_pr_Bacalhau.html"
+  },
+  {
+    "table": "projects",
+    "id": 1863,
+    "key": "PENGUIN FDPA",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/drilling-completion/article/16802785/shell-to-redevelop-north-sea-penguins-with-a-floater"
+  },
+  {
+    "table": "projects",
+    "id": 1867,
+    "key": "BUZZARD Phase 2 FDPA",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/drilling-completion/article/16802583/buzzard-phase-ii-in-the-north-sea-cleared-to-move-forward"
+  },
+  {
+    "table": "projects",
+    "id": 1870,
+    "key": "DUNLIN BYPASS FDPA (x6 fields)",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/production/article/14039478/enquest-installs-two-replacement-north-sea-pipelines"
+  },
+  {
+    "table": "projects",
+    "id": 1873,
+    "key": "SHEARWATER Replumb FDPA",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/field-development/article/16803458/subsea-7-to-install-re-routed-north-sea-shearwater-pipeline"
+  },
+  {
+    "table": "projects",
+    "id": 1877,
+    "key": "SEYMOUR HORST",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/production/article/14067781/chrysaor-seeks-sanction-for-two-new-uk-north-sea-production-wells"
+  },
+  {
+    "table": "projects",
+    "id": 1874,
+    "key": "COOK FDPA",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/drilling-completion/article/16790963/water-injection-well-re-pressurizing-north-sea-cook-field"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1134,
+    "key": "Operator: EDP | Block: 211/29 | Type: OIL | Consent Date: 2007-02-01",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Rigzone",
+    "url": "https://www.rigzone.com/news/equinor_starts_3rd_uk_development_in_2019-10-dec-2019-160532-article/"
+  },
+  {
+    "table": "candidate_events",
+    "id": 5467,
+    "key": "SBM Offshore announced the FPSO Almirante Tamandare is formally on hire as of Fe",
+    "old_name": "SBM Offshore",
+    "new_name": "MarketScreener",
+    "url": "https://www.marketscreener.com/quote/stock/SBM-OFFSHORE-N-V-6284/news/FPSO-Almirante-Tamandare-producing-and-on-hire-49103198/"
+  },
+  {
+    "table": "candidate_events",
+    "id": 5473,
+    "key": "FPSO Sepetiba formally on hire as of January 2, 2024, after first oil and 72-hou",
+    "old_name": "SBM Offshore",
+    "new_name": "Oilfield Technology",
+    "url": "https://www.oilfieldtechnology.com/offshore-and-subsea/08012024/sbm-offshore-announces-formal-hire-of-fpso-sepetiba/"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1245,
+    "key": "Operator: Neptune | Block: 022/29 | Type: OIL | Consent Date: 2019-03-23",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/exploration-development/article/17278650/neptune-to-develop-seagull-field-off-uk"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1884,
+    "key": "Type: OIL | Consent Date: 2020-11-09",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/exploration-development/article/17296420/bp-wins-approval-for-vorlich-development"
+  },
+  {
+    "table": "candidate_events",
+    "id": 5491,
+    "key": "Chlor-alkali replacement reaches 70% completion",
+    "old_name": "Chemical Week",
+    "new_name": "Hydrocarbon Processing",
+    "url": "https://www.hydrocarbonprocessing.com/news/2012/12/basf-taps-technip-asahi-kasei-for-expansion-work-on-german-chlorine-plant"
+  },
+  {
+    "table": "candidate_events",
+    "id": 5492,
+    "key": "Cell room piping in 254 SMO delivered",
+    "old_name": "Chemical Week",
+    "new_name": "Hydrocarbon Processing",
+    "url": "https://www.hydrocarbonprocessing.com/news/2012/12/basf-taps-technip-asahi-kasei-for-expansion-work-on-german-chlorine-plant"
+  },
+  {
+    "table": "candidate_events",
+    "id": 5489,
+    "key": "Basra cracker project obtains government approval",
+    "old_name": "Hydrocarbon Processing",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/general-interest/companies/article/17245314/shell-iraq-ink-deal-for-petrochemicals-complex"
+  },
+  {
+    "table": "candidate_events",
+    "id": 2718,
+    "key": "Operator: Esso (EEPGL) | Project: Payara Development | Published: 2026-08-08",
+    "old_name": "Guyana 石油管理计划",
+    "new_name": "Guyana EPA Oil & Gas Documents",
+    "url": "https://petroleum.gov.gy/projects-initiatives/environmental-protection-agency-esso-exploration-and-production-guyana-limited/"
+  },
+  {
+    "table": "candidate_events",
+    "id": 5506,
+    "key": "Trinidad melamine technology license signed",
+    "old_name": "World Fertilizer",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/refining-processing/article/17282023/work-starts-on-tt-urea-melamine-complex"
+  },
+  {
+    "table": "candidate_events",
+    "id": 5505,
+    "key": "Trinidad melamine FEED launched",
+    "old_name": "World Fertilizer",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/refining-processing/article/17282023/work-starts-on-tt-urea-melamine-complex"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1586,
+    "key": "Operator: Ithaca | Type: OIL | Consent Date: 2019-02-26",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/drilling-completion/article/16790963/water-injection-well-re-pressurizing-north-sea-cook-field"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1241,
+    "key": "Operator: ZENNOR | Block: 021/05a | Type: CONDENSATE | Consent Date: 2018-10-18",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/exploration-development/article/17295879/zennor-developing-finlaggan-field-off-uk"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1255,
+    "key": "Operator: Shell | Block: 30/02a- 6 | Type: CONDENSATE | Consent Date: 2022-06-01",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/exploration-development/article/14277588/shell-receives-approval-for-jackdaw"
+  },
+  {
+    "table": "candidate_events",
+    "id": 5490,
+    "key": "Basra cracker FEED refresh awarded",
+    "old_name": "Hydrocarbon Processing",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/general-interest/companies/article/17245314/shell-iraq-ink-deal-for-petrochemicals-complex"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1577,
+    "key": "Operator: Shell | Type: CONDENSATE | Consent Date: 2018-07-02",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Energy",
+    "url": "https://www.offshore-energy.biz/shell-takes-fram-field-fid/"
+  },
+  {
+    "table": "candidate_events",
+    "id": 3847,
+    "key": "Type: OIL | Consent Date: 2026-03-23",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/subsea/article/55020788/serica-energy-serica-commits-to-north-sea-belinda-triton-tieback"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1262,
+    "key": "Operator: Shell | Block: 207/01a | Type: GAS | Consent Date: 2024-01-17",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/drilling-production/production-operations/news/55320515/shell-begins-gas-production-from-north-sea-victory-field"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1263,
+    "key": "Operator: Serica Energy | Block: 21/30f | Type: OIL | Consent Date: 2024-05-17",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/subsea/article/55020788/serica-energy-serica-commits-to-north-sea-belinda-triton-tieback"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1894,
+    "key": "Type: OIL | Consent Date: 2023-10-14",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/exploration-development/article/17278650/neptune-to-develop-seagull-field-off-uk"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1899,
+    "key": "Type: GAS | Consent Date: 2025-09-30",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/drilling-production/production-operations/news/55320515/shell-begins-gas-production-from-north-sea-victory-field"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1892,
+    "key": "Type: OIL | Consent Date: 2022-10-19",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Energy",
+    "url": "https://www.offshore-energy.biz/green-light-for-north-sea-development-with-first-oil-expected-this-year/"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1890,
+    "key": "Type: GAS | Consent Date: 2022-04-26",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Rigzone",
+    "url": "https://www.rigzone.com/news/north_sea_tolmount_main_gas_field_gets_green_light-20-aug-2018-156673-article/"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1239,
+    "key": "Operator: BP | Block: 030/1c | Type: OIL | Consent Date: 2018-09-20",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/exploration-development/article/17296420/bp-wins-approval-for-vorlich-development"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1219,
+    "key": "Operator: Maersk | Block: 30/14 | Type: OIL | Consent Date: 2014-05-24",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "World Oil",
+    "url": "https://www.worldoil.com/news/2017/3/27/maersk-oil-reports-first-oil-from-flyndre-field-uk"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1233,
+    "key": "Operator: Hurricane | Block: 205/21 | Type: OIL | Consent Date: 2017-09-22",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Energy",
+    "url": "https://www.offshore-energy.biz/first-oil-flows-from-hurricane-energys-lancaster-field/"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1232,
+    "key": "Operator: Statoil | Block: 16/18 | Type: OIL | Consent Date: 2017-01-17",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/general-interest/government/article/14039030/equinor-gets-approval-for-start-up-of-utgard-field-production"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1238,
+    "key": "Operator: Apache | Block: 9/18a | Type: OIL | Consent Date: 2018-08-01",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/drilling-production/production-operations/field-start-ups/article/17296779/apache-starts-production-from-garten-development-in-uk-north-sea"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1235,
+    "key": "Operator: Premier | Block: 042/28D | Type: GAS | Consent Date: 2018-06-30",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Rigzone",
+    "url": "https://www.rigzone.com/news/north_sea_tolmount_main_gas_field_gets_green_light-20-aug-2018-156673-article/"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1231,
+    "key": "Operator: Apache | Block: 9/19b | Type: OIL | Consent Date: 2016-12-19",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/subsea/article/16801541/apache-progressing-north-sea-callater-tieback"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1250,
+    "key": "Operator: Independent Oil and Gas | Block: 48/22 | Type: GAS | Consent Date: 202",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/production/article/14295156/iog-starts-up-second-north-sea-blythe-gas-well"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1251,
+    "key": "Operator: Independent Oil and Gas | Block: 48/22 | Type: GAS | Consent Date: 202",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/regional-reports/north-sea-europe/article/14244717/iog-starts-up-second-north-sea-saturn-banks-gas-field"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1252,
+    "key": "Operator: Independent Oil and Gas | Block: 48/21 | Type: GAS | Consent Date: 202",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/drilling-completion/article/14285652/iog-alters-startup-timetable-for-north-sea-southwark-wells"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1242,
+    "key": "Operator: SHELL | Block: 023/16b | Type: CONDENSATE | Consent Date: 2018-10-19",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/exploration-development/article/17296874/shell-partners-to-invest-in-arran-field-in-uk-north-sea"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1247,
+    "key": "Operator: Equinor | Block: 211/29 | Type: OIL | Consent Date: 2019-11-11",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Rigzone",
+    "url": "https://www.rigzone.com/news/equinor_starts_3rd_uk_development_in_2019-10-dec-2019-160532-article/"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1249,
+    "key": "Operator: Wintershall | Block: 44/19A | Type: GAS | Consent Date: 2020-02-07",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/drilling-production/production-operations/article/14195461/wintershall-produces-first-gas-from-sillimanite-south-field"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1580,
+    "key": "Operator: Ithaca | Type: OIL | Consent Date: 2018-09-20",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/field-development/article/16803109/bp-gets-go-ahead-for-north-sea-subsea-tieback"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1582,
+    "key": "Operator: Varied | Type: OIL | Consent Date: 2018-11-13",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/production/article/14039478/enquest-installs-two-replacement-north-sea-pipelines"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1585,
+    "key": "Operator: Shell | Type: OIL | Consent Date: 2018-12-06",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/field-development/article/16803458/subsea-7-to-install-re-routed-north-sea-shearwater-pipeline"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1578,
+    "key": "Operator: Nexen | Type: OIL | Consent Date: 2018-08-01",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/drilling-completion/article/16802583/buzzard-phase-ii-in-the-north-sea-cleared-to-move-forward"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1601,
+    "key": "Operator: Harbour Energy | Type: OIL | Consent Date: 2021-11-03",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "OE Digital",
+    "url": "https://www.oedigital.com/news/489980-harbour-energy-books-maersk-drilling-jack-up-for-3-well-campaign-in-uk-north-sea"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1592,
+    "key": "Operator: Chrysaor | Type: OIL | Consent Date: 2020-02-10",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/production/article/14067781/chrysaor-seeks-sanction-for-two-new-uk-north-sea-production-wells"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1857,
+    "key": "Type: OIL | Consent Date: 2017-03-01",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "World Oil",
+    "url": "https://www.worldoil.com/news/2017/3/27/maersk-oil-reports-first-oil-from-flyndre-field-uk"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1858,
+    "key": "Type: OIL | Consent Date: 2017-05-01",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/subsea/article/16801541/apache-progressing-north-sea-callater-tieback"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1872,
+    "key": "Type: OIL | Consent Date: 2018-11-22",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/drilling-production/production-operations/field-start-ups/article/17296779/apache-starts-production-from-garten-development-in-uk-north-sea"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1880,
+    "key": "Type: OIL | Consent Date: 2019-12-09",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Rigzone",
+    "url": "https://www.rigzone.com/news/equinor_starts_3rd_uk_development_in_2019-10-dec-2019-160532-article/"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1886,
+    "key": "Type: CONDENSATE | Consent Date: 2021-10-15",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/exploration-development/article/17295879/zennor-developing-finlaggan-field-off-uk"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1889,
+    "key": "Type: GAS | Consent Date: 2022-03-16",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/regional-reports/north-sea-europe/article/14244717/iog-starts-up-second-north-sea-saturn-banks-gas-field"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1891,
+    "key": "Type: OIL | Consent Date: 2022-09-03",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/field-development/article/14198046/oil-and-gas-authority-sanctions-north-sea-evelyn-triton-subsea-tieback"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1888,
+    "key": "Type: GAS | Consent Date: 2022-03-13",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/production/article/14295156/iog-starts-up-second-north-sea-blythe-gas-well"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1882,
+    "key": "Type: GAS | Consent Date: 2020-02-14",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/drilling-production/production-operations/article/14195461/wintershall-produces-first-gas-from-sillimanite-south-field"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1885,
+    "key": "Type: CONDENSATE | Consent Date: 2021-09-22",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/exploration-development/article/17296874/shell-partners-to-invest-in-arran-field-in-uk-north-sea"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1253,
+    "key": "Operator: Tailwind | Block: 21/30f | Type: OIL | Consent Date: 2021-02-17",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/field-development/article/14198046/oil-and-gas-authority-sanctions-north-sea-evelyn-triton-subsea-tieback"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1240,
+    "key": "Operator: BP | Block: 204/19 | Type: OIL | Consent Date: 2018-10-09",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Oil & Gas Journal",
+    "url": "https://www.ogj.com/exploration-development/article/17296943/bp-granted-approval-for-alligin-development"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1254,
+    "key": "Operator: Ithaca | Block: 29/10b | Type: OIL | Consent Date: 2022-01-19",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Energy",
+    "url": "https://www.offshore-energy.biz/green-light-for-north-sea-development-with-first-oil-expected-this-year/"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1243,
+    "key": "Operator: Serica Energy | Block: 023/16a | Type: GAS | Consent Date: 2018-10-30",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Oilfield Technology",
+    "url": "https://www.oilfieldtechnology.com/offshore-and-subsea/25112021/production-begins-from-columbus-field/"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1574,
+    "key": "Operator: Shell | Type: OIL | Consent Date: 2018-01-15",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/drilling-completion/article/16802785/shell-to-redevelop-north-sea-penguins-with-a-floater"
+  },
+  {
+    "table": "candidate_events",
+    "id": 1598,
+    "key": "Operator: Enquest | Type: OIL | Consent Date: 2021-05-11",
+    "old_name": "NSTA Field Development Plans",
+    "new_name": "Offshore Magazine",
+    "url": "https://www.offshore-mag.com/production/article/14033753/enquest-seeking-to-prove-more-oil-at-north-sea-magnus-field"
+  }
+]
