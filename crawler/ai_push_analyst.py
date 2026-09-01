@@ -45,6 +45,7 @@ if _SCRIPT_DIR not in sys.path:
 from adapters.media_common import normalize_project_name  # noqa: E402
 from ai_event_extractor import call_llm  # noqa: E402
 from project_phase import stage_prompt_block  # noqa: E402
+from opportunity_scorer import PRODUCIBLE_GRADES  # noqa: E402
 
 # Optional proxy for LLM calls: POST {LLM_PROXY_URL}/api/llm with the same
 # OpenAI Chat Completions body but NO Authorization header (the worker keeps
@@ -53,6 +54,117 @@ from project_phase import stage_prompt_block  # noqa: E402
 LLM_PROXY_URL = os.getenv("LLM_PROXY_URL", "").strip().rstrip("/")
 
 log = logging.getLogger("fpso-ai-push-analyst")
+
+# ---- Material grade normalization (mirrors material_matcher.ts) ---------
+
+# Alias → canonical grade name. Keys are normalized (lowercase, all
+# spaces/punctuation stripped), so "UNS S31254", "254 SMO" and "AL-6XN"
+# all resolve to the canonical "6Mo (UNS S31254)".
+MATERIAL_GRADE_ALIASES = {
+    # 6Mo super austenitic family — canonical UNS is S31254 (254 SMO)
+    "6mo": "6Mo (UNS S31254)",
+    "6mounss31254": "6Mo (UNS S31254)",
+    "s31254": "6Mo (UNS S31254)",
+    "unss31254": "6Mo (UNS S31254)",
+    "254smo": "6Mo (UNS S31254)",
+    "uns254smo": "6Mo (UNS S31254)",
+    "n08367": "6Mo (UNS S31254)",
+    "unsn08367": "6Mo (UNS S31254)",
+    "al6xn": "6Mo (UNS S31254)",
+    "al6xnalloy": "6Mo (UNS S31254)",
+    # Duplex 2205
+    "2205": "Duplex 2205",
+    "duplex2205": "Duplex 2205",
+    "s31803": "Duplex 2205",
+    "unss31803": "Duplex 2205",
+    "s32205": "Duplex 2205",
+    "unss32205": "Duplex 2205",
+    "22cr": "Duplex 2205",
+    # Super Duplex 2507
+    "2507": "Super Duplex 2507",
+    "superduplex2507": "Super Duplex 2507",
+    "s32750": "Super Duplex 2507",
+    "unss32750": "Super Duplex 2507",
+    "25cr": "Super Duplex 2507",
+    # Lean duplex
+    "2304": "Lean Duplex 2304",
+    "s32304": "Lean Duplex 2304",
+    "unss32304": "Lean Duplex 2304",
+    "2101": "Lean Duplex 2101",
+    "s32101": "Lean Duplex 2101",
+    "zeron100": "Zeron 100",
+    # Austenitic
+    "s31603": "316L",
+    "unss31603": "316L",
+    "s30403": "304L",
+    "unss30403": "304L",
+    "n08904": "904L",
+    "unss08904": "904L",
+    # Surface-finish qualifiers on producible grades
+    "316lep": "316L",
+    "316lelectropolished": "316L",
+    # Application qualifiers on producible grades
+    "superduplex2507seawater": "Super Duplex 2507",
+    # Nickel alloys
+    "alloy625": "Inconel 625",
+    "inconel625": "Inconel 625",
+    "n06625": "Inconel 625",
+    "unsn06625": "Inconel 625",
+    "alloy825": "Incoloy 825",
+    "inconel825": "Incoloy 825",
+    "incoloy825": "Incoloy 825",
+    "n08825": "Incoloy 825",
+    "unsn08825": "Incoloy 825",
+    "alloyc276": "Hastelloy C276",
+    "c276": "Hastelloy C276",
+    "hastelloyc276": "Hastelloy C276",
+    "n10276": "Hastelloy C276",
+    "alloyc22": "Hastelloy C22",
+    "c22": "Hastelloy C22",
+    "hastelloyc22": "Hastelloy C22",
+    "n06022": "Hastelloy C22",
+    "alloy20": "Alloy 20",
+    "n08020": "Alloy 20",
+    "monel400": "Monel 400",
+    "n04400": "Monel 400",
+    "monelk500": "Monel K500",
+    "k500": "Monel K500",
+    "n05500": "Monel K500",
+    "incoloy800": "Incoloy 800",
+    "incoloy800h": "Incoloy 800H",
+    "incoloy800ht": "Incoloy 800HT",
+}
+
+_PRODUCIBLE_SET = set(PRODUCIBLE_GRADES)
+
+
+def normalize_material_grade(grade) -> str | None:
+    """Normalize a grade name to the canonical factory-catalog name.
+
+    Known aliases/UNS numbers map to the canonical name; exact catalog
+    names pass through; anything else returns None (callers drop it).
+    """
+    raw = (grade or "").strip()
+    if not raw:
+        return None
+    key = re.sub(r"[\s,()\-/.]+", "", raw.lower())
+    canonical = MATERIAL_GRADE_ALIASES.get(key)
+    if canonical:
+        return canonical
+    if raw in _PRODUCIBLE_SET:
+        return raw
+    return None
+
+
+def canonical_grade_list() -> list[str]:
+    """Factory grade whitelist in canonical names (deduped), for prompts."""
+    seen: list[str] = []
+    for g in PRODUCIBLE_GRADES:
+        canon = normalize_material_grade(g) or g
+        if canon not in seen:
+            seen.append(canon)
+    return seen
+
 
 # ---- Rule-engine fallback (mirrors notifier.py's pre-AI output) ---------
 
@@ -316,6 +428,14 @@ def _build_prompt(project: dict, events: list[dict], today: str) -> str:
         stage_prompt_block(),
     ]
 
+    # Factory-producible grade whitelist — the LLM must copy names verbatim
+    # from this list. Mirrors the TS push_analyst.ts block.
+    lines += [
+        "",
+        "【工厂可生产不锈钢牌号清单（规范全名）】",
+        "- " + "、".join(canonical_grade_list()),
+    ]
+
     lines += [
         "",
         "【输出】只输出一个 JSON 对象，不要输出其他文本，格式如下：",
@@ -352,7 +472,11 @@ def _build_prompt(project: dict, events: list[dict], today: str) -> str:
         "2. 推荐材质必须结合项目技术参数（水深、产能、介质腐蚀性、盆地）与"
         "原文内容，每个牌号说明为什么（例如：项目水深 2100m、Santos 盐下、"
         "原文提到高 CO2 环境 → 推荐 Super Duplex 2507，因为深水盐下加高 CO2 "
-        "需要高耐点蚀当量材质）。只推荐 2-5 个最相关的牌号，不得简单堆砌牌号。",
+        "需要高耐点蚀当量材质）。只推荐 2-5 个最相关的牌号，不得简单堆砌牌号。"
+        "grade 字段只能从【工厂可生产不锈钢牌号清单】中选择，必须逐字复制"
+        "完整规范名，禁止自造变体、简写或改写 UNS 号（如 '6Mo' 只能写"
+        "'6Mo (UNS S31254)'，不得写 '6Mo (UNS N08367)'）。"
+        "如果项目需要的材质不在清单中，grade 写 '工厂不生产'，不得推荐该牌号。",
         "3. 推荐产品必须结合项目阶段与设备类型（FPSO/FLNG 上部模块等），"
         "说明该项目为什么需要这些具体管件产品（例如：项目进入 EPC 采购阶段，"
         "上部模块工艺管线需要大量对焊无缝管件与法兰）。"
@@ -420,7 +544,18 @@ def _validate_ai_result(obj: dict) -> dict | None:
         conf = "medium"
     reasoning = str(pw.get("reasoning") or "").strip()[:400]
 
-    materials = _coerce_item_list(obj.get("recommended_materials"), "grade")
+    # Normalize every LLM grade to the canonical factory-catalog name and
+    # drop anything unknown (fabricated grades, '工厂不生产' markers).
+    materials: list[dict] = []
+    seen_grades: set[str] = set()
+    for m in _coerce_item_list(obj.get("recommended_materials"), "grade"):
+        grade = normalize_material_grade(m.get("grade"))
+        if not grade or grade in seen_grades:
+            continue
+        seen_grades.add(grade)
+        materials.append({"grade": grade, "reason": m.get("reason")})
+        if len(materials) >= MAX_MATERIALS:
+            break
     products = _coerce_item_list(obj.get("recommended_products"), "product")
     if not materials and not products:
         return None
@@ -431,7 +566,7 @@ def _validate_ai_result(obj: dict) -> dict | None:
             "confidence": conf,
             "reasoning": reasoning,
         },
-        "recommended_materials": materials[:MAX_MATERIALS],
+        "recommended_materials": materials,
         "recommended_products": products[:MAX_PRODUCTS],
         "action_suggestion": str(obj.get("action_suggestion") or "").strip()[:200],
         "ai_summary": str(obj.get("ai_summary") or "").strip()[:600],

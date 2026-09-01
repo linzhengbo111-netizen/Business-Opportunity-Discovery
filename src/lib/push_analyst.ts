@@ -19,9 +19,10 @@
 
 import type { Project } from "@/data/projects";
 import { normalizeProjectName } from "@/data/project_aliases";
+import { PRODUCIBLE_MATERIALS } from "@/data/factory_capabilities";
 import { supabase } from "@/db/supabase";
 import { callLLM, isLLMConfigured, type ChatMessage } from "@/lib/llm_client";
-import { parseRecommendation } from "@/lib/material_matcher";
+import { parseRecommendation, normalizeMaterialGrade } from "@/lib/material_matcher";
 import { scoreOpportunity } from "@/lib/opportunity_scorer";
 import { stagePromptBlock } from "@/lib/project_phase";
 
@@ -276,6 +277,21 @@ function buildPrompt(project: Project, events: PushEvent[], today: string): stri
   // project_phase modules).
   lines.push("", stagePromptBlock());
 
+  // Factory-producible grade whitelist — the LLM must copy names verbatim
+  // from this list. Mirrors the Python ai_push_analyst.py block.
+  lines.push(
+    "",
+    "【工厂可生产不锈钢牌号清单（规范全名）】",
+  );
+  for (const cat of PRODUCIBLE_MATERIALS) {
+    lines.push(
+      `- ${cat.category}: ${cat.grades
+        .map((g) => normalizeMaterialGrade(g) ?? g)
+        .filter((g, i, arr) => arr.indexOf(g) === i)
+        .join("、")}`,
+    );
+  }
+
   lines.push(
     "",
     "【输出】只输出一个 JSON 对象，不要输出其他文本，格式如下：",
@@ -312,7 +328,11 @@ function buildPrompt(project: Project, events: PushEvent[], today: string): stri
     "2. 推荐材质必须结合项目技术参数（水深、产能、介质腐蚀性、盆地）与" +
       "原文内容，每个牌号说明为什么（例如：项目水深 2100m、Santos 盐下、" +
       "原文提到高 CO2 环境 → 推荐 Super Duplex 2507，因为深水盐下加高 CO2 " +
-      "需要高耐点蚀当量材质）。只推荐 2-5 个最相关的牌号，不得简单堆砌牌号。",
+      "需要高耐点蚀当量材质）。只推荐 2-5 个最相关的牌号，不得简单堆砌牌号。" +
+      "grade 字段只能从【工厂可生产不锈钢牌号清单】中选择，必须逐字复制" +
+      "完整规范名，禁止自造变体、简写或改写 UNS 号（如 '6Mo' 只能写" +
+      "'6Mo (UNS S31254)'，不得写 '6Mo (UNS N08367)'）。" +
+      "如果项目需要的材质不在清单中，grade 写 '工厂不生产'，不得推荐该牌号。",
     "3. 推荐产品必须结合项目阶段与设备类型（如 FPSO 上部模块、LNG 冷箱、海水淡化蒸发器等），" +
       "说明该项目为什么需要这些具体管件产品（例如：项目进入 EPC 采购阶段，" +
       "上部模块工艺管线需要大量对焊无缝管件与法兰）。" +
@@ -391,8 +411,17 @@ function validateAIResult(obj: Record<string, unknown>): Omit<PushAnalysis, "sou
     rawConf === "high" || rawConf === "low" ? rawConf : "medium";
   const reasoning = pwObj ? String(pwObj.reasoning ?? "").trim().slice(0, 400) : "";
 
-  const materials = coerceItemList(obj.recommended_materials, "grade")
-    .slice(0, MAX_MATERIALS) as unknown as PushMaterial[];
+  // Normalize every LLM grade to the canonical factory-catalog name and
+  // drop anything unknown (fabricated grades, '工厂不生产' markers).
+  const materials: PushMaterial[] = [];
+  const seenGrades = new Set<string>();
+  for (const m of coerceItemList(obj.recommended_materials, "grade")) {
+    const grade = normalizeMaterialGrade(m.grade);
+    if (!grade || seenGrades.has(grade)) continue;
+    seenGrades.add(grade);
+    materials.push({ grade, reason: m.reason });
+    if (materials.length >= MAX_MATERIALS) break;
+  }
   const products = coerceItemList(obj.recommended_products, "product")
     .slice(0, MAX_PRODUCTS) as unknown as PushProduct[];
 

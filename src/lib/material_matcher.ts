@@ -24,8 +24,116 @@ import {
   TargetCustomerType,
   TARGET_CUSTOMER_KEYWORDS,
   EXCLUDED_CUSTOMER_KEYWORDS,
+  PRODUCIBLE_GRADE_SET,
 } from "@/data/factory_capabilities";
 import { normalizePhase } from "@/lib/project_phase";
+
+// ---------------------------------------------------------------------------
+// Material grade normalization — LLM/alias → canonical factory grade name
+// ---------------------------------------------------------------------------
+
+/**
+ * Alias → canonical grade name map. Keys are normalized the same way as
+ * normalizeMaterialGrade() (lowercase, all spaces/punctuation stripped), so
+ * "UNS S31254", "254 SMO" and "AL-6XN" all resolve to the canonical
+ * "6Mo (UNS S31254)" that the factory catalog and rule engine use.
+ */
+const MATERIAL_GRADE_ALIASES: Record<string, string> = {
+  // 6Mo super austenitic family — canonical UNS is S31254 (254 SMO)
+  "6mo": "6Mo (UNS S31254)",
+  "6mounss31254": "6Mo (UNS S31254)",
+  "s31254": "6Mo (UNS S31254)",
+  "unss31254": "6Mo (UNS S31254)",
+  "254smo": "6Mo (UNS S31254)",
+  "uns254smo": "6Mo (UNS S31254)",
+  "n08367": "6Mo (UNS S31254)",
+  "unsn08367": "6Mo (UNS S31254)",
+  "al6xn": "6Mo (UNS S31254)",
+  "al6xnalloy": "6Mo (UNS S31254)",
+  // Duplex 2205
+  "2205": "Duplex 2205",
+  "duplex2205": "Duplex 2205",
+  "s31803": "Duplex 2205",
+  "unss31803": "Duplex 2205",
+  "s32205": "Duplex 2205",
+  "unss32205": "Duplex 2205",
+  "22cr": "Duplex 2205",
+  // Super Duplex 2507
+  "2507": "Super Duplex 2507",
+  "superduplex2507": "Super Duplex 2507",
+  "s32750": "Super Duplex 2507",
+  "unss32750": "Super Duplex 2507",
+  "25cr": "Super Duplex 2507",
+  // Lean duplex
+  "2304": "Lean Duplex 2304",
+  "s32304": "Lean Duplex 2304",
+  "unss32304": "Lean Duplex 2304",
+  "2101": "Lean Duplex 2101",
+  "s32101": "Lean Duplex 2101",
+  "zeron100": "Zeron 100",
+  // Austenitic
+  "s31603": "316L",
+  "unss31603": "316L",
+  "s30403": "304L",
+  "unss30403": "304L",
+  "n08904": "904L",
+  "unss08904": "904L",
+  // Surface-finish qualifiers on producible grades
+  "316lep": "316L",
+  "316lelectropolished": "316L",
+  // Application qualifiers on producible grades
+  "superduplex2507seawater": "Super Duplex 2507",
+  // Nickel alloys
+  "alloy625": "Inconel 625",
+  "inconel625": "Inconel 625",
+  "n06625": "Inconel 625",
+  "unsn06625": "Inconel 625",
+  "alloy825": "Incoloy 825",
+  "inconel825": "Incoloy 825",
+  "incoloy825": "Incoloy 825",
+  "n08825": "Incoloy 825",
+  "unsn08825": "Incoloy 825",
+  "alloyc276": "Hastelloy C276",
+  "c276": "Hastelloy C276",
+  "hastelloyc276": "Hastelloy C276",
+  "n10276": "Hastelloy C276",
+  "alloyc22": "Hastelloy C22",
+  "c22": "Hastelloy C22",
+  "hastelloyc22": "Hastelloy C22",
+  "n06022": "Hastelloy C22",
+  "alloy20": "Alloy 20",
+  "n08020": "Alloy 20",
+  "monel400": "Monel 400",
+  "n04400": "Monel 400",
+  "monelk500": "Monel K500",
+  "k500": "Monel K500",
+  "n05500": "Monel K500",
+  "incoloy800": "Incoloy 800",
+  "incoloy800h": "Incoloy 800H",
+  "incoloy800ht": "Incoloy 800HT",
+};
+
+/**
+ * Normalize a grade name (rule-engine output, LLM output, or stored data)
+ * to the canonical factory-catalog name.
+ *
+ * - Known aliases/UNS numbers → canonical name (e.g. "N08367" →
+ *   "6Mo (UNS S31254)").
+ * - Exact catalog names pass through unchanged.
+ * - Anything else (fabricated grades, non-producible materials) → null, so
+ *   callers drop it.
+ */
+export function normalizeMaterialGrade(
+  grade: string | null | undefined,
+): string | null {
+  const raw = (grade ?? "").trim();
+  if (!raw) return null;
+  const key = raw.toLowerCase().replace(/[\s,()\-/.]+/g, "");
+  const canonical = MATERIAL_GRADE_ALIASES[key];
+  if (canonical) return canonical;
+  if (PRODUCIBLE_GRADE_SET.has(raw)) return raw;
+  return null;
+}
 
 // ---- Types ---------------------------------------------------------------
 
