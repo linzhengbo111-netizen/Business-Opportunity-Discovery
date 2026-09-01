@@ -14,7 +14,7 @@ import SidebarShell, { SIDEBAR_EXPANDED, SIDEBAR_COLLAPSED } from "@/components/
 import SavedProjectsPanel from "@/components/common/SavedProjectsPanel";
 import type { Project } from "@/data/projects";
 import { sampleProjects, COUNTRY_ALIASES, normalizeIndustry } from "@/data/projects";
-import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
+import { normalizeProjectName, getDisplayName, isKnownCanonicalId } from "@/data/project_aliases";
 import { fetchAllRows } from "@/db/supabase";
 import { phaseFromRow, PHASE_UNKNOWN } from "@/lib/project_phase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
@@ -68,9 +68,10 @@ function mapRowToProject(row: Record<string, unknown>): Project {
   const rawCountry = String(row.country ?? "").trim();
   const country = normalizeCountry(rawCountry);
   const rawName = String(row.name ?? "");
-  // Normalize project name through canonical alias system for dedup
+  // Normalize project name through canonical alias system for dedup.
+  // Slug-only ids (import 批次项目) keep rawName as display name.
   const canonicalId = normalizeProjectName(rawName);
-  const name = canonicalId ? getDisplayName(canonicalId) : rawName;
+  const name = canonicalId && isKnownCanonicalId(canonicalId) ? getDisplayName(canonicalId) : rawName;
   const confidence = String(row.confidence ?? "medium") as "high" | "medium" | "low";
   return {
     name,

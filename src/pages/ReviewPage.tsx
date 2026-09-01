@@ -12,7 +12,7 @@ import { ThemeSelect } from "@/components/common/ThemeSelect";
 import PageMeta from "@/components/common/PageMeta";
 import type { Project } from "@/data/projects";
 import { sampleProjects, COUNTRY_ALIASES, countryToFlagEmoji } from "@/data/projects";
-import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
+import { normalizeProjectName, getDisplayName, isKnownCanonicalId } from "@/data/project_aliases";
 import { supabase } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
 import { phaseBgClass, phaseFromRow } from "@/lib/project_phase";
@@ -92,7 +92,7 @@ function mapRowToProject(row: Record<string, unknown>): Project {
   const country = normalizeCountry(rawCountry);
   const rawName = String(row.name ?? "");
   const canonicalId = normalizeProjectName(rawName);
-  const name = canonicalId ? getDisplayName(canonicalId) : rawName;
+  const name = canonicalId && isKnownCanonicalId(canonicalId) ? getDisplayName(canonicalId) : rawName;
   const confidence = String(row.confidence ?? "medium") as "high" | "medium" | "low";
   return {
     name,

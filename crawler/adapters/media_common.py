@@ -2051,7 +2051,17 @@ def normalize_project_name(raw_name):
                 if best_match is None or combined > best_match[1]:
                     best_match = (cid, combined)
 
-    return best_match[0] if best_match else None
+    if best_match:
+        return best_match[0]
+
+    # -- Strategy 4: slugify fallback --
+    # candidate_events 批量导入管线把 canonical_project_id 直接写成 name-slug
+    # （小写、空格→'-'、保留 / & -）。PROJECT_ALIASES 没有这些新项目条目时，
+    # 返回同规则 slug 以打通事件关联；slug 为空才返回 None（保持原行为）。
+    # 与 TypeScript normalizeProjectName() 的 Strategy 4 规则一致。
+    slug = re.sub(r"\s+", "-", cleaned_lower)
+    slug = re.sub(r"[^a-z0-9/&-]", "", slug)
+    return slug or None
 
 
 def get_display_name(canonical_id):

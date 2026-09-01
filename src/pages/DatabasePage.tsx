@@ -11,7 +11,7 @@ import PageMeta from "@/components/common/PageMeta";
 import FeishuPushButton from "@/components/common/FeishuPushButton";
 import type { Project } from "@/data/projects";
 import { sampleProjects, COUNTRY_ALIASES, INDUSTRY_OPTIONS, industryLabel, normalizeIndustry, countryToFlagEmoji } from "@/data/projects";
-import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
+import { normalizeProjectName, getDisplayName, isKnownCanonicalId } from "@/data/project_aliases";
 import { supabase, fetchAllRows } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
 import { useTimelineEventCounts } from "@/hooks/useTimelineEventCounts";
@@ -86,7 +86,7 @@ function mapRowToProject(row: Record<string, unknown>): Project {
   const country = normalizeCountry(rawCountry);
   const rawName = String(row.name ?? "");
   const canonicalId = normalizeProjectName(rawName);
-  const name = canonicalId ? getDisplayName(canonicalId) : rawName;
+  const name = canonicalId && isKnownCanonicalId(canonicalId) ? getDisplayName(canonicalId) : rawName;
   const confidence = String(row.confidence ?? "medium") as "high" | "medium" | "low";
   return {
     name,

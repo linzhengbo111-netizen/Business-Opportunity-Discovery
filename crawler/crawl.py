@@ -51,6 +51,7 @@ from supabase import create_client
 from adapters.media_common import (  # noqa: E402
     normalize_project_name,
     get_display_name,
+    PROJECT_ALIASES,
     extract_country,
     extract_project_info,
     extract_corrosive_media,
@@ -572,7 +573,12 @@ def promote_accepted_candidates(supabase, skip_ai_epc=False):
 
         if canonical_id:
             display_name = get_display_name(canonical_id)
-            effective_name = display_name
+            # Slug-only ids (import 批次项目，不在 PROJECT_ALIASES) 保持原始
+            # 名称作为显示名，避免 promote 后 projects.name 变成 kebab slug。
+            if canonical_id in PROJECT_ALIASES:
+                effective_name = display_name
+            else:
+                effective_name = raw_name
             group_key = ("canonical", canonical_id)
             normalization_log.append((raw_name, canonical_id, display_name))
         else:
@@ -1126,7 +1132,12 @@ def auto_ingest_to_projects(supabase, skip_enrich=False, skip_ai_epc=False):
 
         if canonical_id:
             display_name = get_display_name(canonical_id)
-            effective_name = display_name
+            # Slug-only ids (import 批次项目，不在 PROJECT_ALIASES) 保持原始
+            # 名称作为显示名，避免 projects.name 变成 kebab slug。
+            if canonical_id in PROJECT_ALIASES:
+                effective_name = display_name
+            else:
+                effective_name = raw_name
             group_key = ("canonical", canonical_id)
         else:
             effective_name = raw_name

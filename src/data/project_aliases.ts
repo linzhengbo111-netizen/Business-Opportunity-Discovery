@@ -1166,7 +1166,24 @@ export function normalizeProjectName(rawName: string): string | null {
     }
   }
 
-  return bestMatch ? bestMatch.id : null;
+  if (bestMatch) {
+    return bestMatch.id;
+  }
+
+  // ---- Strategy 4: slugify fallback ----
+  // candidate_events 批量导入管线把 canonical_project_id 直接写成 name-slug
+  // （小写、空格→'-'、保留 / & -）。PROJECT_ALIASES 没有这些新项目条目时，
+  // 返回同规则 slug 以打通事件关联；slug 为空才返回 null（保持原行为）。
+  const slug = cleanedLower.replace(/\s+/g, '-').replace(/[^a-z0-9/&-]/g, '');
+  return slug || null;
+}
+
+/**
+ * 判断 canonical id 是否为 PROJECT_ALIASES 中已知的规范项目。
+ * slugify 兜底产出的 id 不在注册表中，调用方据此决定显示名回退。
+ */
+export function isKnownCanonicalId(canonicalId: string): boolean {
+  return Object.prototype.hasOwnProperty.call(PROJECT_ALIASES, canonicalId);
 }
 
 /**

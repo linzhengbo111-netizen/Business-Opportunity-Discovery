@@ -15,7 +15,7 @@ import PageHeader from "@/components/common/PageHeader";
 import { SIDEBAR_EXPANDED, SIDEBAR_COLLAPSED } from "@/components/common/SidebarShell";
 import type { Project, MaterialMatchResult } from "@/data/projects";
 import { countryCoordinates, sampleProjects, countryToFlagEmoji, COUNTRY_ALIASES, normalizeIndustry, getIndustryTitle, ALL_INDUSTRIES } from "@/data/projects";
-import { normalizeProjectName, getDisplayName, sortPriorityFirst, priorityProjectRankByName } from "@/data/project_aliases";
+import { normalizeProjectName, getDisplayName, isKnownCanonicalId, sortPriorityFirst, priorityProjectRankByName } from "@/data/project_aliases";
 import { supabase, fetchAllRows } from "@/db/supabase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
 import { useTimelineEventCounts } from "@/hooks/useTimelineEventCounts";
@@ -231,9 +231,10 @@ function mapRowToProject(row: Record<string, unknown>): Project {
   const rawCountry = String(row.country ?? "").trim();
   const country = normalizeCountry(rawCountry);
   const rawName = String(row.name ?? "");
-  // Normalize project name through canonical alias system for dedup
+  // Normalize project name through canonical alias system for dedup.
+  // Slug-only ids (import 批次项目) keep rawName as display name.
   const canonicalId = normalizeProjectName(rawName);
-  const name = canonicalId ? getDisplayName(canonicalId) : rawName;
+  const name = canonicalId && isKnownCanonicalId(canonicalId) ? getDisplayName(canonicalId) : rawName;
   const confidence = String(row.confidence ?? "medium") as "high" | "medium" | "low";
   return {
     name,
@@ -274,7 +275,7 @@ function mapCandidateToProject(row: Record<string, unknown>): Project {
   const rawName = String(row.project_name_raw ?? "");
   // Normalize project name through canonical alias system for dedup
   const canonicalId = normalizeProjectName(rawName);
-  const name = canonicalId ? getDisplayName(canonicalId) : rawName;
+  const name = canonicalId && isKnownCanonicalId(canonicalId) ? getDisplayName(canonicalId) : rawName;
   const confidence = String(row.confidence ?? "medium") as "high" | "medium" | "low";
   return {
     name,
