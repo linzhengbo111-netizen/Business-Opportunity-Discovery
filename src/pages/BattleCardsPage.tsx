@@ -14,7 +14,7 @@ import SidebarShell, { SIDEBAR_EXPANDED, SIDEBAR_COLLAPSED } from "@/components/
 import SavedProjectsPanel from "@/components/common/SavedProjectsPanel";
 import type { Project } from "@/data/projects";
 import { sampleProjects, COUNTRY_ALIASES, normalizeIndustry } from "@/data/projects";
-import { normalizeProjectName, getDisplayName, sortPriorityFirst, priorityProjectRankByName } from "@/data/project_aliases";
+import { normalizeProjectName, getDisplayName } from "@/data/project_aliases";
 import { fetchAllRows } from "@/db/supabase";
 import { phaseFromRow, PHASE_UNKNOWN } from "@/lib/project_phase";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
@@ -275,12 +275,11 @@ export default function BattleCardsPage() {
   // ---- 实时评分 + 高质量过滤 + 按分降序 + 生成作战卡摘要 ----
   // 战报中心展示条件（相对放宽，避免只剩 1 张卡）：
   //   1. 有 accepted 时间线事件 + 阶段明确（不再要求技术参数齐备）。
-  //   2. 排除 Delivery / Commissioning（已交付项目无新建采购机会）。
+  //   2. 排除 Commissioning（调试期无新建采购机会）。Delivery 不再排除，
+  //      按正常规则参与评分排序。
   //   3. 评分 >= 55（A/B 全部 + 高分 C）。UK 噪音项目得分低，自然被挡。
-  //   4. 置顶项目豁免 2/3 两条（演示项目，即使 Delivery 也显示）。
   const abCards = useMemo<ScoredCard[]>(() => {
-    const isPinned = (name: string) => priorityProjectRankByName(name) >= 0;
-    const scored = projects
+    return projects
       .filter((project) => {
         const hasPhase = project.phase != null && project.phase !== PHASE_UNKNOWN;
         return hasPhase && hasTimelineData(project, timelineEventCounts);
@@ -295,14 +294,11 @@ export default function BattleCardsPage() {
         };
       })
       .filter((item) => {
-        if (isPinned(item.project.name)) return true;
         const phase = item.project.phase;
-        if (phase === "Delivery" || phase === "Commissioning") return false;
+        if (phase === "Commissioning") return false;
         return item.score >= 55;
       })
       .sort((a, b) => b.score - a.score);
-    // 置顶项目按 PRIORITY_PROJECT_NAMES 顺序排最前，其余保持评分降序。
-    return sortPriorityFirst(scored, (item) => priorityProjectRankByName(item.project.name));
   }, [projects, timelineEventCounts]);
 
   const handleExport = () => {
