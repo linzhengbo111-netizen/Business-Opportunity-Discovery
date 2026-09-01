@@ -36,7 +36,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Download, MapPin, Package, Layers, CalendarDays, User, ArrowRight } from "lucide-react";
+import { Download, MapPin, Package, Layers, CalendarDays, User, ArrowRight, Heart } from "lucide-react";
+import FeishuPushButton from "@/components/common/FeishuPushButton";
 
 /* ------------------------------------------------------------------ */
 /*  shared helpers (same semantics as DashboardPage)                   */
@@ -122,14 +123,18 @@ function BattleSummaryCard({
   score,
   grade,
   onOpen,
+  isSaved,
+  onToggleSaved,
 }: {
   project: Project;
   card: BattleCard;
   score: number;
   grade: "A" | "B" | "C" | "D";
   onOpen: (p: Project) => void;
+  isSaved: boolean;
+  onToggleSaved: (p: Project) => void;
 }) {
-  const cardRef = useRef<HTMLButtonElement | null>(null);
+  const cardRef = useRef<HTMLDivElement | null>(null);
   const [inView, setInView] = useState(false);
 
   // AI 分析仅在卡片进入视口后触发 — 规则引擎结果先行显示，AI 返回后替换
@@ -172,20 +177,53 @@ function BattleSummaryCard({
   );
 
   return (
-    <button
+    <div
       ref={cardRef}
-      type="button"
+      role="button"
+      tabIndex={0}
       onClick={() => onOpen(project)}
-      className="group rounded-xl border border-fpso-border bg-fpso-card/70 p-5 text-left backdrop-blur-md transition-all hover:border-fpso-blue/40 hover:shadow-glow"
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen(project);
+        }
+      }}
+      className="group cursor-pointer rounded-xl border border-fpso-border bg-fpso-card/70 p-5 text-left backdrop-blur-md transition-all hover:border-fpso-blue/40 hover:shadow-glow"
     >
-      {/* name + grade */}
+      {/* name + grade + 收藏/飞书推送按钮 — 按钮 stopPropagation，不触发展开详情 */}
       <div className="mb-3 flex items-start justify-between gap-3">
         <h2 className="text-base font-semibold leading-snug text-fpso-fg group-hover:text-fpso-blue">
           {card.projectName}
         </h2>
-        <span className={`inline-flex flex-shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold ${scoreBadgeClass(grade)}`}>
-          {grade} · {score}
-        </span>
+        <div className="flex flex-shrink-0 items-center gap-1.5">
+          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold ${scoreBadgeClass(grade)}`}>
+            {grade} · {score}
+          </span>
+          {/* 收藏按钮 — 空心/实心金色即时切换 */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSaved(project);
+            }}
+            aria-label={isSaved ? "取消收藏" : "收藏"}
+            title={isSaved ? "取消收藏" : "收藏"}
+            className={`flex-shrink-0 rounded-lg p-1 transition-colors ${
+              isSaved
+                ? "text-fpso-gold hover:text-fpso-gold/80"
+                : "text-fpso-dim/50 hover:text-fpso-gold"
+            }`}
+          >
+            <Heart className={`h-4 w-4 ${isSaved ? "fill-current" : ""}`} />
+          </button>
+          {/* 推送到飞书 — 小号图标按钮，推送中转圈 */}
+          <span
+            className="flex-shrink-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <FeishuPushButton project={project} variant="icon" />
+          </span>
+        </div>
       </div>
 
       <p className="mb-4 flex items-center gap-1.5 text-xs text-fpso-muted">
@@ -219,7 +257,7 @@ function BattleSummaryCard({
           <span><span className="text-fpso-muted">下一步:</span> {card.nextAction}</span>
         </p>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -231,7 +269,7 @@ export default function BattleCardsPage() {
   const { version } = useProjectRealtime();
   const timelineEventCounts = useTimelineEventCounts(version);
   const requireLogin = useRequireLogin();
-  const { savedProjects } = useSavedProjects(projects);
+  const { savedProjects, isSaved, toggleSaved } = useSavedProjects(projects);
 
   // 收藏面板迷你筛选器用国家列表
   const countries = useMemo(
@@ -369,6 +407,8 @@ export default function BattleCardsPage() {
                 score={score}
                 grade={grade}
                 onOpen={setSelectedProject}
+                isSaved={isSaved(project)}
+                onToggleSaved={toggleSaved}
               />
             ))}
           </div>

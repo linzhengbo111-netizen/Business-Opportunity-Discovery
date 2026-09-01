@@ -42,8 +42,17 @@ function toWorkerProject(project: Project) {
  * 推送到飞书 — manually push the current project's card to the logged-in
  * user's Feishu via POST /api/feishu/send-card (Cloudflare Worker).
  * Unauthenticated clicks trigger Feishu OAuth login.
+ *
+ * variant="full" — 完整按钮（商机看板详情弹窗）
+ * variant="icon" — 小号图标按钮（战报中心卡片右上角），飞书蓝描边
  */
-export default function FeishuPushButton({ project }: { project: Project }) {
+export default function FeishuPushButton({
+  project,
+  variant = "full",
+}: {
+  project: Project;
+  variant?: "full" | "icon";
+}) {
   const { user, login } = useAuth();
   const [pushing, setPushing] = useState(false);
 
@@ -73,6 +82,27 @@ export default function FeishuPushButton({ project }: { project: Project }) {
       setPushing(false);
     }
   };
+
+  if (variant === "icon") {
+    return (
+      <Button
+        type="button"
+        size="icon"
+        variant="outline"
+        onClick={handlePush}
+        disabled={pushing}
+        aria-label="推送到飞书"
+        title="推送到飞书"
+        className="h-7 w-7 rounded-lg border-[#3370FF]/50 text-[#3370FF] hover:bg-[#3370FF]/10"
+      >
+        {pushing ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <Send className="h-3.5 w-3.5" />
+        )}
+      </Button>
+    );
+  }
 
   return (
     <Button
